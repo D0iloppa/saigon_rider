@@ -99,6 +99,46 @@
 }
 .addFriendIconBtn:active { background: rgba(255,255,255,.34); }
 
+/* 헤더(오렌지 배경) 진입 행 — 내 매물 / 거래 이력. .shareProfileBtn/.addFriendIconBtn 과
+   같은 반투명 프로스티드 글라스 톤. 흰 시트에서 쓰는 .entryRow 와는 별도 클래스. */
+.heroEntryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.22);
+  color: white;
+  cursor: pointer;
+  text-align: left;
+}
+.heroEntryRow:active { background: rgba(255,255,255,.34); }
+
+.heroEntryIcon {
+  display: grid;
+  place-items: center;
+  width: 24px; height: 24px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.18);
+  color: white;
+  flex-shrink: 0;
+}
+
+.heroEntryLabel {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.heroEntryChevron { color: rgba(255,255,255,.7); flex-shrink: 0; }
+
 /* 거래 이력 섹션 */
 .tradeSection {
   margin: 12px 0;

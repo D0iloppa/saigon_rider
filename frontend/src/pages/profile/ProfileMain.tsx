@@ -405,20 +405,20 @@ export default function ProfileMain() {
           <button
             type="button"
             onClick={() => navigate('/market/search?mine=1')}
-            className={styles.entryRow}
+            className={styles.heroEntryRow}
           >
-            <span className={styles.entryIcon}><Bike size={18} /></span>
-            <span className={styles.entryLabel}>{t('profile.tabMyListings')}</span>
-            <ChevronRight size={18} className={styles.entryChevron} />
+            <span className={styles.heroEntryIcon}><Bike size={18} /></span>
+            <span className={styles.heroEntryLabel}>{t('profile.tabMyListings')}</span>
+            <ChevronRight size={18} className={styles.heroEntryChevron} />
           </button>
           <button
             type="button"
             onClick={() => navigate('/trades')}
-            className={styles.entryRow}
+            className={styles.heroEntryRow}
           >
-            <span className={styles.entryIcon}><ClipboardList size={18} /></span>
-            <span className={styles.entryLabel}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</span>
-            <ChevronRight size={18} className={styles.entryChevron} />
+            <span className={styles.heroEntryIcon}><ClipboardList size={18} /></span>
+            <span className={styles.heroEntryLabel}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</span>
+            <ChevronRight size={18} className={styles.heroEntryChevron} />
           </button>
           <button className={styles.addFriendIconBtn} onClick={() => setSocialActionsOpen(true)} aria-label={t('common.expand')}>
             <MoreHorizontal size={18} strokeWidth={2.2} />
@@ -624,17 +624,6 @@ export default function ProfileMain() {
             <circle cx="280" cy="18" r="8" fill="var(--neon-cyan)" opacity="0.3" />
           </svg>
         </div>
-
-        {/* 내 매물 진입 버튼 */}
-        <button
-          type="button"
-          onClick={() => navigate('/market/search?mine=1')}
-          className={styles.entryRow}
-        >
-          <span className={styles.entryIcon}><Bike size={18} /></span>
-          <span className={styles.entryLabel}>{t('profile.tabMyListings')}</span>
-          <ChevronRight size={18} className={styles.entryChevron} />
-        </button>
 
         {/* 다른 사람에게 보이는 내 프로필 — 공개 프로필 페이지(/profile/:userId)를 내 id 로 연다.
             이 화면은 자기관리 화면이라 공개 구성(활동·거래 정보·판매 매물)을 여기에 겹쳐 넣지 않고,

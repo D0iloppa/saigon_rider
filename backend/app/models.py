@@ -50,6 +50,8 @@ _notification_type_enum = ENUM(
     "MODERATION",
     "SUPPORT",
     "TITLE_TRANSFER",
+    "DEAL_RESULT_PING",
+    "PRICE_DROP",
     name="notification_type",
     create_type=False,
 )

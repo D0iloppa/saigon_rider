@@ -532,7 +532,17 @@ async def _handle_appointment_cancelled(payload: dict, *, source_event_id: str) 
     async with AsyncSessionLocal() as db:
         lang = (await langs_for_users(db, {recipient_id}))[recipient_id]
         title = t(lang, "appointment_cancelled.title")
-        body = t(lang, "appointment_cancelled.body", title=payload.get("listing_title") or "")
+        reason_code = payload.get("cancel_reason")
+        body = (
+            t(
+                lang,
+                "appointment_cancelled.body_with_reason",
+                title=payload.get("listing_title") or "",
+                reason=t(lang, f"cancel_reason.{reason_code}"),
+            )
+            if reason_code
+            else t(lang, "appointment_cancelled.body", title=payload.get("listing_title") or "")
+        )
         inserted = await _insert_notification(
             db,
             source_event_id=source_event_id,
@@ -610,6 +620,62 @@ async def _handle_payment_report_rolled_back(payload: dict, *, source_event_id: 
         await db.commit()
     if inserted:
         await _try_push(str(recipient_id), title, body, link)
+
+
+async def _handle_transaction_lifecycle_event(text_key: str, payload: dict, *, source_event_id: str) -> None:
+    """F-X-01 FR-2(260924 승인안): 교착(PAYMENT_REPORTED) 출구 흐름의 알림 6종(#7·#8) 공용 렌더.
+
+    ``reason``(취소 사유 칩 코드)이 payload 에 있으면 문구에 반영하고, 없으면 사유 없는
+    문안을 그대로 쓴다 — TEXTS 키가 ``{reason}`` 자리표시자를 요구하지 않는 이벤트도 있다."""
+    recipient_id = uuid.UUID(payload["recipient_id"])
+    link = f"dm&id={payload['conversation_id']}"
+
+    async with AsyncSessionLocal() as db:
+        lang = (await langs_for_users(db, {recipient_id}))[recipient_id]
+        title = t(lang, f"{text_key}.title")
+        reason_code = payload.get("reason")
+        fmt_kwargs: dict[str, str] = {"title": payload.get("listing_title") or ""}
+        if reason_code:
+            fmt_kwargs["reason"] = t(lang, f"cancel_reason.{reason_code}")
+        body = t(lang, f"{text_key}.body", **fmt_kwargs)
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=recipient_id,
+            notification_type="SOCIAL",
+            title=title,
+            body=body,
+            link=link,
+        )
+        await db.commit()
+    if inserted:
+        await _try_push(str(recipient_id), title, body, link)
+    else:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+
+
+async def _handle_payment_report_cancelled(payload: dict, *, source_event_id: str) -> None:
+    await _handle_transaction_lifecycle_event("payment_report_cancelled", payload, source_event_id=source_event_id)
+
+
+async def _handle_transaction_cancel_requested(payload: dict, *, source_event_id: str) -> None:
+    await _handle_transaction_lifecycle_event("transaction_cancel_requested", payload, source_event_id=source_event_id)
+
+
+async def _handle_transaction_cancel_rejected(payload: dict, *, source_event_id: str) -> None:
+    await _handle_transaction_lifecycle_event("transaction_cancel_rejected", payload, source_event_id=source_event_id)
+
+
+async def _handle_transaction_cancel_agreed(payload: dict, *, source_event_id: str) -> None:
+    await _handle_transaction_lifecycle_event("transaction_cancel_agreed", payload, source_event_id=source_event_id)
+
+
+async def _handle_transaction_cancel_expired(payload: dict, *, source_event_id: str) -> None:
+    await _handle_transaction_lifecycle_event("transaction_cancel_expired", payload, source_event_id=source_event_id)
+
+
+async def _handle_transaction_stalled(payload: dict, *, source_event_id: str) -> None:
+    await _handle_transaction_lifecycle_event("transaction_stalled", payload, source_event_id=source_event_id)
 
 
 async def _handle_report_submitted(payload: dict, *, source_event_id: str) -> None:
@@ -973,6 +1039,12 @@ HANDLERS = {
     "market.completion_requested": _handle_completion_requested,
     "market.completion_declined": _handle_completion_declined,
     "market.payment_report_rolled_back": _handle_payment_report_rolled_back,
+    "market.payment_report_cancelled": _handle_payment_report_cancelled,
+    "market.transaction_cancel_requested": _handle_transaction_cancel_requested,
+    "market.transaction_cancel_rejected": _handle_transaction_cancel_rejected,
+    "market.transaction_cancel_agreed": _handle_transaction_cancel_agreed,
+    "market.transaction_cancel_expired": _handle_transaction_cancel_expired,
+    "market.transaction_stalled": _handle_transaction_stalled,
     "biz.profile_reviewed": _handle_biz_profile_reviewed,
     "biz.ad_reviewed": _handle_biz_ad_reviewed,
     "proximity.hit": _handle_proximity_hit,

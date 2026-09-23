@@ -471,6 +471,10 @@ services:
       - "/migrations/236_marketplace_transaction_inspection.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (236) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/237_marketplace_transaction_cancel_requests.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (237) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -563,6 +567,7 @@ services:
       - ./database/init/233_business_coupons.sql:/migrations/233_business_coupons.sql:ro
       - ./database/init/234_marketplace_appointment_travel_events.sql:/migrations/234_marketplace_appointment_travel_events.sql:ro
       - ./database/init/236_marketplace_transaction_inspection.sql:/migrations/236_marketplace_transaction_inspection.sql:ro
+      - ./database/init/237_marketplace_transaction_cancel_requests.sql:/migrations/237_marketplace_transaction_cancel_requests.sql:ro
     networks:
       - dev-net
     depends_on:

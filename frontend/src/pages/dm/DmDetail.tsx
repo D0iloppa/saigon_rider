@@ -78,6 +78,7 @@ import GroupSettingsSheet from '@/components/dm/GroupSettingsSheet';
 import { LocationShareConsentModal } from '@/components/dm/LocationShareConsentModal';
 import { createOrJoinLocationChannel, httpStatusOf } from '@/api/locationChannel';
 import { useLocationChannelStore } from '@/store/useLocationChannelStore';
+import { useCancelReasonStore } from '@/store/useCancelReasonStore';
 import { useConfirmStore } from '@/store/useConfirmStore';
 import { sendLocationShareInvite } from '@/lib/locationShareInvite';
 import styles from './DmDetail.module.css';
@@ -1882,13 +1883,18 @@ export default function DmDetail() {
                       <button className={`${styles.apptBtnGhost} ${styles.apptBtnDanger}`} type="button" disabled={sending}
                         onClick={() => {
                           if (status === 'ACCEPTED') {
-                            useConfirmStore.getState().open(
-                              t('dm.tradeCancelConfirm'),
-                              () => {
-                                useConfirmStore.getState().close();
-                                handleAppointmentAction(cancelAppointment, appt.id);
-                              },
-                              { confirmLabel: t('dm.tradeCancelConfirmCta') },
+                            // F-X-01 FR-1(260924 승인안): 사유 칩 3개(선택 필수 1) → 거래 화면과 동일한
+                            // useConfirmStore 확인 1회. 두 경로 모두 같은 두 단계 흐름을 재사용한다.
+                            useCancelReasonStore.getState().open(
+                              t('dm.cancelReasonTitle'),
+                              (reason) => useConfirmStore.getState().open(
+                                t('dm.tradeCancelConfirm'),
+                                () => {
+                                  useConfirmStore.getState().close();
+                                  handleAppointmentAction((id) => cancelAppointment(id, reason), appt.id);
+                                },
+                                { confirmLabel: t('dm.tradeCancelConfirmCta') },
+                              ),
                             );
                           } else {
                             handleAppointmentAction(cancelAppointment, appt.id);
@@ -1897,12 +1903,14 @@ export default function DmDetail() {
                         {cancelLabel}
                       </button>
                     )}
-                    {/* 신고 이후엔 취소 버튼을 감추고 고객센터 안내로 대체(F-X-01 FR-1 ⓑ) — 실행 불가한
-                        종료 액션을 진행 카드에 남기지 않는다 */}
+                    {/* 신고 이후엔 취소 버튼을 감추고 "문제가 있나요?" 출구 안내로 대체(F-X-01 FR-1 ⓑ,
+                        F-S6-01 FR-4 ③) — 실행 불가한 종료 액션을 진행 카드에 남기지 않는다. 사용자
+                        수준 출구(신고 취소·취소 요청)가 CS 문의보다 먼저 오도록 거래 화면의 접힘
+                        행으로 보낸다(F-X-01 FR-2 권한 3단, CS는 최후 수단). */}
                     {cancelBlockedByReport && (
                       <button className={styles.apptBtnGhost} type="button"
-                        onClick={() => navigate('/settings/support')}>
-                        {t('dm.apptCancelBlocked', { defaultValue: '취소 불가 — 고객센터 문의' })}
+                        onClick={() => navigate(`/dm/${conversationId}/trade/${appt.id}`, { state: { openIssues: true } })}>
+                        {t('dm.tradeIssuesToggle')}
                       </button>
                     )}
                   </div>

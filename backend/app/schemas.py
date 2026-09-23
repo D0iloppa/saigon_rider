@@ -7,7 +7,7 @@ from typing import Generic, Literal, TypeVar
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import AwareDatetime, BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
 from .services.translate import SUPPORTED_LANGS
 from .utils import build_imgproxy_url, resolve_avatar_url, resolve_feed_image_url
@@ -1411,6 +1411,49 @@ class AppointmentOut(BaseModel):
     completion_declined_at: datetime | None = None
     # 거절 행위자 — 판매자 거절이면 판매자 id, 운영 기각이면 None(프론트가 문구를 분기한다).
     completion_declined_by: UUID | None = None
+    # F-X-01 FR-1(260924 승인안): 취소 사유 칩 — CANCELLED 일 때만 값이 있다.
+    cancel_reason: str | None = None
+
+
+# F-X-01 FR-1(260924 승인안): 취소 사유 칩 3개 — DM 카드·거래 화면 공통.
+CANCEL_REASON_CODES = {"SCHEDULE_CHANGED", "TRADED_ELSEWHERE", "UNREACHABLE"}
+
+
+class AppointmentCancelRequestBody(BaseModel):
+    reason: str | None = None
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, v: str | None) -> str | None:
+        if v is not None and v not in CANCEL_REASON_CODES:
+            raise ValueError("invalid cancel reason")
+        return v
+
+
+class TransactionCancelRequestCreate(BaseModel):
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, v: str) -> str:
+        if v not in CANCEL_REASON_CODES:
+            raise ValueError("invalid cancel reason")
+        return v
+
+
+class TransactionCancelRequestRespond(BaseModel):
+    action: Literal["AGREE", "REJECT"]
+
+
+class TransactionCancelRequestOut(BaseModel):
+    id: UUID
+    appointment_id: UUID
+    requester_id: UUID
+    reason: str
+    status: Literal["PENDING", "AGREED", "REJECTED", "EXPIRED"]
+    expires_at: datetime
+    responded_at: datetime | None = None
+    created_at: datetime
 
 
 class AppointmentProposeRequest(BaseModel):
@@ -1474,6 +1517,8 @@ class MarketplaceTransactionOut(BaseModel):
     buyer_inspected_at: datetime | None = None
     buyer_reported_at: datetime | None = None
     seller_confirmed_at: datetime | None = None
+    # F-X-01 FR-2(260924 승인안): 활성(PENDING) 합의 취소 요청 — 있으면 거래 화면·DM이 응답 UI를 그린다.
+    active_cancel_request: TransactionCancelRequestOut | None = None
     created_at: datetime
     updated_at: datetime
 

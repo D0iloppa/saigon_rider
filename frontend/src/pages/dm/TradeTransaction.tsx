@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Check, ChevronDown, CreditCard, ImagePlus, ReceiptText } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
@@ -8,24 +8,35 @@ import { AppImage } from '@/components/ui/AppImage';
 import { Button } from '@/components/ui/Button';
 import {
   cancelAppointment,
+  cancelMarketplacePaymentReport,
   confirmMarketplaceItemInspection,
   confirmMarketplacePayment,
+  createTransactionCancelRequest,
   fetchMarketplacePaymentQr,
   fetchMarketplaceTransaction,
   registerMarketplacePaymentQr,
   reportMarketplacePayment,
+  respondTransactionCancelRequest,
 } from '@/api/dm';
 import { fetchFaqs, type FaqItem } from '@/api/notices';
-import type { MarketplaceTransaction } from '@/api/types';
+import type { AppointmentCancelReason, MarketplaceTransaction } from '@/api/types';
 import { useUserStore } from '@/store/useUserStore';
 import { formatPriceVnd } from '../market/marketFormat';
 import { toast } from '@/components/ui/Toast';
 import { useConfirmStore } from '@/store/useConfirmStore';
+import { useCancelReasonStore } from '@/store/useCancelReasonStore';
 import styles from './TradeTransaction.module.css';
+
+const CANCEL_REASON_KEY: Record<AppointmentCancelReason, string> = {
+  SCHEDULE_CHANGED: 'dm.cancelReasonScheduleChanged',
+  TRADED_ELSEWHERE: 'dm.cancelReasonTradedElsewhere',
+  UNREACHABLE: 'dm.cancelReasonUnreachable',
+};
 
 export default function TradeTransaction() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { conversationId, appointmentId } = useParams<{ conversationId: string; appointmentId: string }>();
   const user = useUserStore((state) => state.user);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -37,6 +48,8 @@ export default function TradeTransaction() {
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  // F-X-01 FR-2: "문제가 있나요?" 접힘 행 — DM 카드의 취소 불가 안내에서 이 화면으로 넘어오면 펼친다.
+  const [issuesOpen, setIssuesOpen] = useState(() => Boolean((location.state as { openIssues?: boolean } | null)?.openIssues));
 
   const load = async () => {
     if (!appointmentId) return;
@@ -140,11 +153,11 @@ export default function TradeTransaction() {
     }
   };
 
-  const cancelTrade = async () => {
+  const cancelTrade = async (reason?: AppointmentCancelReason) => {
     if (!appointmentId || busy) return;
     setBusy(true);
     try {
-      await cancelAppointment(appointmentId);
+      await cancelAppointment(appointmentId, reason);
       toast.success(t('dm.tradeCancelled'));
       navigate(conversationId ? `/dm/${conversationId}` : '/dm', { replace: true });
     } catch (error) {
@@ -154,6 +167,55 @@ export default function TradeTransaction() {
       } else {
         toast.error(t('dm.tradeCancelError'));
       }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // F-X-01 FR-2 ①: 구매자가 스스로 오신고를 철회한다 — ACCEPTED(AWAITING_PAYMENT)로 복귀.
+  const cancelPaymentReport = async () => {
+    if (!appointmentId || busy) return;
+    setBusy(true);
+    try {
+      setTransaction(await cancelMarketplacePaymentReport(appointmentId));
+      toast.success(t('dm.tradeReportCancelDone'));
+    } catch {
+      toast.error(t('dm.tradeReportCancelError'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // F-X-01 FR-2 ②: 양측 합의 취소 요청을 보낸다.
+  const requestCancelTrade = async (reason: AppointmentCancelReason) => {
+    if (!appointmentId || busy) return;
+    setBusy(true);
+    try {
+      await createTransactionCancelRequest(appointmentId, reason);
+      toast.success(t('dm.tradeCancelRequestSent'));
+      await load();
+    } catch {
+      toast.error(t('dm.tradeCancelRequestError'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // F-X-01 FR-2 ②: 상대의 취소 요청에 동의·거절한다.
+  const respondCancelTrade = async (requestId: string, action: 'AGREE' | 'REJECT') => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await respondTransactionCancelRequest(requestId, action);
+      if (action === 'AGREE') {
+        toast.success(t('dm.tradeCancelled'));
+        navigate(conversationId ? `/dm/${conversationId}` : '/dm', { replace: true });
+      } else {
+        toast.success(t('dm.tradeCancelRequestRejected'));
+        await load();
+      }
+    } catch {
+      toast.error(t('dm.tradeCancelRequestRespondError'));
     } finally {
       setBusy(false);
     }
@@ -172,6 +234,10 @@ export default function TradeTransaction() {
     ? stepDoneFlags.findIndex((done) => !done)
     : -1;
   const canCancel = transaction?.appointmentStatus === 'ACCEPTED' && !reported;
+  // F-X-01 FR-2: 교착 출구는 PAYMENT_REPORTED(신고 후)에만 연다 — 그 전엔 위 [거래 취소]가 정상 출구.
+  const showIssuesSection = transaction?.appointmentStatus === 'ACCEPTED' && transaction.paymentStatus === 'PAYMENT_REPORTED';
+  const activeCancelRequest = transaction?.activeCancelRequest ?? null;
+  const isCancelRequestRequester = !!activeCancelRequest && activeCancelRequest.requesterId === user?.id;
 
   return (
     <div className={styles.page}>
@@ -318,17 +384,122 @@ export default function TradeTransaction() {
                 fullWidth
                 variant="danger"
                 disabled={busy}
-                onClick={() => useConfirmStore.getState().open(
-                  t('dm.tradeCancelConfirm'),
-                  () => {
-                    useConfirmStore.getState().close();
-                    cancelTrade();
-                  },
-                  { confirmLabel: t('dm.tradeCancelConfirmCta') },
+                onClick={() => useCancelReasonStore.getState().open(
+                  t('dm.cancelReasonTitle'),
+                  (reason) => useConfirmStore.getState().open(
+                    t('dm.tradeCancelConfirm'),
+                    () => {
+                      useConfirmStore.getState().close();
+                      cancelTrade(reason);
+                    },
+                    { confirmLabel: t('dm.tradeCancelConfirmCta') },
+                  ),
                 )}
               >
                 {t('dm.tradeCancel')}
               </Button>
+            )}
+            {showIssuesSection && (
+              <section className={styles.issuesSection}>
+                <button
+                  type="button"
+                  className={styles.issuesToggle}
+                  aria-expanded={issuesOpen}
+                  onClick={() => setIssuesOpen((open) => !open)}
+                >
+                  <span>{t('dm.tradeIssuesToggle')}</span>
+                  <ChevronDown size={16} className={issuesOpen ? styles.faqChevronOpen : styles.faqChevron} />
+                </button>
+                {issuesOpen && (
+                  <div className={styles.issuesBody}>
+                    {activeCancelRequest ? (
+                      isCancelRequestRequester ? (
+                        <p className={styles.safetyNote}>{t('dm.tradeCancelRequestPendingSelf')}</p>
+                      ) : (
+                        <>
+                          <p className={styles.safetyNote}>
+                            {t('dm.tradeCancelRequestReasonLabel', { reason: t(CANCEL_REASON_KEY[activeCancelRequest.reason]) })}
+                          </p>
+                          <Button
+                            fullWidth
+                            disabled={busy}
+                            onClick={() => useConfirmStore.getState().open(
+                              t('dm.tradeCancelRequestAgreeConfirm'),
+                              () => {
+                                useConfirmStore.getState().close();
+                                respondCancelTrade(activeCancelRequest.id, 'AGREE');
+                              },
+                              { confirmLabel: t('dm.tradeCancelRequestAgree') },
+                            )}
+                          >
+                            {t('dm.tradeCancelRequestAgree')}
+                          </Button>
+                          <Button
+                            fullWidth
+                            variant="ghost"
+                            disabled={busy}
+                            onClick={() => respondCancelTrade(activeCancelRequest.id, 'REJECT')}
+                          >
+                            {t('dm.tradeCancelRequestReject')}
+                          </Button>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        {transaction.viewerRole === 'buyer' && (
+                          <Button
+                            fullWidth
+                            variant="ghost"
+                            disabled={busy}
+                            onClick={() => useConfirmStore.getState().open(
+                              t('dm.tradeReportCancelConfirm'),
+                              () => {
+                                useConfirmStore.getState().close();
+                                cancelPaymentReport();
+                              },
+                              { confirmLabel: t('dm.tradeReportCancel') },
+                            )}
+                          >
+                            {t('dm.tradeReportCancel')}
+                          </Button>
+                        )}
+                        <Button
+                          fullWidth
+                          variant="danger"
+                          disabled={busy}
+                          onClick={() => useCancelReasonStore.getState().open(
+                            t('dm.cancelReasonTitle'),
+                            (reason) => useConfirmStore.getState().open(
+                              t('dm.tradeCancelRequestConfirm'),
+                              () => {
+                                useConfirmStore.getState().close();
+                                requestCancelTrade(reason);
+                              },
+                              { confirmLabel: t('dm.tradeCancelRequestCta') },
+                            ),
+                          )}
+                        >
+                          {t('dm.tradeCancelRequest')}
+                        </Button>
+                        <Button
+                          fullWidth
+                          variant="ghost"
+                          onClick={() => navigate('/settings/support', {
+                            state: {
+                              inquiryDraft: {
+                                title: t('dm.tradeSupportDraftTitle', { listing: transaction.listingTitle }),
+                                body: t('dm.tradeSupportDraftBody', { id: transaction.appointmentId }),
+                              },
+                            },
+                          })}
+                        >
+                          {t('dm.tradeIssuesSupport')}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </section>
             )}
             <p className={styles.boundaryNote}>{t('dm.tradeBoundaryNotice')}</p>
 

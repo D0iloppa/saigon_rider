@@ -337,7 +337,12 @@ export interface Appointment {
   completionDeclinedAt: string | null;
   /** 거절 행위자 — 판매자 거절이면 판매자 id, 운영 이의 큐 기각이면 null. */
   completionDeclinedBy: string | null;
+  /** F-X-01 FR-1: 취소 사유 칩 — CANCELLED 일 때만 값이 있다. */
+  cancelReason: AppointmentCancelReason | null;
 }
+
+/** F-X-01 FR-1(260924 승인안): 취소 사유 칩 3개(선택 필수 1). */
+export type AppointmentCancelReason = 'SCHEDULE_CHANGED' | 'TRADED_ELSEWHERE' | 'UNREACHABLE';
 
 
 export type MarketplacePaymentStatus = 'AWAITING_PAYMENT' | 'PAYMENT_REPORTED' | 'PAYMENT_CONFIRMED';
@@ -359,8 +364,23 @@ export interface MarketplaceTransaction {
   buyerInspectedAt: string | null;
   buyerReportedAt: string | null;
   sellerConfirmedAt: string | null;
+  /** F-X-01 FR-2: 활성(PENDING) 합의 취소 요청 — 있으면 거래 화면이 응답 UI를 그린다. */
+  activeCancelRequest: TransactionCancelRequest | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type TransactionCancelRequestStatus = 'PENDING' | 'AGREED' | 'REJECTED' | 'EXPIRED';
+
+export interface TransactionCancelRequest {
+  id: string;
+  appointmentId: string;
+  requesterId: string;
+  reason: AppointmentCancelReason;
+  status: TransactionCancelRequestStatus;
+  expiresAt: string;
+  respondedAt: string | null;
+  createdAt: string;
 }
 
 

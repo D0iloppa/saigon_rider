@@ -78,7 +78,9 @@ async def lifespan(app: FastAPI):
     from .jobs.deal_result_ping import send_deal_result_pings
     from .jobs.expire_flood_reports import expire_stale_flood_reports
     from .jobs.expire_stale_listings import expire_stale_listings
+    from .jobs.expire_transaction_cancel_requests import expire_transaction_cancel_requests
     from .jobs.fetch_fuel_prices import run_fetch_cycle
+    from .jobs.nudge_stalled_transactions import nudge_stalled_transactions
     from .jobs.predict_flood_risk import run_flood_risk_prediction
     from .jobs.purge_deleted_accounts import purge_deleted_accounts
     from .jobs.purge_old_dm_messages import purge_old_dm_messages
@@ -123,6 +125,22 @@ async def lifespan(app: FastAPI):
         retry_failed_quest_rewards,
         IntervalTrigger(minutes=1),
         id="retry_failed_quest_rewards",
+        max_instances=1,
+        coalesce=True,
+    )
+    # F-X-01 FR-2(260924 승인안): 거래 취소 요청 24h 무응답 자동 취소 — 응답 지연이 새 교착이 되지 않게.
+    scheduler.add_job(
+        expire_transaction_cancel_requests,
+        IntervalTrigger(minutes=15),
+        id="expire_transaction_cancel_requests",
+        max_instances=1,
+        coalesce=True,
+    )
+    # F-X-01 FR-2 / F-S6-01 FR-4(260924 승인안): 교착 출구 "문제가 있나요?" 안내 넛지(알림 표 #7 후반).
+    scheduler.add_job(
+        nudge_stalled_transactions,
+        IntervalTrigger(minutes=15),
+        id="nudge_stalled_transactions",
         max_instances=1,
         coalesce=True,
     )

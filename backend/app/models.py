@@ -1803,6 +1803,9 @@ class MarketplaceAppointment(Base):
     completion_declined_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # F-X-01 FR-1(260924 승인안): 취소 사유 칩(SCHEDULE_CHANGED / TRADED_ELSEWHERE / UNREACHABLE) —
+    # 상대 알림·시스템 메시지에 노출되고, 신뢰 티어 계산 재료로 기록만 한다(감점 규칙은 별도).
+    cancel_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -1860,6 +1863,33 @@ class MarketplaceTransaction(Base):
     buyer_inspected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     buyer_reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     seller_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # F-X-01 FR-2 / F-S6-01 FR-4(260924 승인안): PAYMENT_REPORTED 24h 미확인 "문제가 있나요?" 출구
+    # 안내를 1회만 보내기 위한 가드. 신고 취소로 AWAITING_PAYMENT 복귀 시 초기화된다.
+    stall_notice_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class MarketplaceTransactionCancelRequest(Base):
+    """F-X-01 FR-2 ②: 양측 합의 취소(교착 출구) 요청 — 거래당 활성(PENDING) 1건.
+
+    ``AGREE`` 로 응답하면 약속·거래는 CANCELLED, 매물은 ON_SALE 로 돌아간다(취소됨(합의)).
+    24h 무응답이면 ``expire_transaction_cancel_requests`` 잡이 같은 효력으로 자동 종료한다.
+    """
+
+    __tablename__ = "marketplace_transaction_cancel_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    appointment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_appointments.id", ondelete="CASCADE"), nullable=False
+    )
+    requester_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    reason: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="PENDING")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

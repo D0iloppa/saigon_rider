@@ -34,6 +34,7 @@ from ..models import (
     MarketplacePriceOffer,
     MarketplaceReview,
     MarketplaceTransaction,
+    MarketplaceTransactionCancelRequest,
     Report,
     ReportImage,
     User,
@@ -44,6 +45,7 @@ from ..modules.ads import AdsApplication
 from ..modules.ads.application import AdRead, AdsError
 from ..schemas import (
     AdEventsIngestRequest,
+    AppointmentCancelRequestBody,
     AppointmentNavigationOut,
     AppointmentOut,
     AppointmentProposeRequest,
@@ -81,6 +83,9 @@ from ..schemas import (
     ReviewBrief,
     SellerBrief,
     TradeHistoryItem,
+    TransactionCancelRequestCreate,
+    TransactionCancelRequestOut,
+    TransactionCancelRequestRespond,
 )
 from ..services import funnel_events, location_channel_membership, noti_events
 from ..services.ad_exposure import build_exposure_sequence
@@ -1751,6 +1756,7 @@ async def _appt_out(db: AsyncSession, a: MarketplaceAppointment, seller_id: uuid
         completion_requested_at=a.completion_requested_at,
         completion_declined_at=a.completion_declined_at,
         completion_declined_by=a.completion_declined_by,
+        cancel_reason=getattr(a, "cancel_reason", None),
     )
 
 
@@ -2205,6 +2211,32 @@ async def _load_marketplace_transaction(
     return transaction, appt, conv, listing
 
 
+def _cancel_request_out(cancel_request: MarketplaceTransactionCancelRequest) -> TransactionCancelRequestOut:
+    return TransactionCancelRequestOut(
+        id=cancel_request.id,
+        appointment_id=cancel_request.appointment_id,
+        requester_id=cancel_request.requester_id,
+        reason=cancel_request.reason,
+        status=cancel_request.status,
+        expires_at=cancel_request.expires_at,
+        responded_at=cancel_request.responded_at,
+        created_at=cancel_request.created_at,
+    )
+
+
+async def _active_cancel_request(
+    db: AsyncSession, appointment_id: uuid.UUID
+) -> MarketplaceTransactionCancelRequest | None:
+    return (
+        await db.execute(
+            select(MarketplaceTransactionCancelRequest).where(
+                MarketplaceTransactionCancelRequest.appointment_id == appointment_id,
+                MarketplaceTransactionCancelRequest.status == "PENDING",
+            )
+        )
+    ).scalar_one_or_none()
+
+
 async def _marketplace_transaction_out(
     db: AsyncSession,
     transaction: MarketplaceTransaction,
@@ -2213,6 +2245,7 @@ async def _marketplace_transaction_out(
     session_uid: uuid.UUID,
 ) -> MarketplaceTransactionOut:
     qr_message_id = await _current_payment_qr_message_id(db, transaction) if appt.status == "ACCEPTED" else None
+    active_cancel_request = await _active_cancel_request(db, appt.id)
     return MarketplaceTransactionOut(
         appointment_id=transaction.appointment_id,
         conversation_id=transaction.conversation_id,
@@ -2230,6 +2263,7 @@ async def _marketplace_transaction_out(
         buyer_inspected_at=getattr(transaction, "buyer_inspected_at", None),
         buyer_reported_at=transaction.buyer_reported_at,
         seller_confirmed_at=transaction.seller_confirmed_at,
+        active_cancel_request=_cancel_request_out(active_cancel_request) if active_cancel_request else None,
         created_at=transaction.created_at,
         updated_at=transaction.updated_at,
     )
@@ -2354,6 +2388,8 @@ async def report_marketplace_payment(
             raise HTTPException(status_code=409, detail={"code": window_error, "when_at": appt.when_at.isoformat()})
         transaction.payment_status = "PAYMENT_REPORTED"
         transaction.buyer_reported_at = now
+        # 이전 단계(ACCEPTED +3h 무응답)의 넛지 가드를 새 단계에서 재사용하지 않는다 — F-X-01 FR-2 ⑤.
+        transaction.stall_notice_sent_at = None
         transaction.updated_at = now
         await db.commit()
     return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
@@ -2383,6 +2419,187 @@ async def confirm_marketplace_payment(
         transaction.updated_at = now
         await db.commit()
     return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
+
+
+_TRANSACTION_CANCEL_REQUEST_WINDOW = timedelta(hours=24)
+
+
+@router.patch(
+    "/appointments/{appointment_id}/transaction/payment-report-cancel",
+    response_model=MarketplaceTransactionOut,
+    summary="구매자 송금 신고 취소(오신고 철회)",
+)
+async def cancel_marketplace_payment_report(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """F-X-01 FR-2 ①: 구매자가 스스로 송금 신고를 철회해 ACCEPTED(AWAITING_PAYMENT)로 되돌린다.
+
+    판매자가 이미 입금을 확인했으면(PAYMENT_CONFIRMED) 되돌릴 수 없다 — 확인된 기록은
+    구매자가 지울 수 없다(요소 표 근거)."""
+    transaction, appt, conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
+    if session_uid != transaction.buyer_id:
+        raise HTTPException(status_code=403, detail="Only the buyer can cancel their own payment report")
+    if appt.status != "ACCEPTED" or listing.status != "RESERVED":
+        raise HTTPException(status_code=409, detail="Payment report can only be cancelled for an active transaction")
+    if transaction.payment_status != "PAYMENT_REPORTED":
+        raise HTTPException(status_code=409, detail="No payment report to cancel")
+
+    now = datetime.now(UTC)
+    transaction.payment_status = "AWAITING_PAYMENT"
+    transaction.buyer_reported_at = None
+    transaction.stall_notice_sent_at = None
+    transaction.updated_at = now
+    noti_events.enqueue(
+        db,
+        "market.payment_report_cancelled",
+        {
+            "appointment_id": str(appt.id),
+            "conversation_id": str(conv.id),
+            "listing_title": listing.title,
+            "recipient_id": str(transaction.seller_id),
+        },
+    )
+    await db.commit()
+    return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
+
+
+@router.post(
+    "/appointments/{appointment_id}/transaction/cancel-requests",
+    response_model=TransactionCancelRequestOut,
+    status_code=201,
+    summary="거래 취소 요청(양측 합의 취소)",
+)
+async def create_transaction_cancel_request(
+    appointment_id: uuid.UUID,
+    body: TransactionCancelRequestCreate,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """F-X-01 FR-2 ②: PAYMENT_REPORTED 교착 상태에서 양측 누구나 취소를 요청할 수 있다.
+
+    상대가 24시간 안에 동의·거절하지 않으면 ``expire_transaction_cancel_requests`` 잡이
+    같은 효력(취소 + 매물 판매중 복귀)으로 자동 종료한다. 거래당 활성 요청은 1건(DB 부분
+    유니크 인덱스로도 이중 보장)."""
+    transaction, appt, conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
+    if transaction.payment_status != "PAYMENT_REPORTED":
+        raise HTTPException(status_code=409, detail="Cancel requests are only available after a payment report")
+    if await _active_cancel_request(db, appt.id) is not None:
+        raise HTTPException(status_code=409, detail="A cancel request is already pending")
+
+    now = datetime.now(UTC)
+    counterpart_id = require_participant(conv, session_uid)
+    cancel_request = MarketplaceTransactionCancelRequest(
+        appointment_id=appt.id,
+        requester_id=session_uid,
+        reason=body.reason,
+        status="PENDING",
+        expires_at=now + _TRANSACTION_CANCEL_REQUEST_WINDOW,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(cancel_request)
+    noti_events.enqueue(
+        db,
+        "market.transaction_cancel_requested",
+        {
+            "appointment_id": str(appt.id),
+            "conversation_id": str(conv.id),
+            "listing_title": listing.title,
+            "reason": body.reason,
+            "recipient_id": str(counterpart_id),
+        },
+    )
+    await db.commit()
+    await db.refresh(cancel_request)
+    return _cancel_request_out(cancel_request)
+
+
+@router.patch(
+    "/transaction-cancel-requests/{request_id}/respond",
+    response_model=TransactionCancelRequestOut,
+    summary="거래 취소 요청 응답(동의/거절)",
+)
+async def respond_transaction_cancel_request(
+    request_id: uuid.UUID,
+    body: TransactionCancelRequestRespond,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """F-X-01 FR-2 ②: 요청자 본인이 아닌 상대만 응답할 수 있다. 동의(AGREE)는 즉시 약속·거래를
+    CANCELLED 로, 매물을 ON_SALE 로 되돌린다(취소됨(합의))."""
+    cancel_request = (
+        await db.execute(
+            select(MarketplaceTransactionCancelRequest)
+            .where(MarketplaceTransactionCancelRequest.id == request_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if cancel_request is None:
+        raise HTTPException(status_code=404, detail="Cancel request not found")
+    if cancel_request.status != "PENDING":
+        raise HTTPException(status_code=409, detail="Cancel request is no longer pending")
+
+    now = datetime.now(UTC)
+    if cancel_request.expires_at <= now:
+        raise HTTPException(status_code=409, detail="Cancel request has expired")
+
+    transaction, appt, conv, listing = await _load_marketplace_transaction(
+        db, cancel_request.appointment_id, session_uid, lock=True
+    )
+    if session_uid == cancel_request.requester_id:
+        raise HTTPException(status_code=403, detail="Only the counterpart can respond to this request")
+
+    if body.action == "REJECT":
+        cancel_request.status = "REJECTED"
+        cancel_request.responded_at = now
+        cancel_request.updated_at = now
+        noti_events.enqueue(
+            db,
+            "market.transaction_cancel_rejected",
+            {
+                "appointment_id": str(appt.id),
+                "conversation_id": str(conv.id),
+                "listing_title": listing.title,
+                "recipient_id": str(cancel_request.requester_id),
+            },
+        )
+        await db.commit()
+        return _cancel_request_out(cancel_request)
+
+    # AGREE — mutual cancellation, the deadlock exit.
+    if appt.status == "ACCEPTED" and listing.status == "RESERVED":
+        listing.status = "ON_SALE"
+        listing.updated_at = now
+        log_transition(
+            db,
+            listing.id,
+            "RESERVED",
+            "ON_SALE",
+            actor_type="user",
+            actor_id=session_uid,
+            reason="transaction_cancel_agreed",
+        )
+    appt.status = "CANCELLED"
+    appt.cancel_reason = cancel_request.reason
+    appt.updated_at = now
+    cancel_request.status = "AGREED"
+    cancel_request.responded_at = now
+    cancel_request.updated_at = now
+    for recipient_id in (transaction.buyer_id, transaction.seller_id):
+        noti_events.enqueue(
+            db,
+            "market.transaction_cancel_agreed",
+            {
+                "appointment_id": str(appt.id),
+                "conversation_id": str(conv.id),
+                "listing_title": listing.title,
+                "recipient_id": str(recipient_id),
+            },
+        )
+    await db.commit()
+    return _cancel_request_out(cancel_request)
 
 
 @router.patch("/appointments/{appointment_id}/complete", response_model=AppointmentOut, summary="거래 완료")
@@ -2541,8 +2758,12 @@ async def cancel_appointment(
     appointment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
+    body: AppointmentCancelRequestBody | None = None,
 ):
-    """참여자 누구나 취소 → CANCELLED. 수락 상태였으면 매물 RESERVED→ON_SALE 복귀."""
+    """참여자 누구나 취소 → CANCELLED. 수락 상태였으면 매물 RESERVED→ON_SALE 복귀.
+
+    F-X-01 FR-1(260924 승인안): 사유 칩은 선택이다 — 기존 호출부(제안/거절 단계, 손실 없는 취소)는
+    사유 없이도 그대로 동작한다."""
     appt, conv, listing = await _load_appointment(db, appointment_id, session_uid)
     # 멱등: 이미 취소됨(또는 supersede)면 그대로 반환. 완료된 건만 취소 불가.
     if appt.status == "CANCELLED":
@@ -2563,6 +2784,7 @@ async def cancel_appointment(
     now = datetime.now(UTC)
     was_accepted = appt.status == "ACCEPTED"
     appt.status = "CANCELLED"
+    appt.cancel_reason = body.reason if body else None
     appt.updated_at = now
     if was_accepted and listing.status == "RESERVED":
         listing.status = "ON_SALE"
@@ -2587,6 +2809,7 @@ async def cancel_appointment(
             "conversation_id": str(conv.id),
             "listing_title": listing.title,
             "recipient_id": str(counterpart_id),
+            "cancel_reason": appt.cancel_reason,
         },
     )
     _enqueue_live_activity(db, appt)

@@ -69,6 +69,88 @@ TEXTS: dict[str, dict[str, str]] = {
         "en": "The meetup for '{title}' was cancelled.",
         "vi": "Cuộc hẹn cho '{title}' đã bị hủy.",
     },
+    "appointment_cancelled.body_with_reason": {
+        "ko": "'{title}' 약속이 취소되었어요 · {reason}",
+        "en": "The meetup for '{title}' was cancelled · {reason}",
+        "vi": "Cuộc hẹn cho '{title}' đã bị hủy · {reason}",
+    },
+    # F-X-01 FR-1(260924 승인안) 취소 사유 칩 — 상대 알림 문구에 그대로 들어간다.
+    "cancel_reason.SCHEDULE_CHANGED": {
+        "ko": "일정이 바뀌었어요",
+        "en": "My schedule changed",
+        "vi": "Lịch của tôi thay đổi",
+    },
+    "cancel_reason.TRADED_ELSEWHERE": {
+        "ko": "다른 곳에서 거래했어요",
+        "en": "Already traded elsewhere",
+        "vi": "Đã giao dịch nơi khác",
+    },
+    "cancel_reason.UNREACHABLE": {
+        "ko": "연락이 안 돼요",
+        "en": "Could not reach them",
+        "vi": "Không liên lạc được",
+    },
+    # F-X-01 FR-2(260924 승인안) — 교착(PAYMENT_REPORTED) 출구 흐름.
+    "payment_report_cancelled.title": {
+        "ko": "송금 신고가 취소됐어요",
+        "en": "Payment report withdrawn",
+        "vi": "Đã hủy báo chuyển tiền",
+    },
+    "payment_report_cancelled.body": {
+        "ko": "'{title}' 거래에서 구매자가 송금 신고를 취소했어요.",
+        "en": "The buyer withdrew their payment report for '{title}'.",
+        "vi": "Người mua đã hủy báo chuyển tiền cho '{title}'.",
+    },
+    "transaction_cancel_requested.title": {
+        "ko": "거래 취소를 요청받았어요",
+        "en": "Cancellation requested",
+        "vi": "Có yêu cầu hủy giao dịch",
+    },
+    "transaction_cancel_requested.body": {
+        "ko": "'{title}' 거래 취소를 요청받았어요 · {reason}",
+        "en": "A cancellation was requested for '{title}' · {reason}",
+        "vi": "Có yêu cầu hủy giao dịch '{title}' · Lý do: {reason}",
+    },
+    "transaction_cancel_rejected.title": {
+        "ko": "거래 취소 요청이 거절됐어요",
+        "en": "Cancellation request rejected",
+        "vi": "Yêu cầu hủy giao dịch bị từ chối",
+    },
+    "transaction_cancel_rejected.body": {
+        "ko": "'{title}' 거래 취소 요청이 거절됐어요 · 고객센터로 문의해 주세요.",
+        "en": "Your cancellation request for '{title}' was rejected. Please contact support.",
+        "vi": "Yêu cầu hủy giao dịch '{title}' bị từ chối. Vui lòng liên hệ hỗ trợ.",
+    },
+    "transaction_cancel_agreed.title": {
+        "ko": "거래가 취소됐어요",
+        "en": "Transaction cancelled",
+        "vi": "Giao dịch đã bị hủy",
+    },
+    "transaction_cancel_agreed.body": {
+        "ko": "'{title}' 거래가 합의로 취소되고 매물이 판매중으로 돌아갔어요.",
+        "en": "'{title}' was cancelled by mutual agreement and the listing is back on sale.",
+        "vi": "Giao dịch '{title}' đã bị hủy theo thỏa thuận, tin đăng đã trở lại trạng thái đang bán.",
+    },
+    "transaction_cancel_expired.title": {
+        "ko": "거래가 자동으로 취소됐어요",
+        "en": "Transaction auto-cancelled",
+        "vi": "Giao dịch đã tự hủy",
+    },
+    "transaction_cancel_expired.body": {
+        "ko": "응답이 없어 '{title}' 거래가 자동으로 취소됐어요.",
+        "en": "'{title}' was auto-cancelled after no response.",
+        "vi": "Không có phản hồi nên giao dịch '{title}' đã tự hủy.",
+    },
+    "transaction_stalled.title": {
+        "ko": "문제가 있나요?",
+        "en": "Having trouble?",
+        "vi": "Có vấn đề?",
+    },
+    "transaction_stalled.body": {
+        "ko": "'{title}' 거래가 오래 멈춰 있어요 — 거래 화면에서 취소 출구를 확인해 보세요.",
+        "en": "'{title}' has been stuck for a while — check the exit options on the trade screen.",
+        "vi": "Giao dịch '{title}' đã đứng yên khá lâu — hãy kiểm tra lối thoát hủy trên màn hình giao dịch.",
+    },
 }
 
 # TODO: 아직 한국어 하드코딩으로 남은 서버 문안 — 이관 시 여기 키를 추가하고 호출부를 t() 로 바꾼다.

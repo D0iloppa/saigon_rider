@@ -104,6 +104,7 @@ class AppointmentCompleteStillWorksTest(unittest.IsolatedAsyncioTestCase):
         appt.completion_requested_at = None
         appt.completion_declined_at = None
         appt.completion_declined_by = None
+        appt.cancel_reason = None
 
         conv = MagicMock()
         conv.id = appt.conversation_id

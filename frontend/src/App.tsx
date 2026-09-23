@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
+import { CancelReasonSheet } from '@/components/ui/CancelReasonSheet';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ActiveSessionBar } from '@/components/shell/ActiveSessionBar';
 import { useUserStore } from '@/store/useUserStore';
@@ -566,6 +567,7 @@ export default function App() {
       />
       <Dialog />
       <ConfirmDialog />
+      <CancelReasonSheet />
       {/* 하단 고정 "진행 중 바" (F-N-01 FR-2) — 무전기·위치공유 세션을 화면 하단(탭바 위)에 고정
           표시한다(채팅방 화면에서는 대신 DmDetail 이 입력창 위에 자체 인스턴스를 렌더). */}
       <ActiveSessionBar />

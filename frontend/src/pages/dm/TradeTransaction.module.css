@@ -249,3 +249,33 @@
   color: var(--text-2);
   white-space: pre-wrap;
 }
+
+/* F-X-01 FR-2: "문제가 있나요?" 접힘 행 — 종료 레인은 진행 레인과 섞이지 않고 고정 영역에(P-1/P-2). */
+.issuesSection {
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.issuesToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.issuesBody {
+  padding: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

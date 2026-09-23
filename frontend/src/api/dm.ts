@@ -2,6 +2,7 @@ import { USE_MOCK, api, requireSession } from './client';
 import { transformCard } from './market';
 import type {
   Appointment,
+  AppointmentCancelReason,
   DmAppointmentMeta,
   DmConversation,
   DmMessage,
@@ -9,6 +10,7 @@ import type {
   DmReaction,
   MarketplaceTransaction,
   PriceOffer,
+  TransactionCancelRequest,
 } from './types';
 
 function transformPriceOffer(raw: any): PriceOffer {
@@ -39,6 +41,20 @@ function transformAppointment(raw: any): Appointment {
     completionRequestedAt: raw.completion_requested_at ?? null,
     completionDeclinedAt: raw.completion_declined_at ?? null,
     completionDeclinedBy: raw.completion_declined_by ?? null,
+    cancelReason: raw.cancel_reason ?? null,
+  };
+}
+
+function transformCancelRequest(raw: any): TransactionCancelRequest {
+  return {
+    id: raw.id,
+    appointmentId: raw.appointment_id,
+    requesterId: raw.requester_id,
+    reason: raw.reason,
+    status: raw.status,
+    expiresAt: raw.expires_at,
+    respondedAt: raw.responded_at ?? null,
+    createdAt: raw.created_at,
   };
 }
 
@@ -60,6 +76,7 @@ function transformTransaction(raw: any): MarketplaceTransaction {
     buyerInspectedAt: raw.buyer_inspected_at ?? null,
     buyerReportedAt: raw.buyer_reported_at ?? null,
     sellerConfirmedAt: raw.seller_confirmed_at ?? null,
+    activeCancelRequest: raw.active_cancel_request ? transformCancelRequest(raw.active_cancel_request) : null,
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
   };
@@ -417,8 +434,12 @@ export async function declineAppointmentCompletion(appointmentId: string): Promi
   );
 }
 
-export async function cancelAppointment(appointmentId: string): Promise<Appointment> {
-  return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/cancel`, { method: 'PATCH' }));
+/** F-X-01 FR-1(260924 승인안): 사유 칩은 선택 — DM 약속 카드·거래 화면 공통 확인 흐름에서 넘긴다. */
+export async function cancelAppointment(appointmentId: string, reason?: AppointmentCancelReason): Promise<Appointment> {
+  return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/cancel`, {
+    method: 'PATCH',
+    body: reason ? JSON.stringify({ reason }) : undefined,
+  }));
 }
 
 export interface AppointmentNavigationDestination {
@@ -513,6 +534,36 @@ export async function confirmMarketplacePayment(appointmentId: string): Promise<
   return transformTransaction(await api.realFetch<any>(
     `/market/appointments/${appointmentId}/transaction/payment-confirmed`,
     { method: 'PATCH' },
+  ));
+}
+
+/** F-X-01 FR-2 ①: 구매자가 오신고를 스스로 철회 — PAYMENT_REPORTED → ACCEPTED(AWAITING_PAYMENT) 복귀. */
+export async function cancelMarketplacePaymentReport(appointmentId: string): Promise<MarketplaceTransaction> {
+  return transformTransaction(await api.realFetch<any>(
+    `/market/appointments/${appointmentId}/transaction/payment-report-cancel`,
+    { method: 'PATCH' },
+  ));
+}
+
+/** F-X-01 FR-2 ②: 양측 합의 취소 요청 생성 — PAYMENT_REPORTED 교착 상태에서만 가능. */
+export async function createTransactionCancelRequest(
+  appointmentId: string,
+  reason: AppointmentCancelReason,
+): Promise<TransactionCancelRequest> {
+  return transformCancelRequest(await api.realFetch<any>(
+    `/market/appointments/${appointmentId}/transaction/cancel-requests`,
+    { method: 'POST', body: JSON.stringify({ reason }) },
+  ));
+}
+
+/** F-X-01 FR-2 ②: 요청자 본인이 아닌 상대만 호출할 수 있다. */
+export async function respondTransactionCancelRequest(
+  requestId: string,
+  action: 'AGREE' | 'REJECT',
+): Promise<TransactionCancelRequest> {
+  return transformCancelRequest(await api.realFetch<any>(
+    `/market/transaction-cancel-requests/${requestId}/respond`,
+    { method: 'PATCH', body: JSON.stringify({ action }) },
   ));
 }
 

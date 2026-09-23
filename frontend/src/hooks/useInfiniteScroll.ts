@@ -17,6 +17,8 @@ export interface UseInfiniteScrollReturn<T> {
   error: boolean;
   sentinelRef: React.RefObject<HTMLDivElement | null>;
   reset: () => void;
+  /** 추가 로드(page ≥2) 실패 후 수동 재시도 — 센티넬이 계속 보이는 상태면 옵저버가 다시 발화하지 않는다 */
+  loadMore: () => void;
 }
 
 export function useInfiniteScroll<T>(
@@ -78,6 +80,10 @@ export function useInfiniteScroll<T>(
     load(1, false);
   }, [load]);
 
+  const loadMore = useCallback(() => {
+    if (hasMore && !loadingRef.current) load(pageRef.current + 1, true);
+  }, [hasMore, load]);
+
   // initial load + deps change
   useEffect(() => {
     pageRef.current = 1;
@@ -109,5 +115,5 @@ export function useInfiniteScroll<T>(
     return () => observer.disconnect();
   }, [hasMore, load, isLoading]);
 
-  return { items, setItems, isLoading, isLoadingMore, hasMore, error, sentinelRef, reset };
+  return { items, setItems, isLoading, isLoadingMore, hasMore, error, sentinelRef, reset, loadMore };
 }

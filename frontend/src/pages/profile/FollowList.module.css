@@ -112,3 +112,9 @@
   cursor: pointer;
   flex-shrink: 0;
 }
+
+.moreRetry {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0;
+}

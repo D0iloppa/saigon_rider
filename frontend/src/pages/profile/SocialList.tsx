@@ -48,7 +48,7 @@ export default function SocialList({ tab }: Props) {
     return { items: r.items, total: r.total, page, size: 20 };
   }, [tab, userId]);
 
-  const { items: users, setItems: setUsers, isLoading, isLoadingMore, hasMore, error, sentinelRef, reset } =
+  const { items: users, isLoading, isLoadingMore, hasMore, error, sentinelRef, reset, loadMore } =
     useInfiniteScroll<FollowUser>(fetchPage, 20, [tab, userId]);
 
   const isFollowing = (u: FollowUser) => followOverrides.has(u.id) ? followOverrides.get(u.id)! : u.isFollowing;
@@ -73,11 +73,9 @@ export default function SocialList({ tab }: Props) {
       onConfirm: async () => {
         try {
           await unfollowUser(u.id);
-          if (tab === 'following' && isMyList) {
-            setUsers((prev) => prev.filter((x) => x.id !== u.id));
-          } else {
-            setFollowOverrides((prev) => new Map(prev).set(u.id, false));
-          }
+          // 행을 지우지 않고 버튼만 [팔로우]로 되돌린다 — 서버가 offset 페이지라 행을 빼면 다음 페이지가
+          // 밀려 사람이 누락되고, 남긴 행은 실수 언팔로우의 되돌리기 수단이 된다(F-SOC-01 FR-1).
+          setFollowOverrides((prev) => new Map(prev).set(u.id, false));
           adjustMyFollowingCount(-1);
         } catch {
           // 실패 토스트는 api client(realFetch)에서 표시됨
@@ -167,6 +165,11 @@ export default function SocialList({ tab }: Props) {
                 </div>
               );
             })}
+            {error && !isLoadingMore && (
+              <div className={styles.moreRetry}>
+                <button type="button" className={sys.chipBtn} onClick={loadMore}>{t('common.retry')}</button>
+              </div>
+            )}
             <ScrollSentinel sentinelRef={sentinelRef} isLoadingMore={isLoadingMore} hasMore={hasMore} />
           </>
         )}

@@ -125,7 +125,7 @@ saigon_rider/
 │       │   ├── ride/           # RideActive, RideResultSuccess, RideResultFail
 │       │   ├── feed/           # FeedList, FeedCreate, FeedEdit
 │       │   ├── dm/             # DmList, DmDetail
-│       │   ├── profile/        # ProfileMain, FollowerList, FollowingList, FriendAdd
+│       │   ├── profile/        # ProfileMain, SocialList, FriendAdd
 │       │   ├── gacha/          # GachaMain, GachaPull
 │       │   ├── shop/           # ShopCatalog, ItemDetail
 │       │   ├── inventory/      # Inventory, EquipPreview

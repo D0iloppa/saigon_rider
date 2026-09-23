@@ -13,6 +13,8 @@ import { saveReturnTo } from '@/lib/returnTo';
  *   dm&id=<conversationId>  → /dm/:conversationId
  *   dm&id=<conversationId>&voice=1&mid=<messageId> → /dm/:conversationId?voice=1&mid=<messageId>
  *     (B-4: 음성메시지 알림 탭 — 해당 대화로 이동 후 해당 메시지 자동재생)
+ *   tradeIssues&id=<conversationId>&appt=<appointmentId> → /dm/:conversationId/trade/:appointmentId?openIssues=1
+ *     (F-X-01 FR-2: "문제가 있나요?" 넛지 푸시 — 거래 화면의 접힘 행을 펼친 채로 연다)
  *   biz                     → /biz/intro
  *   biz&id=<profileId>      → /biz/status (PENDING/REJECTED 안내, APPROVED 는 status 화면이 /biz/manage 로 리다이렉트)
  *   bizad&id=<adId>         → /biz/ads/:adId (광고 심사 결과 딥링크, SGR-312 BP-4)
@@ -48,6 +50,12 @@ export default function LinkRouter() {
       if (mid) destination = `${destination}?voice=1&mid=${mid}`;
     }
 
+    // F-X-01 FR-2: "문제가 있나요?" 넛지 — 거래 화면으로 바로 이동해 접힘 행을 펼친다.
+    if (action === 'tradeIssues' && id) {
+      const appt = effectiveParams.get('appt');
+      destination = appt ? `/dm/${id}/trade/${appt}?openIssues=1` : `/dm/${id}`;
+    }
+
     // Live Activity(경로안내 카드) 탭 복귀 — `ride&lat=..&lng=..&name=..` 를 RideNav 의 nav 파라미터로 되살린다.
     if (action === 'ride') {
       const q = new URLSearchParams({ type: 'nav' });
@@ -77,6 +85,7 @@ function resolveAction(action: string, id: string | null): string {
     case 'quests':                 return '/quests';
     case 'quest':                  return id ? `/quests/${id}` : '/quests';
     case 'dm':                     return id ? `/dm/${id}` : '/dm';
+    case 'tradeIssues':            return id ? `/dm/${id}` : '/dm'; // appt 파라미터는 위 tradeIssues 분기가 덮어쓴다
     case 'ride':                   return '/ride-nav'; // 파라미터는 위 action==='ride' 분기가 붙인다
     case 'market':                 return id ? `/market/${id}` : '/market';
     case 'biz':                     return id ? '/biz/status' : '/biz/intro';

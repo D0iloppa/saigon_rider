@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Check, ChevronDown, CreditCard, ImagePlus, ReceiptText } from 'lucide-react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
@@ -37,9 +37,11 @@ export default function TradeTransaction() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { conversationId, appointmentId } = useParams<{ conversationId: string; appointmentId: string }>();
   const user = useUserStore((state) => state.user);
   const fileRef = useRef<HTMLInputElement>(null);
+  const issuesSectionRef = useRef<HTMLElement>(null);
   const [transaction, setTransaction] = useState<MarketplaceTransaction | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -48,8 +50,15 @@ export default function TradeTransaction() {
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  // F-X-01 FR-2: "문제가 있나요?" 접힘 행 — DM 카드의 취소 불가 안내에서 이 화면으로 넘어오면 펼친다.
-  const [issuesOpen, setIssuesOpen] = useState(() => Boolean((location.state as { openIssues?: boolean } | null)?.openIssues));
+  // F-X-01 FR-2: "문제가 있나요?" 접힘 행 — DM 카드의 취소 불가 안내(state) 또는 24h/+3h 넛지 푸시
+  // 딥링크(?openIssues=1)로 이 화면에 넘어오면 펼친 채로 연다.
+  const openIssuesRequested = Boolean((location.state as { openIssues?: boolean } | null)?.openIssues)
+    || searchParams.get('openIssues') === '1';
+  const [issuesOpen, setIssuesOpen] = useState(openIssuesRequested);
+
+  useEffect(() => {
+    if (openIssuesRequested) issuesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [openIssuesRequested, loading]);
 
   const load = async () => {
     if (!appointmentId) return;
@@ -400,7 +409,7 @@ export default function TradeTransaction() {
               </Button>
             )}
             {showIssuesSection && (
-              <section className={styles.issuesSection}>
+              <section ref={issuesSectionRef} className={styles.issuesSection}>
                 <button
                   type="button"
                   className={styles.issuesToggle}

@@ -18,7 +18,14 @@ from sqlalchemy.orm import aliased
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import AdminAuditLog, MarketplaceAppointment, MarketplaceListing, MarketplaceTransaction, User
+from ...models import (
+    AdminAuditLog,
+    MarketplaceAppointment,
+    MarketplaceListing,
+    MarketplaceTransaction,
+    MarketplaceTransactionCancelRequest,
+    User,
+)
 from ...schemas import Page
 from ...services import noti_events
 from ...services.listing_state import log_transition
@@ -275,6 +282,24 @@ async def rollback_payment_report(
     log_transition(
         db, listing.id, "RESERVED", "ON_SALE", actor_type="admin", actor_id=None, reason="payment_report_rollback"
     )
+    # F-X-01 FR-2: 운영자 롤백이 사용자 취소 요청보다 먼저 도착하면(양측 합의 취소가 PENDING인 채로
+    # 운영자가 개입) 그 요청을 열어두지 않는다 — 이미 CANCELLED된 약속에 나중에 동의/거절해봤자
+    # 409(respond_transaction_cancel_request 의 appt 재검증)로 막히므로, 여기서 EXPIRED로 닫아
+    # "응답 없이 종료"와 같은 의미로 정리한다(enum에 별도 'CANCELLED' 값을 신설하지 않는다).
+    pending_cancel_request = (
+        await db.execute(
+            select(MarketplaceTransactionCancelRequest)
+            .where(
+                MarketplaceTransactionCancelRequest.appointment_id == appointment_id,
+                MarketplaceTransactionCancelRequest.status == "PENDING",
+            )
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if pending_cancel_request is not None:
+        pending_cancel_request.status = "EXPIRED"
+        pending_cancel_request.responded_at = now
+        pending_cancel_request.updated_at = now
     await audit(
         db,
         session,

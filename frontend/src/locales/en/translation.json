@@ -1008,7 +1008,6 @@
     "apptCompletionDismissedNote": "Your completion request was dismissed after an operator review. See the reason in your notifications.",
     "apptReject": "Decline",
     "apptCancel": "Cancel meetup",
-    "apptCancelBlocked": "Cannot cancel — contact support",
     "apptCancelOffer": "Cancel proposal",
     "apptOutdated": "The meetup was updated — refreshed",
     "apptNavigationChecking": "Checking the meetup location.",

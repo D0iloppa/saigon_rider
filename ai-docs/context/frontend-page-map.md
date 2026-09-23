@@ -765,7 +765,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 |---|---|---|
 | 약속 잡기(S4) | `pages/dm/AppointmentLocationPicker.tsx` | 약속 시트(장소·시각), 약속 카드(PROPOSED/ACCEPTED) |
 | 이동·위치초대(S5) | `components/shell/ActiveSessionBar.tsx` + `components/location/LiveLocationModal.tsx`(§3.8 710행), `RideNav.tsx`(§3.13) | 실시간 위치공유 카드+동의 모달, 길안내 핸드오프 |
-| 만남·교환(S6) | `pages/dm/TradeTransaction.tsx`(`/dm/:conversationId/trade/:appointmentId`) | 확인→결제→전달 타임라인(대표 결정 C2 구현 완료) |
+| 만남·교환(S6) | `pages/dm/TradeTransaction.tsx`(`/dm/:conversationId/trade/:appointmentId`) | 확인→결제→전달 타임라인(대표 결정 C2 구현 완료). PAYMENT_REPORTED 상태에서 "문제가 있나요?" 접힘 행(`?openIssues=1`/`location.state.openIssues` 로 펼친 채 진입 — §3.14 참조) |
 | 완료·후기(S7) | `TradeTransaction.tsx`, `pages/profile/TradeHistory.tsx`(§3.11) | 완료 요청/처리 카드, 거래 이력 목록·후기 작성 |
 
 ### 3.13 길안내 (`/ride-nav`)
@@ -778,10 +778,12 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 ### 3.14 취소·교착 (F-X-01), 신고·차단 (F-X-02)
 
-> 📋 **스토리보드**: [F-X-01 FR-1](../review/storyboard/index.html#F-X-01__FR-1)~[FR-2](../review/storyboard/index.html#F-X-01__FR-2)(취소 경로 두 개·교착 상태), [F-X-02 FR-1](../review/storyboard/index.html#F-X-02__FR-1)(신고 진입점 매트릭스, §718행 "소비자 → 업체 신고"에도 링크됨), [F-X-02 FR-2](../review/storyboard/index.html#F-X-02__FR-2)(차단) — 설계 근거·제안·판정은 스토리보드 참조. **F-X-01 FR-2(교착 상태)는 대표 결정 C1급 P0 미해결**(송금 신고 후 사용자 수준 출구 없음, 위 리뷰 `260923_service-flow-ux-review.md` 참조).
+> 📋 **스토리보드**: [F-X-01 FR-1](../review/storyboard/index.html#F-X-01__FR-1)~[FR-2](../review/storyboard/index.html#F-X-01__FR-2)(취소 경로 두 개·교착 상태), [F-X-02 FR-1](../review/storyboard/index.html#F-X-02__FR-1)(신고 진입점 매트릭스, §718행 "소비자 → 업체 신고"에도 링크됨), [F-X-02 FR-2](../review/storyboard/index.html#F-X-02__FR-2)(차단) — 설계 근거·제안·판정은 스토리보드 참조. **F-X-01 FR-1·FR-2(취소 사유 칩, 교착 출구)는 260924 구현 완료**(구현 패키지 A, 커밋 `c39e94c1`) — 아래.
 
 | 기능 | 파일 | 내용 |
 |---|---|---|
+| 취소 사유 칩(F-X-01 FR-1) | `store/useCancelReasonStore.ts`, `components/ui/CancelReasonSheet.tsx` | 약속/거래 취소 확인 전 사유 칩 3개(일정 변경/타처 거래/연락 두절, 선택 필수 1)를 고르는 공용 바텀시트 — `App.tsx` 에 `<ConfirmDialog/>` 와 나란히 전역 마운트. `DmDetail.tsx`(ACCEPTED 약속 취소)·`TradeTransaction.tsx`([거래 취소])가 공유해서 연다(사유 선택 → `useConfirmStore` 확인 1회 → `cancelAppointment(id, reason)`) |
+| 교착 출구 "문제가 있나요?"(F-X-01 FR-2) | `TradeTransaction.tsx` | PAYMENT_REPORTED 에서만 보이는 접힘 행 — ① [송금 신고 취소](구매자, `cancelMarketplacePaymentReport`) ② [거래 취소 요청](양측, `createTransactionCancelRequest` — 사유 칩 재사용, 상대 동의 시 취소·거절/24h 자동 취소) ③ 상대 요청에 [동의]/[거절](`respondTransactionCancelRequest`) ④ [고객센터 문의]. `DmDetail.tsx` 의 "신고 후 취소 불가" 카드는 이 접힘 행으로 안내(`navigate(..., {state:{openIssues:true}})`); 24h/+3h 넛지 푸시는 `?openIssues=1` 딥링크(`pages/link/LinkRouter.tsx` `tradeIssues` action)로 펼친 채 스크롤 진입 |
 | 매물/DM 취소 | `pages/dm`, `pages/market` cancel 로직 | 취소 경로 2개(확인 통일·신고 후 숨김 구현 완료) |
 | 차단 | `pages/settings/BlockedUsers.tsx` | 차단 사용자 관리(§3.10) — 차단 진입점은 DM 헤더 더보기(§3.9)·프로필 더보기 시트(§3.5) 등 다수 |
 

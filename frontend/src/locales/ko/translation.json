@@ -1008,7 +1008,6 @@
     "apptCompletionDismissedNote": "완료 요청이 운영 검토에서 기각됐어요. 알림에서 사유를 확인해 주세요.",
     "apptReject": "거절",
     "apptCancel": "약속 취소",
-    "apptCancelBlocked": "취소 불가 — 고객센터 문의",
     "apptCancelOffer": "제안 취소",
     "apptOutdated": "약속 상태가 변경되어 새로고침했어요",
     "apptNavigationChecking": "약속 장소를 확인하고 있어요.",

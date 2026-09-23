@@ -277,6 +277,10 @@ class RespondCancelRequestTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(appointment.status, "CANCELLED")
         self.assertEqual(appointment.cancel_reason, "UNREACHABLE")
         self.assertEqual(listing.status, "ON_SALE")
+        # 어드민 PAYMENT_REPORTED 큐(admin_api/transactions.py::list_transactions)에 해결된 거래가
+        # 계속 남지 않도록, 운영자 롤백과 동일하게 payment_status를 되돌린다.
+        self.assertEqual(transaction.payment_status, "AWAITING_PAYMENT")
+        self.assertIsNone(transaction.buyer_reported_at)
         db.commit.assert_awaited_once()
 
     async def test_reject_leaves_appointment_untouched(self):
@@ -335,6 +339,9 @@ class ExpireCancelRequestJobTest(unittest.IsolatedAsyncioTestCase):
             listing_id=listing_id,
             buyer_id=buyer_id,
             seller_id=seller_id,
+            payment_status="PAYMENT_REPORTED",
+            buyer_reported_at=datetime.now(UTC),
+            updated_at=None,
         )
         listing = SimpleNamespace(id=listing_id, title="혼다 웨이브", status="RESERVED", updated_at=None)
 
@@ -365,6 +372,9 @@ class ExpireCancelRequestJobTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cancel_request.status, "EXPIRED")
         self.assertEqual(appointment.status, "CANCELLED")
         self.assertEqual(listing.status, "ON_SALE")
+        # 어드민 PAYMENT_REPORTED 큐에 해결된 거래가 남지 않도록 자동 만료도 되돌린다(운영자 롤백과 동일).
+        self.assertEqual(transaction.payment_status, "AWAITING_PAYMENT")
+        self.assertIsNone(transaction.buyer_reported_at)
         db.commit.assert_awaited_once()
         recipients = {call.args[0].payload["recipient_id"] for call in db.add.call_args_list}
         self.assertEqual(recipients, {str(buyer_id), str(seller_id)})

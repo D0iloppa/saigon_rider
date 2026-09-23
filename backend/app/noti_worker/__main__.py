@@ -628,7 +628,13 @@ async def _handle_transaction_lifecycle_event(text_key: str, payload: dict, *, s
     ``reason``(취소 사유 칩 코드)이 payload 에 있으면 문구에 반영하고, 없으면 사유 없는
     문안을 그대로 쓴다 — TEXTS 키가 ``{reason}`` 자리표시자를 요구하지 않는 이벤트도 있다."""
     recipient_id = uuid.UUID(payload["recipient_id"])
-    link = f"dm&id={payload['conversation_id']}"
+    # F-X-01 FR-2 ③(리뷰 항목): "문제가 있나요?" 넛지(transaction_stalled)는 대화방이 아니라
+    # 거래 화면의 접힘 행을 펼친 상태로 바로 연다 — 나머지 이벤트는 약속 카드가 있는 대화방으로.
+    link = (
+        f"tradeIssues&id={payload['conversation_id']}&appt={payload['appointment_id']}"
+        if text_key == "transaction_stalled"
+        else f"dm&id={payload['conversation_id']}"
+    )
 
     async with AsyncSessionLocal() as db:
         lang = (await langs_for_users(db, {recipient_id}))[recipient_id]

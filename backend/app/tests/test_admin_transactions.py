@@ -200,8 +200,12 @@ class RollbackPaymentReportTest(unittest.IsolatedAsyncioTestCase):
         listing_result.scalar_one_or_none.return_value = listing
         locked_tx_result = MagicMock()
         locked_tx_result.scalar_one_or_none.return_value = tx
+        pending_cancel_request_result = MagicMock()
+        pending_cancel_request_result.scalar_one_or_none.return_value = None
         db = AsyncMock()
-        db.execute = AsyncMock(side_effect=[initial_tx_result, listing_result, locked_tx_result])
+        db.execute = AsyncMock(
+            side_effect=[initial_tx_result, listing_result, locked_tx_result, pending_cancel_request_result]
+        )
         db.get = AsyncMock(return_value=appt)
         db.add = MagicMock()
         with (
@@ -234,6 +238,49 @@ class RollbackPaymentReportTest(unittest.IsolatedAsyncioTestCase):
             )
         )
         db.commit.assert_awaited_once()
+
+    async def test_closes_pending_cancel_request_so_it_cannot_be_answered_later(self):
+        """F-X-01 FR-2: 운영자 롤백이 사용자의 합의 취소 요청보다 먼저 도착하면, 그 PENDING 요청을
+        열어둔 채로 두지 않는다 — 이미 CANCELLED된 약속에 나중에 동의/거절하는 경로를 막는다."""
+        from app.models import MarketplaceTransactionCancelRequest
+
+        tx = _tx(payment_status="PAYMENT_REPORTED")
+        appt = SimpleNamespace(status="ACCEPTED", updated_at=None)
+        listing = SimpleNamespace(id=tx.listing_id, status="RESERVED", updated_at=None, title="Honda Wave 2020")
+        pending_request = MarketplaceTransactionCancelRequest(
+            id=uuid.uuid4(),
+            appointment_id=tx.appointment_id,
+            requester_id=tx.buyer_id,
+            reason="UNREACHABLE",
+            status="PENDING",
+            expires_at=datetime.now(UTC),
+            responded_at=None,
+        )
+        initial_tx_result = MagicMock()
+        initial_tx_result.scalar_one_or_none.return_value = tx
+        listing_result = MagicMock()
+        listing_result.scalar_one_or_none.return_value = listing
+        locked_tx_result = MagicMock()
+        locked_tx_result.scalar_one_or_none.return_value = tx
+        pending_cancel_request_result = MagicMock()
+        pending_cancel_request_result.scalar_one_or_none.return_value = pending_request
+        db = AsyncMock()
+        db.execute = AsyncMock(
+            side_effect=[initial_tx_result, listing_result, locked_tx_result, pending_cancel_request_result]
+        )
+        db.get = AsyncMock(return_value=appt)
+        db.add = MagicMock()
+        with patch.object(admin_tx, "log_transition"), patch.object(admin_tx.noti_events, "enqueue"):
+            await admin_tx.rollback_payment_report(
+                tx.appointment_id,
+                admin_tx.RollbackRequest(reason="상대 무응답"),
+                _request(),
+                session=_session(),
+                db=db,
+            )
+
+        self.assertEqual(pending_request.status, "EXPIRED")
+        self.assertIsNotNone(pending_request.responded_at)
 
     async def test_confirmed_payment_cannot_be_rolled_back(self):
         tx = _tx(payment_status="PAYMENT_CONFIRMED")

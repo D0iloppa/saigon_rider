@@ -314,6 +314,59 @@ class NotificationWorkerIdempotencyTest(unittest.IsolatedAsyncioTestCase):
             f"dm&id={conversation_id}",
         )
 
+    async def test_transaction_stalled_deep_links_to_trade_issues_not_dm(self):
+        """F-X-01 FR-2(리뷰 항목 3): 24h/+3h 넛지는 대화방이 아니라 거래 화면의 "문제가 있나요?"
+        접힘 행을 펼친 채로 바로 연다(`pages/link/LinkRouter.tsx` 의 `tradeIssues` action)."""
+        recipient_id = uuid.uuid4()
+        conversation_id = str(uuid.uuid4())
+        appointment_id = str(uuid.uuid4())
+        session = MagicMock(commit=AsyncMock())
+        insert_notification = AsyncMock(return_value=True)
+        try_push = AsyncMock()
+        payload = {
+            "appointment_id": appointment_id,
+            "conversation_id": conversation_id,
+            "listing_title": "혼다 웨이브",
+            "recipient_id": str(recipient_id),
+        }
+
+        with (
+            patch.object(noti_worker, "AsyncSessionLocal", return_value=_SessionContext(session)),
+            patch.object(noti_worker, "_insert_notification", new=insert_notification),
+            patch.object(noti_worker, "langs_for_users", new=AsyncMock(return_value={recipient_id: "ko"})),
+            patch.object(noti_worker, "_try_push", new=try_push),
+        ):
+            await noti_worker._handle_transaction_stalled(payload, source_event_id="stalled-1")
+
+        expected_link = f"tradeIssues&id={conversation_id}&appt={appointment_id}"
+        self.assertEqual(insert_notification.await_args.kwargs["link"], expected_link)
+        try_push.assert_awaited_once()
+        self.assertEqual(try_push.await_args.args[3], expected_link)
+
+    async def test_transaction_cancel_agreed_still_deep_links_to_dm(self):
+        """다른 F-X-01 이벤트는 기존과 동일하게 대화방(약속 카드)으로 이동한다."""
+        recipient_id = uuid.uuid4()
+        conversation_id = str(uuid.uuid4())
+        session = MagicMock(commit=AsyncMock())
+        insert_notification = AsyncMock(return_value=True)
+        try_push = AsyncMock()
+        payload = {
+            "appointment_id": str(uuid.uuid4()),
+            "conversation_id": conversation_id,
+            "listing_title": "혼다 웨이브",
+            "recipient_id": str(recipient_id),
+        }
+
+        with (
+            patch.object(noti_worker, "AsyncSessionLocal", return_value=_SessionContext(session)),
+            patch.object(noti_worker, "_insert_notification", new=insert_notification),
+            patch.object(noti_worker, "langs_for_users", new=AsyncMock(return_value={recipient_id: "ko"})),
+            patch.object(noti_worker, "_try_push", new=try_push),
+        ):
+            await noti_worker._handle_transaction_cancel_agreed(payload, source_event_id="agreed-1")
+
+        self.assertEqual(insert_notification.await_args.kwargs["link"], f"dm&id={conversation_id}")
+
     async def test_listing_event_can_insert_once_for_each_recipient(self):
         seller_id = uuid.uuid4()
         recipient_ids = [uuid.uuid4(), uuid.uuid4()]

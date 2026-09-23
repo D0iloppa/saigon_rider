@@ -2584,6 +2584,11 @@ async def respond_transaction_cancel_request(
     appt.status = "CANCELLED"
     appt.cancel_reason = cancel_request.reason
     appt.updated_at = now
+    # 운영자 롤백(admin_api/transactions.py::rollback_payment_report)과 동일하게 payment_status를
+    # 되돌린다 — 그대로 두면 어드민 PAYMENT_REPORTED 큐(list_transactions)에 해결된 건이 계속 쌓인다.
+    transaction.payment_status = "AWAITING_PAYMENT"
+    transaction.buyer_reported_at = None
+    transaction.updated_at = now
     cancel_request.status = "AGREED"
     cancel_request.responded_at = now
     cancel_request.updated_at = now

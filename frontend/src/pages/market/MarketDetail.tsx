@@ -305,7 +305,7 @@ export default function MarketDetail() {
       } else {
         await blockUser(detail.seller.id);
         setBlocked(true);
-        toast.success(t('market.blockDone', { defaultValue: '차단했어요' }));
+        toast.success(t('market.blockDone', { defaultValue: '차단했어요 · 설정 > 차단 사용자 관리에서 해제할 수 있어요' }));
       }
       setMoreOpen(false);
     } catch {
@@ -318,10 +318,18 @@ export default function MarketDetail() {
       void handleToggleBlock();
       return;
     }
+    if (!detail) return;
+    // F-X-02 FR-2(260924 승인안) — 3곳 진입점(매물 상세·프로필·DM) 공용 확인 문구·버튼.
     useConfirmStore.getState().open(
-      { mode: 'text', value: t('market.blockConfirmBody', { defaultValue: '차단하면 서로의 프로필과 매물을 볼 수 없고, 새 메시지도 보낼 수 없어요.' }) },
+      {
+        mode: 'text',
+        value: t('market.blockConfirmBody', {
+          name: detail.seller.nickname ?? '',
+          defaultValue: `${detail.seller.nickname ?? '이 사용자'}님을 차단할까요? 이 사람의 메시지·매물이 더 이상 보이지 않아요. 상대에게는 알리지 않아요`,
+        }),
+      },
       () => void handleToggleBlock(),
-      { confirmLabel: { mode: 'text', value: t('market.blockConfirm', { defaultValue: '차단하기' }) } },
+      { confirmLabel: { mode: 'text', value: t('market.blockConfirm', { defaultValue: '차단' }) } },
     );
   };
 

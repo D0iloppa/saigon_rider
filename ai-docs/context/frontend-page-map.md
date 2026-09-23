@@ -785,7 +785,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | 취소 사유 칩(F-X-01 FR-1) | `store/useCancelReasonStore.ts`, `components/ui/CancelReasonSheet.tsx` | 약속/거래 취소 확인 전 사유 칩 3개(일정 변경/타처 거래/연락 두절, 선택 필수 1)를 고르는 공용 바텀시트 — `App.tsx` 에 `<ConfirmDialog/>` 와 나란히 전역 마운트. `DmDetail.tsx`(ACCEPTED 약속 취소)·`TradeTransaction.tsx`([거래 취소])가 공유해서 연다(사유 선택 → `useConfirmStore` 확인 1회 → `cancelAppointment(id, reason)`) |
 | 교착 출구 "문제가 있나요?"(F-X-01 FR-2) | `TradeTransaction.tsx` | PAYMENT_REPORTED 에서만 보이는 접힘 행 — ① [송금 신고 취소](구매자, `cancelMarketplacePaymentReport`) ② [거래 취소 요청](양측, `createTransactionCancelRequest` — 사유 칩 재사용, 상대 동의 시 취소·거절/24h 자동 취소) ③ 상대 요청에 [동의]/[거절](`respondTransactionCancelRequest`) ④ [고객센터 문의]. `DmDetail.tsx` 의 "신고 후 취소 불가" 카드는 이 접힘 행으로 안내(`navigate(..., {state:{openIssues:true}})`); 24h/+3h 넛지 푸시는 `?openIssues=1` 딥링크(`pages/link/LinkRouter.tsx` `tradeIssues` action)로 펼친 채 스크롤 진입 |
 | 매물/DM 취소 | `pages/dm`, `pages/market` cancel 로직 | 취소 경로 2개(확인 통일·신고 후 숨김 구현 완료) |
-| 차단 | `pages/settings/BlockedUsers.tsx` | 차단 사용자 관리(§3.10) — 차단 진입점은 DM 헤더 더보기(§3.9)·프로필 더보기 시트(§3.5) 등 다수 |
+| 차단 | `pages/settings/BlockedUsers.tsx` | 차단 사용자 관리(§3.10) — 차단 진입점은 매물 상세 더보기(`MarketDetail.tsx`)·프로필 더보기 시트(`UserProfile.tsx`, §3.5) 2곳(DM 헤더 더보기엔 아직 진입점 없음) — 260924 `POST /market/users/{id}/block`(F-X-02 FR-2)에 **팔로우 양방향 삭제** + **진행 중(ACCEPTED) 약속·거래 강제 취소·CS 자동 접수**(`support_tickets.category=X-BLOCK-TRADE`, PROPOSED 는 자동 거절)를 추가하고 두 진입점 확인 문구·버튼("차단")을 공용 카피로 통일 |
 
 ---
 

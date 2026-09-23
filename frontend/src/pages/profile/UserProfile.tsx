@@ -197,18 +197,25 @@ export default function UserProfile() {
     try {
       await blockUser(profile.id);
       setMoreOpen(false);
-      toast.success(t('market.blockDone', { defaultValue: '차단했어요' }));
+      toast.success(t('market.blockDone', { defaultValue: '차단했어요 · 설정 > 차단 사용자 관리에서 해제할 수 있어요' }));
     } catch {
       toast.error(t('market.blockError', { defaultValue: '처리에 실패했어요' }));
     }
   }
 
-  // FR-2 제안 ①·② — 차단도 종료·비가역이므로 같은 확인 다이얼로그를 거친다.
+  // F-X-02 FR-2(260924 승인안) — 3곳 진입점(매물 상세·프로필·DM) 공용 확인 문구·버튼.
   function handleBlockPick() {
     setMoreOpen(false);
     useConfirmStore.getState().open(
-      { mode: 'text', value: t('follow.blockConfirm', { defaultValue: '이 사용자를 차단할까요? 더 이상 메시지를 주고받을 수 없어요' }) },
+      {
+        mode: 'text',
+        value: t('follow.blockConfirm', {
+          name: profile?.nickname ?? '',
+          defaultValue: `${profile?.nickname ?? '이 사용자'}님을 차단할까요? 이 사람의 메시지·매물이 더 이상 보이지 않아요. 상대에게는 알리지 않아요`,
+        }),
+      },
       () => void handleBlock(),
+      { confirmLabel: { mode: 'text', value: t('market.blockConfirm', { defaultValue: '차단' }) } },
     );
   }
 

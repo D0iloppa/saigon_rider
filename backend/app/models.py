@@ -2514,6 +2514,9 @@ class Report(Base):
     )
     reason: Mapped[str] = mapped_column(String(30), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # F-X-02 FR-1(260924 승인안, 238) — 신고 시점 스냅샷. DM 신고는 최근 50개
+    # 메시지(message_id + body)를 담는다. 다른 대상은 당분간 비움(NULL).
+    snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(12), nullable=False, default="PENDING")
     resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # R-2(260819 W3) — resolution_note(내부 메모)와 분리된 신고자 공개용 요약 사유.

@@ -37,6 +37,7 @@ from ..models import (
     MarketplaceTransactionCancelRequest,
     Report,
     ReportImage,
+    SupportTicket,
     User,
     UserBlock,
     UserFollow,
@@ -44,6 +45,7 @@ from ..models import (
 from ..modules.ads import AdsApplication
 from ..modules.ads.application import AdRead, AdsError
 from ..schemas import (
+    ISSUE_CATEGORY_SEVERITY,
     AdEventsIngestRequest,
     AppointmentCancelRequestBody,
     AppointmentNavigationOut,
@@ -57,6 +59,7 @@ from ..schemas import (
     DistrictBrief,
     DmMessageOut,
     FunnelEventType,
+    IssueCategory,
     MarketplaceAdOut,
     MarketplaceBumpResult,
     MarketplaceCategoryOut,
@@ -1299,6 +1302,89 @@ async def block_user(
         ).scalar_one_or_none()
         if direct_conv_id is not None:
             await location_channel_membership.end_for_block(db, direct_conv_id)
+
+        # F-X-02 FR-2(260924 승인안) — 효력 표 "팔로우": 양방향 팔로우 관계 삭제(해제 시 복원 안 함).
+        await db.execute(
+            delete(UserFollow).where(
+                or_(
+                    (UserFollow.follower_id == session_uid) & (UserFollow.following_id == user_id),
+                    (UserFollow.follower_id == user_id) & (UserFollow.following_id == session_uid),
+                )
+            )
+        )
+
+        # F-X-02 FR-2 ②(260924 승인안) — 차단이 교착(F-X-01 FR-2)을 만들지 않게, 진행 중 약속을
+        # 강제 처리한다: PROPOSED 는 자동 거절(취소), ACCEPTED(결제 신고 여부 무관)는 취소 +
+        # CS 자동 접수(운영자 큐에 남긴다) + 상대에게 "약속이 취소되었어요"만 통지.
+        now = datetime.now(UTC)
+        if direct_conv_id is not None:
+            appts = (
+                (
+                    await db.execute(
+                        select(MarketplaceAppointment).where(
+                            MarketplaceAppointment.conversation_id == direct_conv_id,
+                            MarketplaceAppointment.status.in_(["PROPOSED", "ACCEPTED"]),
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for appt in appts:
+                was_accepted = appt.status == "ACCEPTED"
+                appt.status = "CANCELLED"
+                appt.cancel_reason = "BLOCKED"
+                appt.updated_at = now
+                listing = await db.get(MarketplaceListing, appt.listing_id)
+                if was_accepted and listing is not None and listing.status == "RESERVED":
+                    listing.status = "ON_SALE"
+                    listing.updated_at = now
+                    log_transition(
+                        db,
+                        listing.id,
+                        "RESERVED",
+                        "ON_SALE",
+                        actor_type="user",
+                        actor_id=session_uid,
+                        reason="blocked_counterpart",
+                    )
+                if was_accepted:
+                    transaction = (
+                        await db.execute(
+                            select(MarketplaceTransaction).where(MarketplaceTransaction.appointment_id == appt.id)
+                        )
+                    ).scalar_one_or_none()
+                    noti_events.enqueue(
+                        db,
+                        "market.appointment_cancelled",
+                        {
+                            "appointment_id": str(appt.id),
+                            "conversation_id": str(appt.conversation_id),
+                            "listing_title": listing.title if listing else "",
+                            "recipient_id": str(user_id),
+                        },
+                    )
+                    db.add(
+                        SupportTicket(
+                            user_id=session_uid,
+                            title="차단으로 거래가 취소됐어요",
+                            body=(
+                                f"진행 중이던 거래(약속 {appt.id})가 상대 사용자 차단으로 자동 취소됐습니다. "
+                                "운영자 확인이 필요합니다."
+                            ),
+                            status="OPEN",
+                            category=IssueCategory.X_BLOCK_TRADE.value,
+                            severity=ISSUE_CATEGORY_SEVERITY[IssueCategory.X_BLOCK_TRADE],
+                            source="APP",
+                            persona="USER",
+                            contract_context={
+                                "appointment_id": str(appt.id),
+                                "transaction_id": str(transaction.id) if transaction else None,
+                                "blocked_user_id": str(user_id),
+                            },
+                        )
+                    )
+        await db.commit()
 
 
 @router.delete("/users/{user_id}/block", status_code=204, summary="사용자 차단 해제")

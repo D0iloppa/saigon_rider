@@ -404,6 +404,8 @@ class IssueCategory(StrEnum):
     O_REGULATOR = "O-REGULATOR"
     O_ABUSE_SURGE = "O-ABUSE-SURGE"
     O_STORE_REVIEW = "O-STORE-REVIEW"
+    # 차단(구매자/판매자 무관, F-X-02 FR-2 ② 260924 승인안) — 진행 중 거래 상대 차단 시 자동 접수
+    X_BLOCK_TRADE = "X-BLOCK-TRADE"
 
 
 # 016 §8-2 표의 심각도 그대로 — 새 분류 기준을 만들지 않는다.
@@ -439,6 +441,7 @@ ISSUE_CATEGORY_SEVERITY: dict[str, str] = {
     IssueCategory.O_REGULATOR: IssueSeverity.SEV1,
     IssueCategory.O_ABUSE_SURGE: IssueSeverity.SEV2,
     IssueCategory.O_STORE_REVIEW: IssueSeverity.SEV3,
+    IssueCategory.X_BLOCK_TRADE: IssueSeverity.SEV2,
 }
 
 

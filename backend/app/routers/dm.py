@@ -1373,6 +1373,27 @@ async def report_conversation(
         Report.reporter_id == session_uid,
     )
 
+    # F-X-02 FR-1(260924 승인안) — DM 신고는 최근 50개 메시지를 스냅샷으로 첨부한다.
+    recent_messages = (
+        await db.execute(
+            select(DmMessage.id, DmMessage.sender_id, DmMessage.content, DmMessage.created_at)
+            .where(DmMessage.conversation_id == conv_id)
+            .order_by(DmMessage.created_at.desc())
+            .limit(50)
+        )
+    ).all()
+    snapshot = {
+        "messages": [
+            {
+                "message_id": str(m.id),
+                "sender_id": str(m.sender_id),
+                "content": m.content,
+                "created_at": m.created_at.isoformat(),
+            }
+            for m in recent_messages
+        ]
+    }
+
     db.add(
         Report(
             target_type="DM",
@@ -1381,6 +1402,7 @@ async def report_conversation(
             conversation_id=conv_id,
             reason=body.reason,
             note=(body.note or None),
+            snapshot=snapshot,
         )
     )
     await db.commit()

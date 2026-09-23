@@ -713,6 +713,78 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | Android 홈화면 위젯 (워키토키) | 앱 밖(OS 홈스크린), 라우트 무관 | `native/android` 서브모듈 — `WalkieTalkieChannelWidgetProvider`(정적 런칭용, be65a03)와 기존 `WalkieTalkieWidgetProvider`(B-2, 녹음토글) 2종 병존 | 워키토키 캡슐 롱프레스 메뉴의 "홈화면 고정" 항목에서 `pinToHomeScreen()` 트리거. 신규 위젯은 활성 채널명 표시 + 탭 시 해당 대화로 딥링크(녹음/재생 등 위젯 내 인터랙션 없음). `syncActiveChannel()`이 `useWalkieTalkieBubbleStore.setActiveConversation` 호출 시마다 SharedPreferences에 채널 미러링. **실기기 미검증**(이 환경엔 `gradlew`가 한때 플레이스홀더였으나 원격에서 실제 wrapper로 복원됨(`8a2ccf4`) — 로컬/CI 빌드는 가능할 것으로 추정, 이 세션에서 실행은 못 함). **2026-08-27 시각 재작업**: 위젯이 캡슐 펼침 상태 팔레트와 동일하도록 재도장 — 신규 `widget_walkie_capsule_bg`(잉크900 94% 알파 라운드 셰이프)·`ic_walkie_mic`(브랜드오렌지 벡터)·`colors.xml` 신설(`walkie_capsule_bg`/`walkie_text_primary`/`walkie_text_secondary`/`walkie_brand_300` 등, `tokens.css` 값과 매칭). 기능 로직(채널명 표시·딥링크)은 무변경, 시각만. 이 환경은 Android SDK 없어 `gradlew assembleDebug` 컴파일 검증 불가(XML well-formed·리소스 참조 정합만 확인) |
 | 스플래시 | `/splash` | 앱 최초 진입(`/` → replace) | `Splash.tsx` — 언어 선택 칩 + [시작하기] 버튼. **[로그인] 버튼 제거(2026-08-02)** — [시작하기]와 [로그인]이 둘 다 `/auth/oauth` 로 가는 완전 중복이라 대표 지시로 제거. 고아가 된 `.loginBtn` CSS(`Splash.module.css`)와 i18n 키 `splash.loginBtn`(ko/en/vi)도 함께 제거 |
 
+### 3.9 DM·채팅 (`/dm`)
+
+> 📋 **스토리보드**: [F-DM-01 FR-1](../review/storyboard/index.html#F-DM-01__FR-1)~[FR-4](../review/storyboard/index.html#F-DM-01__FR-4)(대화 목록·스와이프·빈 상태·그룹 만들기), [F-DM-02 FR-1](../review/storyboard/index.html#F-DM-02__FR-1)~[FR-4](../review/storyboard/index.html#F-DM-02__FR-4)(상단 스택·메시지 렌더 문법·로드/스크롤·그룹방 골격), [F-S3-01 FR-1](../review/storyboard/index.html#F-S3-01__FR-1)~[FR-4](../review/storyboard/index.html#F-S3-01__FR-4)(첫 문의·더보기 시트·+첨부·롱프레스), [F-S3-02 FR-1](../review/storyboard/index.html#F-S3-02__FR-1)(가격 제안 카드), [F-S3-03 FR-1](../review/storyboard/index.html#F-S3-03__FR-1)~[FR-6](../review/storyboard/index.html#F-S3-03__FR-6)(무전기) — 설계 근거·제안·판정은 스토리보드 참조. 채팅 탭 6탭 승격 배경은 위 §1 "채팅 탭 승격" 항목.
+
+| 라우트 | 페이지 파일 | 내용 |
+|---|---|---|
+| `/dm` | `pages/dm/DmList.tsx` | 대화 목록 — `conversationType`(`direct`/`group`/`open`)별 렌더 분기, 진행중 거래 요약(매물명+상태뱃지) |
+| `/dm/:conversationId` | `pages/dm/DmDetail.tsx` | 대화 상세 — 메시지 타임라인, 헤더 더보기(신고/위치공유/워키토키 3항목 액션시트), 롱프레스(복사/답장/공감/수정/삭제), + 첨부 패널 |
+| `/dm/:conversationId/board` | `pages/dm/DmBoard.tsx` | 그룹방 채널형 게시판 목록 |
+| `/dm/:conversationId/board/new` | `pages/dm/DmBoardCompose.tsx` | 게시판 글쓰기 |
+| `/dm/:conversationId/board/:postId` | `pages/dm/DmBoardPost.tsx` | 게시판 글 상세 + 댓글 스레드 |
+| `/dm/:conversationId/trade/:appointmentId` | `pages/dm/TradeTransaction.tsx` | 거래 진행(확인→결제→전달 타임라인, F-S6-01) — 상세는 §3.12 |
+| `/dm/group/new` | `pages/dm/DmGroupCreate.tsx` | 그룹 만들기(최소 생성 폼) |
+
+핵심 컴포넌트: `AppointmentLocationPicker.tsx`(약속 잡기 시트, §3.12), 워키토키(`useWalkieTalkieBubbleStore.ts`·`WalkieChannelPickerSheet.tsx`), 실시간위치(`LiveLocationFloatingButton`류) — 이 둘의 진입점·전역 오버레이 서술은 §3.8 표(709-712행)에 이미 있음, 이 절은 화면 자체(대화 목록·상세·게시판)만 다룬다.
+
+### 3.10 설정 (`/settings`)
+
+> 📋 **스토리보드**: [F-SET-01 FR-1](../review/storyboard/index.html#F-SET-01__FR-1)~[FR-8](../review/storyboard/index.html#F-SET-01__FR-8)(설정메인/계정/프로필편집/알림/언어/차단/약관/공지·FAQ) — 설계 근거·제안·판정은 스토리보드 참조.
+
+| 라우트 | 페이지 파일 | 내용 |
+|---|---|---|
+| `/settings` | `pages/settings/Settings.tsx` | 설정 메인(계정·알림·언어·차단·약관·공지/FAQ·고객센터 진입 행) |
+| `/settings/account` | `pages/settings/AccountSettings.tsx` | 계정 관리(탈퇴) |
+| `/settings/profile` | `pages/settings/ProfileEdit.tsx` | 프로필 편집 |
+| `/settings/notifications` | `pages/settings/NotiSettings.tsx` | 알림 설정 |
+| `/settings/language` | `pages/settings/LangSettings.tsx` | 언어 설정 |
+| `/settings/blocked` | `pages/settings/BlockedUsers.tsx` | 차단 사용자 관리 |
+| `/settings/terms` | `pages/settings/TermsOfService.tsx` | 이용약관 |
+| `/settings/privacy` | `pages/settings/PrivacyPolicy.tsx` | 개인정보처리방침 |
+| `/settings/support`, `/settings/support/:id` | `pages/settings/CustomerSupport.tsx`, `SupportDetail.tsx` | 고객센터 문의/신고 탭(F-CS-01/02, 별도 프레임군 — 이 절엔 §3.10 범위 밖으로 링크만 참고) |
+| `/notices`, `/notices/:id` | `pages/notices/NoticeList.tsx`, `NoticeDetail.tsx` | 공지사항 — §3.8(703행) 진입점 서술 참조 |
+| `/faq` | `pages/faq/FaqList.tsx` | FAQ — §3.8(704행) 진입점 서술 참조 |
+
+### 3.11 거래이력 (`/trades`)
+
+> 📋 **스토리보드**: [F-S7-02 FR-1](../review/storyboard/index.html#F-S7-02__FR-1)(거래 이력 목록), [F-S7-03 FR-1](../review/storyboard/index.html#F-S7-03__FR-1)~[FR-3](../review/storyboard/index.html#F-S7-03__FR-3)(이력 범위·정렬/역할 구분·필터/로딩·실패·빈) — 설계 근거·제안·판정은 스토리보드 참조.
+
+| 라우트 | 페이지 파일 | 내용 |
+|---|---|---|
+| `/trades` | `pages/profile/TradeHistory.tsx` | 거래 이력 목록 — 행 탭 → `/dm/:conversationId` 고정(2026-09-21, 위 개요 참조), [후기 작성] 채움 칩 |
+
+### 3.12 약속·이동·만남·완료 (거래 여정 S4~S7)
+
+> 📋 **스토리보드**: [F-S4-01 FR-1](../review/storyboard/index.html#F-S4-01__FR-1)~[FR-3](../review/storyboard/index.html#F-S4-01__FR-3)(약속 잡기), [F-S5-01 FR-1](../review/storyboard/index.html#F-S5-01__FR-1)~[FR-4](../review/storyboard/index.html#F-S5-01__FR-4)(이동·위치초대), [F-S6-01 FR-1](../review/storyboard/index.html#F-S6-01__FR-1)~[FR-5](../review/storyboard/index.html#F-S6-01__FR-5)(만남·교환), [F-S7-01 FR-1](../review/storyboard/index.html#F-S7-01__FR-1)~[FR-2](../review/storyboard/index.html#F-S7-01__FR-2)(완료·후기) — 설계 근거·제안·판정은 스토리보드 참조. 대표 결정 C2(확인→결제→전달 순서)가 이 여정의 타임라인 순서를 확정한다.
+
+라우트 신설 없음 — DM 방(`/dm/:conversationId`) 안에서 카드·시트로 흐른다.
+
+| 단계 | 컴포넌트 | 내용 |
+|---|---|---|
+| 약속 잡기(S4) | `pages/dm/AppointmentLocationPicker.tsx` | 약속 시트(장소·시각), 약속 카드(PROPOSED/ACCEPTED) |
+| 이동·위치초대(S5) | `LiveLocationFloatingButton`류(§3.8 710행), `RideNav.tsx`(§3.13) | 실시간 위치공유 카드+동의 모달, 길안내 핸드오프 |
+| 만남·교환(S6) | `pages/dm/TradeTransaction.tsx`(`/dm/:conversationId/trade/:appointmentId`) | 확인→결제→전달 타임라인(대표 결정 C2 구현 완료) |
+| 완료·후기(S7) | `TradeTransaction.tsx`, `pages/profile/TradeHistory.tsx`(§3.11) | 완료 요청/처리 카드, 거래 이력 목록·후기 작성 |
+
+### 3.13 길안내 (`/ride-nav`)
+
+> 📋 **스토리보드**: [F-RN-01 FR-1](../review/storyboard/index.html#F-RN-01__FR-1)~[FR-4](../review/storyboard/index.html#F-RN-01__FR-4)(진입·모드 분기/출발-도착 알림/이탈-외부 핸드오프/위치 게이트) — 설계 근거·제안·판정은 스토리보드 참조. 화면 자체 서술(컨트롤 3상태·heading 소스 등)은 §3.8(698행) 참조.
+
+| 라우트 | 페이지 파일 | 내용 |
+|---|---|---|
+| `/ride-nav` | `pages/ride/RideNav.tsx` | 길안내(`type=nav`/`type=quest` 모드 분기) — 진입점: DM 상세·주유소/정비소 목록·정비소 상세의 '경로' 버튼(§3.8 698행) |
+
+### 3.14 취소·교착 (F-X-01), 신고·차단 (F-X-02)
+
+> 📋 **스토리보드**: [F-X-01 FR-1](../review/storyboard/index.html#F-X-01__FR-1)~[FR-2](../review/storyboard/index.html#F-X-01__FR-2)(취소 경로 두 개·교착 상태), [F-X-02 FR-1](../review/storyboard/index.html#F-X-02__FR-1)(신고 진입점 매트릭스, §718행 "소비자 → 업체 신고"에도 링크됨), [F-X-02 FR-2](../review/storyboard/index.html#F-X-02__FR-2)(차단) — 설계 근거·제안·판정은 스토리보드 참조. **F-X-01 FR-2(교착 상태)는 대표 결정 C1급 P0 미해결**(송금 신고 후 사용자 수준 출구 없음, 위 리뷰 `260923_service-flow-ux-review.md` 참조).
+
+| 기능 | 파일 | 내용 |
+|---|---|---|
+| 매물/DM 취소 | `pages/dm`, `pages/market` cancel 로직 | 취소 경로 2개(확인 통일·신고 후 숨김 구현 완료) |
+| 차단 | `pages/settings/BlockedUsers.tsx` | 차단 사용자 관리(§3.10) — 차단 진입점은 DM 헤더 더보기(§3.9)·프로필 더보기 시트(§3.5) 등 다수 |
+
 ---
 
 ## 업체 공개 상세 (`/biz/:id`, `pages/biz/BizPublic.tsx`) — 2026-08-18 개편

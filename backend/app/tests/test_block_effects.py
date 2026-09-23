@@ -28,6 +28,7 @@ class BlockEffectsTests(unittest.IsolatedAsyncioTestCase):
         )
         listing = SimpleNamespace(id=listing_id, status="RESERVED", updated_at=None, title="테스트 매물")
         transaction = SimpleNamespace(id=transaction_id)
+        pending_cancel_request = SimpleNamespace(status="PENDING", responded_at=None, updated_at=None)
 
         conv_id_result = MagicMock()
         conv_id_result.scalar_one_or_none.return_value = conv_id
@@ -36,6 +37,8 @@ class BlockEffectsTests(unittest.IsolatedAsyncioTestCase):
         appts_result.scalars.return_value.all.return_value = [appt]
         transaction_result = MagicMock()
         transaction_result.scalar_one_or_none.return_value = transaction
+        cancel_request_result = MagicMock()
+        cancel_request_result.scalar_one_or_none.return_value = pending_cancel_request
 
         db = AsyncMock()
         db.get.side_effect = [None, listing]
@@ -44,6 +47,7 @@ class BlockEffectsTests(unittest.IsolatedAsyncioTestCase):
             follow_delete_result,
             appts_result,
             transaction_result,
+            cancel_request_result,
         ]
 
         with (
@@ -74,6 +78,10 @@ class BlockEffectsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(added_tickets), 1)
         self.assertEqual(added_tickets[0].category, "X-BLOCK-TRADE")
         self.assertEqual(added_tickets[0].contract_context["transaction_id"], str(transaction_id))
+
+        # F-X-01 FR-2 정합 — PENDING 양측 합의 취소 요청은 EXPIRED로 닫힌다(9a3cdf99 관례).
+        self.assertEqual(pending_cancel_request.status, "EXPIRED")
+        self.assertIsNotNone(pending_cancel_request.responded_at)
 
     async def test_block_auto_rejects_proposed_appointment_without_cs_ticket(self):
         session_uid = uuid.uuid4()

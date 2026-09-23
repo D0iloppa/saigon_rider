@@ -262,7 +262,7 @@
     "reportTitle": "Report reason",
     "reportDone": "Report submitted",
     "reportError": "Already reported or failed",
-    "blockDone": "Blocked",
+    "blockDone": "Blocked · You can unblock it in Settings > Manage blocked users",
     "blockError": "Failed to block",
     "reportReason_STOLEN_GOODS": "Suspected stolen vehicle / missing papers",
     "reportReason_FRAUD": "Suspected fraud",

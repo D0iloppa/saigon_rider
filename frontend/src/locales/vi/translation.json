@@ -262,7 +262,7 @@
     "reportTitle": "Lý do báo cáo",
     "reportDone": "Đã gửi báo cáo",
     "reportError": "Đã báo cáo hoặc thất bại",
-    "blockDone": "Đã chặn",
+    "blockDone": "Đã chặn · Bạn có thể bỏ chặn tại Cài đặt > Quản lý người dùng bị chặn",
     "blockError": "Chặn thất bại",
     "reportReason_STOLEN_GOODS": "Nghi xe gian/thiếu giấy tờ",
     "reportReason_FRAUD": "Nghi lừa đảo",

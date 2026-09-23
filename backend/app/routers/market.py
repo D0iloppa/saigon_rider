@@ -1354,6 +1354,20 @@ async def block_user(
                             select(MarketplaceTransaction).where(MarketplaceTransaction.appointment_id == appt.id)
                         )
                     ).scalar_one_or_none()
+                    # F-X-01 FR-2 정합(9a3cdf99 관례 승계) — 차단으로 강제 취소되면 PENDING 양측
+                    # 합의 취소 요청도 응답 없이 종료된 것과 같은 의미로 EXPIRED 처리한다.
+                    pending_cancel_request = (
+                        await db.execute(
+                            select(MarketplaceTransactionCancelRequest).where(
+                                MarketplaceTransactionCancelRequest.appointment_id == appt.id,
+                                MarketplaceTransactionCancelRequest.status == "PENDING",
+                            )
+                        )
+                    ).scalar_one_or_none()
+                    if pending_cancel_request is not None:
+                        pending_cancel_request.status = "EXPIRED"
+                        pending_cancel_request.responded_at = now
+                        pending_cancel_request.updated_at = now
                     noti_events.enqueue(
                         db,
                         "market.appointment_cancelled",

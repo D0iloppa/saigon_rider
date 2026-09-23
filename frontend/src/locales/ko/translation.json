@@ -262,7 +262,7 @@
     "reportTitle": "신고 사유",
     "reportDone": "신고가 접수되었어요",
     "reportError": "이미 신고했거나 처리에 실패했어요",
-    "blockDone": "차단했어요",
+    "blockDone": "차단했어요 · 설정 > 차단 사용자 관리에서 해제할 수 있어요",
     "blockError": "차단 처리에 실패했어요",
     "reportReason_STOLEN_GOODS": "도난 의심 차량/서류 미비",
     "reportReason_FRAUD": "사기 의심",

@@ -1376,7 +1376,13 @@ async def report_conversation(
     # F-X-02 FR-1(260924 승인안) — DM 신고는 최근 50개 메시지를 스냅샷으로 첨부한다.
     recent_messages = (
         await db.execute(
-            select(DmMessage.id, DmMessage.sender_id, DmMessage.content, DmMessage.created_at)
+            select(
+                DmMessage.id,
+                DmMessage.sender_id,
+                DmMessage.content,
+                DmMessage.created_at,
+                DmMessage.deleted_at,
+            )
             .where(DmMessage.conversation_id == conv_id)
             .order_by(DmMessage.created_at.desc())
             .limit(50)
@@ -1387,7 +1393,9 @@ async def report_conversation(
             {
                 "message_id": str(m.id),
                 "sender_id": str(m.sender_id),
-                "content": m.content,
+                # 소프트 삭제된 메시지는 본문을 스냅샷에도 남기지 않는다(dm.py:754 관례 승계).
+                "content": None if m.deleted_at else m.content,
+                "deleted": m.deleted_at is not None,
                 "created_at": m.created_at.isoformat(),
             }
             for m in recent_messages

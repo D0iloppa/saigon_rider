@@ -1378,9 +1378,13 @@ async def block_user(
                             "recipient_id": str(user_id),
                         },
                     )
+                    # 대표 판정(260924) — 이 티켓은 운영자 큐 전용이다. 차단을 실행한 사용자
+                    # (블로커)의 "내 문의" 목록(support.py list_tickets, user_id 필터)에는
+                    # 뜨지 않아야 하므로 user_id 를 비운다(nullable — EXTERNAL 채널과 같은
+                    # 관례). 누가 차단했는지는 contract_context 에 남겨 운영자가 추적한다.
                     db.add(
                         SupportTicket(
-                            user_id=session_uid,
+                            user_id=None,
                             title="차단으로 거래가 취소됐어요",
                             body=(
                                 f"진행 중이던 거래(약속 {appt.id})가 상대 사용자 차단으로 자동 취소됐습니다. "
@@ -1394,6 +1398,7 @@ async def block_user(
                             contract_context={
                                 "appointment_id": str(appt.id),
                                 "transaction_id": str(transaction.id) if transaction else None,
+                                "blocker_id": str(session_uid),
                                 "blocked_user_id": str(user_id),
                             },
                         )

@@ -79,6 +79,12 @@ class BlockEffectsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(added_tickets[0].category, "X-BLOCK-TRADE")
         self.assertEqual(added_tickets[0].contract_context["transaction_id"], str(transaction_id))
 
+        # 대표 판정(260924) — 운영자 큐 전용. user_id 를 비워 블로커의 "내 문의"에 뜨지 않게 하고,
+        # 누가 차단했는지는 contract_context 에만 남긴다.
+        self.assertIsNone(added_tickets[0].user_id)
+        self.assertEqual(added_tickets[0].contract_context["blocker_id"], str(session_uid))
+        self.assertEqual(added_tickets[0].contract_context["blocked_user_id"], str(user_id))
+
         # F-X-01 FR-2 정합 — PENDING 양측 합의 취소 요청은 EXPIRED로 닫힌다(9a3cdf99 관례).
         self.assertEqual(pending_cancel_request.status, "EXPIRED")
         self.assertIsNotNone(pending_cancel_request.responded_at)

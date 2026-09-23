@@ -1643,7 +1643,7 @@ K  ┌ 진행 중 바: ● 무전기 · 채널명 · [말하기] · 접속 n명 
 - **전이** PAYMENT_REPORTED → (구매자 신고 취소) → ACCEPTED / → (취소 요청) → 요청 중 → 동의·24h → CANCELLED → 매물 ON_SALE → 이력 "취소됨(합의)" / → 거절 → 요청자 CS 진입. ACCEPTED +3h 무응답 → 양측 푸시 → 같은 행.
 - **검증** PAYMENT_REPORTED 거래에서 사용자 수준 출구가 항상 1개 이상 보인다. 오신고 10분 내 취소 → ACCEPTED 복귀 + 판매자 알림. 취소 요청 후 24h 무응답 → 자동 CANCELLED + 매물 판매중 + 양측 시스템 메시지. 판매자 confirm 이후 신고 취소 API는 409.
 - **근거** 현재 `market.py:2347-2398`(신고 후 취소 불가), 운영자 롤백(`admin_api/transactions.py`, 구현됨). 서버: `transaction_cancel_requests(requester, reason, expires_at, status)`, 신고 취소 엔드포인트(10분·미확인 조건), 24h·+3h 잡(timezone-aware), 매물 상태 복귀.
-- **판정(r3, 260924)** 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 **P0** `[정의 Y]`, 요소 표 신설) — 구현 완료(260924, 커밋) · 구현 패키지 A. 권한 3단(① 구매자 신고 취소 ② 양측 합의 취소 요청/응답/24h 자동 취소 ③ 기존 운영자 롤백 유지) 서버 상태기계·잡·프론트 UI(거래 화면 "문제가 있나요?" 접힘 행) 구현. 테이블 `marketplace_transaction_cancel_requests`(237), 엔드포인트 `payment-report-cancel`·`transaction/cancel-requests`·`transaction-cancel-requests/{id}/respond`, 잡 `expire_transaction_cancel_requests`(15분)·`nudge_stalled_transactions`(15분, 24h/+3h 넛지). **미구현**: 이력 배지 "취소됨(합의)"(F-S7-03 FR-2 소관, 별도 판정 필요 — `TradeHistory.tsx` `/trades`는 완료 거래만 반환해 취소 건이 아예 노출되지 않음, DECISION_NEEDED).
+- **판정(r3, 260924)** 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 **P0** `[정의 Y]`, 요소 표 신설) — 구현 완료(260924, 커밋) · 구현 패키지 A. 권한 3단(① 구매자 신고 취소 ② 양측 합의 취소 요청/응답/24h 자동 취소 ③ 기존 운영자 롤백 유지) 서버 상태기계·잡·프론트 UI(거래 화면 "문제가 있나요?" 접힘 행) 구현. 테이블 `marketplace_transaction_cancel_requests`(237), 엔드포인트 `payment-report-cancel`·`transaction/cancel-requests`·`transaction-cancel-requests/{id}/respond`, 잡 `expire_transaction_cancel_requests`(15분)·`nudge_stalled_transactions`(15분, 24h/+3h 넛지). **대표 판정(260924)**: 거래이력은 완료만, 취소 배지 미도입 — `TradeHistory.tsx` `/trades`는 완료 거래만 반환하는 현행을 유지하고 "취소됨(합의)" 배지(F-S7-03 FR-2)는 도입하지 않는다. 위 요소 표·전이의 "취소됨(합의)" 이력 표기는 이 판정으로 대체·폐기.
 
 ---
 
@@ -1708,7 +1708,7 @@ K  ┌ 진행 중 바: ● 무전기 · 채널명 · [말하기] · 접속 n명 
 - **전이** ⋮ → [차단하기] → 확인 → 차단 → (진행 중 거래면) 취소 + CS 티켓 → 토스트 → 상대 매물·글 즉시 숨김 · 세션 종료. 해제: 설정 → 차단 목록 → 행 → [차단 해제] → 확인 → 복원.
 - **검증** 차단 직후 상대가 DM을 보내면 전송 버튼이 비활성이고 서버 403. 차단자의 마켓·홈·검색·피드에 상대 콘텐츠가 0건. 진행 중 거래 상대 차단 시 거래가 취소되고 어드민 CS 큐에 티켓 1건 생성. 해제 후 과거 대화가 다시 열린다.
 - **근거** 차단 버튼 구현 2곳(`MarketDetail.tsx:255-278`, `UserProfile.tsx:195-213`), 해제 화면 `BlockedUsers.tsx`. 서버: `user_blocks` 상호 필터를 매물·검색·홈·피드·DM 전송·알림 쿼리에 적용, 차단 시 세션 종료·팔로우 삭제·거래 취소 훅.
-- **판정(r3, 260924)** 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 **P0** `[정의 Y]`, X-4, 요소 표 신설) — **구현 완료(부분, df48b745)**: 효력 표 중 매물·프로필·DM·피드·무전기·위치공유(기존 구현) 재확인 + **팔로우 양방향 삭제**·**진행 중(ACCEPTED) 거래 강제 취소 + CS 자동 접수(`support_tickets.category=X-BLOCK-TRADE`)·PROPOSED 자동 거절** 신규 구현. 3곳 진입점(매물 상세·프로필) 확인 문구·버튼을 공용 카피로 통일 — **DM(`DmDetail.tsx`) 진입점은 UI 자체가 아직 없어 문구 통일 대상에서 제외**(신규 진입점 추가는 이번 패키지 미포함). 해제 화면(F-SET-01 FR-6) 요소 표는 그대로 그 프레임 소관.
+- **판정(r3, 260924)** 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 **P0** `[정의 Y]`, X-4, 요소 표 신설) — **구현 완료(부분, df48b745)**: 효력 표 중 매물·프로필·DM·피드·무전기·위치공유(기존 구현) 재확인 + **팔로우 양방향 삭제**·**진행 중(ACCEPTED) 거래 강제 취소 + CS 자동 접수(`support_tickets.category=X-BLOCK-TRADE`)·PROPOSED 자동 거절** 신규 구현. 3곳 진입점(매물 상세·프로필) 확인 문구·버튼을 공용 카피로 통일 — **DM(`DmDetail.tsx`) 진입점은 UI 자체가 아직 없어 문구 통일 대상에서 제외**(신규 진입점 추가는 이번 패키지 미포함). 해제 화면(F-SET-01 FR-6) 요소 표는 그대로 그 프레임 소관. **대표 판정(260924, ruling 1)**: 차단으로 강제 취소되며 생성되는 CS 자동 티켓(`support_tickets.category=X-BLOCK-TRADE`)은 운영자 큐 전용이다 — `user_id=NULL`(누가 차단했는지는 `contract_context.blocker_id` 로만 기록)로 만들어 블로커의 "내 문의" 목록에는 뜨지 않고 어드민 통합 이슈 큐에는 그대로 노출된다(커밋 <다음 커밋 해시>).
 
 ---
 

@@ -114,9 +114,7 @@ const UserProfile = lazyWithRetry(() => import('@/pages/profile/UserProfile'));
 const ProfileListings = lazyWithRetry(() => import('@/pages/profile/ProfileListings'));
 const ProfilePosts = lazyWithRetry(() => import('@/pages/profile/ProfilePosts'));
 const TradeHistory = lazyWithRetry(() => import('@/pages/profile/TradeHistory'));
-const FollowerList = lazyWithRetry(() => import('@/pages/profile/FollowerList'));
-const FollowingList = lazyWithRetry(() => import('@/pages/profile/FollowingList'));
-const FriendList = lazyWithRetry(() => import('@/pages/profile/FriendList'));
+const SocialList = lazyWithRetry(() => import('@/pages/profile/SocialList'));
 const FriendAdd = lazyWithRetry(() => import('@/pages/profile/FriendAdd'));
 
 // Gacha
@@ -666,9 +664,8 @@ export default function App() {
           <Route path="/profile/:userId/listings" element={<PrivateRoute><ProfileListings /></PrivateRoute>} />
           <Route path="/profile/:userId/posts" element={<PrivateRoute><ProfilePosts /></PrivateRoute>} />
           <Route path="/trades" element={<PrivateRoute><TradeHistory /></PrivateRoute>} />
-          <Route path="/followers/:userId" element={<PrivateRoute><FollowerList /></PrivateRoute>} />
-          <Route path="/following/:userId" element={<PrivateRoute><FollowingList /></PrivateRoute>} />
-          <Route path="/friends/:userId" element={<PrivateRoute><FriendList /></PrivateRoute>} />
+          <Route path="/followers/:userId" element={<PrivateRoute><SocialList tab="followers" /></PrivateRoute>} />
+          <Route path="/following/:userId" element={<PrivateRoute><SocialList tab="following" /></PrivateRoute>} />
           <Route path="/friends/add" element={<PrivateRoute><FriendAdd /></PrivateRoute>} />
 
           {/* Protected: Ride flow */}

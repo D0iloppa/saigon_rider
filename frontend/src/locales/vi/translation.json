@@ -943,7 +943,6 @@
     "messagesLoadError": "Không tải được tin nhắn",
     "inputPlaceholder": "Nhập tin nhắn...",
     "sendBtn": "Gửi",
-    "button": "DM",
     "makeAppointment": "Hẹn gặp",
     "laStatus": {
       "accepted": "Đã chốt hẹn",
@@ -1171,15 +1170,16 @@
     "messageReportAction": "Báo cáo"
   },
   "follow": {
+    "socialTitle": "Kết nối",
     "followers": "Người theo dõi",
     "following": "Đang theo dõi",
     "followBtn": "Theo dõi",
     "unfollowBtn": "Đang theo dõi",
     "emptyFollowers": "Chưa có người theo dõi",
     "emptyFollowing": "Chưa theo dõi ai",
+    "loadError": "Không thể tải danh sách",
     "friends": "Bạn bè",
-    "emptyFriends": "Chưa có bạn bè",
-    "addFriend": "Thêm bạn",
+    "addFriend": "Tìm người",
     "searchPlaceholder": "Tìm theo biệt danh hoặc số điện thoại",
     "myQr": "QR của tôi",
     "scanQr": "Quét mã QR",

@@ -11,6 +11,39 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* [팔로워 | 팔로잉] 2탭 — CustomerSupport.module.css 의 언더라인 탭 패턴과 동일 결 */
+.tabs {
+  display: flex;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line, #e8e3da);
+  background: var(--surface, #fff);
+}
+
+.tab {
+  flex: 1;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-2, #4a4f62);
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tabActive {
+  color: var(--brand-500);
+  border-bottom-color: var(--brand-500);
+}
+
+.headerBtn {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+}
+
 .row {
   display: flex;
   align-items: center;

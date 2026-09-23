@@ -943,7 +943,6 @@
     "messagesLoadError": "Couldn't load messages",
     "inputPlaceholder": "Type a message...",
     "sendBtn": "Send",
-    "button": "DM",
     "makeAppointment": "Set a meetup",
     "laStatus": {
       "accepted": "Meetup confirmed",
@@ -1171,15 +1170,16 @@
     "messageReportAction": "Report"
   },
   "follow": {
+    "socialTitle": "Connections",
     "followers": "Followers",
     "following": "Following",
     "followBtn": "Follow",
     "unfollowBtn": "Following",
     "emptyFollowers": "No followers yet",
     "emptyFollowing": "Not following anyone yet",
+    "loadError": "Couldn't load the list",
     "friends": "Friends",
-    "emptyFriends": "No friends yet",
-    "addFriend": "Add Friend",
+    "addFriend": "Find people",
     "searchPlaceholder": "Search by nickname or phone",
     "myQr": "My QR",
     "scanQr": "Scan QR",

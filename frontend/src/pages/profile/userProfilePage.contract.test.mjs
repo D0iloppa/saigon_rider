@@ -19,7 +19,7 @@ test('the ProfileCard bottom sheet is gone — no file, no references', () => {
     'components/ProfileCard.tsx must be removed (superseded by the profile page)');
 
   for (const path of [
-    '../feed/FeedList.tsx', '../feed/FeedDetail.tsx', 'FollowerList.tsx', 'FollowingList.tsx',
+    '../feed/FeedList.tsx', '../feed/FeedDetail.tsx', 'SocialList.tsx',
   ]) {
     const source = read(path);
     assert.doesNotMatch(source, /ProfileCard/, `${path}: must not reference the removed sheet`);
@@ -31,8 +31,7 @@ test('every profile entry point navigates to the page instead of opening a sheet
   const entries = [
     ['../feed/FeedList.tsx', /navigate\(`\/profile\/\$\{p\.userId\}`\)/],
     ['../feed/FeedDetail.tsx', /navigate\(`\/profile\/\$\{post\.userId\}`\)/],
-    ['FollowerList.tsx', /navigate\(`\/profile\/\$\{u\.id\}`\)/],
-    ['FollowingList.tsx', /navigate\(`\/profile\/\$\{u\.id\}`\)/],
+    ['SocialList.tsx', /navigate\(`\/profile\/\$\{u\.id\}`\)/],
   ];
   for (const [path, pattern] of entries) {
     assert.match(code(read(path)), pattern, `${path}: avatar/row tap must push the profile page`);

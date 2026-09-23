@@ -27,7 +27,7 @@ export function clearChunkRetryState() {
  * index.html·청크를 받아온다. 상한을 넘기면 에러를 그대로 던져 상위 ErrorBoundary 가
  * 안내 UI를 보여준다.
  */
-export function lazyWithRetry<T extends ComponentType<unknown>>(factory: () => Promise<{ default: T }>) {
+export function lazyWithRetry<T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) {
   return lazy(() =>
     factory()
       .then((mod) => {

@@ -18,12 +18,13 @@
   pointer-events: none;
 }
 
-/* 탭바가 보이는 화면(AppShell.HIDE_TABBAR_PATHS 밖)에서는 탭바(56px + 홈 인디케이터 세이프에어리어)
- * 위로 올라앉는다 — TabBar 는 position: relative 로 뷰포트 최하단에 in-flow 로 자리잡으므로,
- * 이 바를 그냥 bottom: 0 에 두면 탭바와 같은 자리에서 겹친다. 탭바가 이미 세이프에어리어를 갖고
- * 있으니 이 바 쪽 padding-bottom 은 0으로 — 안 그러면 탭바 위에 세이프에어리어만큼 빈 틈이 뜬다. */
+/* 탭바가 보이는 화면(AppShell.HIDE_TABBAR_PATHS 밖)에서는 탭바(--tabbar-height + 홈 인디케이터
+ * 세이프에어리어) 위로 올라앉는다 — TabBar 는 position: relative 로 뷰포트 최하단에 in-flow 로
+ * 자리잡으므로, 이 바를 그냥 bottom: 0 에 두면 탭바와 같은 자리에서 겹친다. 탭바가 이미
+ * 세이프에어리어를 갖고 있으니 이 바 쪽 padding-bottom 은 0으로 — 안 그러면 탭바 위에
+ * 세이프에어리어만큼 빈 틈이 뜬다. */
 .fixedWrap[data-above-tabbar='true'] {
-  bottom: calc(56px + var(--bottom-safe));
+  bottom: calc(var(--tabbar-height, 72px) + var(--bottom-safe));
   padding-bottom: 0;
 }
 

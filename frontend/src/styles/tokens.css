@@ -87,6 +87,10 @@
   --tabbar-height: 72px;   /* 상단 8px + 아이콘 50px + 하단 14px. iOS는 별도 override */
   --header-safe: env(safe-area-inset-top, 0px);
   --bottom-safe: env(safe-area-inset-bottom, 0px);
+  /* ActiveSessionBar(무전기·실시간위치) 가 보일 때만 자신의 실측 렌더 높이로 override 한다
+   * (ActiveSessionBar.tsx). 화면 하단 고정 CTA/스크롤 콘텐츠는 이 값을 자신의 bottom/
+   * padding-bottom 에 더해 그 바에 가리지 않게 비킨다 — F-N-01 FR-2. */
+  --session-bar-height: 0px;
 
   /*
    * --status-bar-height : 플랫폼별 상단 여백

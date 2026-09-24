@@ -799,14 +799,6 @@ function LocationCell({ cell }: { cell: LocationSessionCell }) {
   );
 }
 
-// HIDE_TABBAR_PATHS 중 탭바 자리를 "화면 자체의 고정 하단 CTA 바"로 대체해 쓰는 화면 —
-// 이 fixed 바가 bottom:0 으로 내려앉으면 그 CTA 바와 겹친다. 각 화면 .ctaBar 실제 높이
-// (패딩 + 버튼)만큼 위로 올려 앉힌다.
-const PAGE_BOTTOM_BAR_HEIGHTS: { prefix: string; height: string }[] = [
-  { prefix: '/biz/', height: 'calc(82px + env(safe-area-inset-bottom))' }, // BizPublic.module.css .ctaBar
-  { prefix: '/market/ad/', height: '102px' }, // AdDetail.module.css .ctaBar
-];
-
 interface ActiveSessionBarProps {
   /**
    * 'fixed'(기본) — App.tsx 전역 마운트, 화면 하단(탭바 위)에 고정. 채팅방(DmDetail)에서는
@@ -827,6 +819,7 @@ export function ActiveSessionBar({ variant = 'fixed' }: ActiveSessionBarProps) {
   const walkie = useWalkieSessionCell();
   const location = useLocationSessionCell();
   const sheetOpen = useSheetPresenceStore((s) => s.openCount > 0);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
 
   // fixed 인스턴스는 채팅방 화면(자체 inline 인스턴스가 대신 뜬다)이거나, BottomSheet 가
   // 열려 있는 화면(예: 프로필 더보기 시트)에서 숨는다 — 그렇지 않으면 z-index 상 시트
@@ -834,21 +827,44 @@ export function ActiveSessionBar({ variant = 'fixed' }: ActiveSessionBarProps) {
   const suppressed = variant === 'fixed' && (DM_DETAIL_PATH.test(pathname) || sheetOpen);
   // 탭바가 보이는 화면(AppShell.HIDE_TABBAR_PATHS 밖)에서는 탭바 위로 올라앉아야 한다 —
   // 그렇지 않으면 fixed 바가 탭바와 같은 자리(viewport bottom)에서 겹친다(버그: 채팅방 나가면
-  // 잘못된 위치에 고정).
+  // 잘못된 위치에 고정). 탭바가 없는 화면(예: 업체 상세의 CTA 바)에서는 이 바가 그대로
+  // 화면 최하단(bottom:0)에 앉고, 그 화면의 CTA 바가 `--session-bar-height` 를 읽어 위로
+  // 비켜준다(F-N-01 FR-2 r4 — 페이지별 하드코드 높이 allowlist 대신 전역 인셋 변수 하나로 통일).
   const aboveTabBar = variant === 'fixed' && !HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
-  // 탭바 자리를 화면 자체 CTA 바가 대신 쓰는 화면(예: 업체 상세)에서는 탭바가 아니라
-  // 그 CTA 바 위로 올라앉아야 한다 — 위 aboveTabBar=false 이분법이 놓치는 경우.
-  const pageBottomBar = variant === 'fixed'
-    ? PAGE_BOTTOM_BAR_HEIGHTS.find((entry) => pathname.startsWith(entry.prefix))
-    : undefined;
+  const visible = !suppressed && (walkie.active || location.active);
 
-  if (suppressed || (!walkie.active && !location.active)) return null;
+  // 실제 렌더 높이(safe-area 패딩 포함)를 `--session-bar-height` 로 게시 — 화면의 하단 고정
+  // CTA 바/스크롤 콘텐츠가 이 값을 더해 이 바에 가리지 않게 스스로 비킨다. fixed 인스턴스가
+  // 숨겨지거나 언마운트되면 0px 로 리셋한다. inline(DmDetail) 인스턴스는 in-flow 라
+  // 아래에 이 바를 피해야 할 별도 고정 요소가 없으므로 게시하지 않는다.
+  useLayoutEffect(() => {
+    if (variant !== 'fixed') return;
+    if (!visible) {
+      document.documentElement.style.setProperty('--session-bar-height', '0px');
+      return;
+    }
+    const el = wrapRef.current;
+    if (!el) return;
+    const publish = () => {
+      document.documentElement.style.setProperty('--session-bar-height', `${el.getBoundingClientRect().height}px`);
+    };
+    publish();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.setProperty('--session-bar-height', '0px');
+    };
+  }, [variant, visible]);
+
+  if (!visible) return null;
 
   return (
     <div
+      ref={variant === 'fixed' ? wrapRef : undefined}
       className={variant === 'fixed' ? styles.fixedWrap : styles.inlineWrap}
       data-above-tabbar={aboveTabBar || undefined}
-      style={pageBottomBar ? { bottom: pageBottomBar.height, paddingBottom: 0 } : undefined}
     >
       <div className={styles.bar}>
         {walkie.active && (

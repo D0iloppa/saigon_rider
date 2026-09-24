@@ -11,6 +11,8 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
+  /* 세션 바(무전기·실시간위치)가 떠 있으면 그 높이만큼 더 비킨다 (F-N-01 FR-2 r4). */
+  padding-bottom: calc(16px + var(--session-bar-height, 0px));
   display: flex;
   flex-direction: column;
   gap: 12px;

@@ -342,7 +342,8 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  /* 무전기·실시간위치 세션 바가 떠 있으면 그 높이만큼 위로 비킨다 (F-N-01 FR-2 r4). */
+  bottom: var(--session-bar-height, 0px);
   padding: 14px 18px 30px;
   background: linear-gradient(180deg, transparent 0%, var(--bg) 26%); /* --bg-rgb 유령 토큰 제거 — 다크모드 자동 대응 */
   z-index: 20;

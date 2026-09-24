@@ -28,11 +28,11 @@ test('BottomSheet reports its open state to the shared sheet presence store', ()
   assert.match(bottomSheetSource, /useSheetPresenceStore\.getState\(\)\.decrement\(\)/);
 });
 
-test('the fixed bar sits above a page-owned fixed bottom CTA bar instead of overlapping it', () => {
-  assert.match(source, /PAGE_BOTTOM_BAR_HEIGHTS/);
-  assert.match(source, /\{ prefix: '\/biz\/', height:/);
-  assert.match(source, /\{ prefix: '\/market\/ad\/', height:/);
-  assert.match(source, /pageBottomBar \? \{ bottom: pageBottomBar\.height, paddingBottom: 0 \} : undefined/);
+test('the fixed bar publishes its own rendered height as --session-bar-height instead of a per-page hardcoded allowlist (F-N-01 FR-2 r4)', () => {
+  assert.doesNotMatch(source, /PAGE_BOTTOM_BAR_HEIGHTS/);
+  assert.match(source, /document\.documentElement\.style\.setProperty\('--session-bar-height', `\$\{el\.getBoundingClientRect\(\)\.height\}px`\)/);
+  assert.match(source, /document\.documentElement\.style\.setProperty\('--session-bar-height', '0px'\)/);
+  assert.match(css, /bottom: calc\(var\(--tabbar-height, 72px\) \+ var\(--bottom-safe\)\)/);
 });
 
 test('the session bar follows the storyboard surface treatment rather than a dark floating pill', () => {

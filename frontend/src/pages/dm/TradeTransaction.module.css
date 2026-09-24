@@ -8,7 +8,8 @@
 .body {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 16px calc(28px + var(--bottom-safe));
+  /* 세션 바(무전기·실시간위치)가 떠 있으면 그 높이만큼 더 비킨다 (F-N-01 FR-2 r4). */
+  padding: 16px 16px calc(28px + var(--bottom-safe) + var(--session-bar-height, 0px));
 }
 
 .center {

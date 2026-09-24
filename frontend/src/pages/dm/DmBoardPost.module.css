@@ -5,6 +5,9 @@
   flex-direction: column;
   height: 100%;
   background: var(--bg);
+  /* .composer 는 fixed 가 아니라 in-flow(flex column 끝)라, 무전기·실시간위치 세션 바(fixed,
+   * bottom:0)가 그 위에 겹쳐 앉는다 — 바 높이만큼 컬럼 전체를 들어올려 비킨다 (F-N-01 FR-2 r4). */
+  padding-bottom: var(--session-bar-height, 0px);
 }
 
 .headerBtn {

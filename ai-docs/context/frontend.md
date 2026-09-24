@@ -171,6 +171,35 @@ padding-top: 50px;
 > - [ ] 고정 px 값으로 상단 여백을 직접 지정하지 않기
 > - [ ] `--status-bar-height` 변수 또는 `<StatusBar>` 컴포넌트를 통해 처리
 
+### 2.4 CSS 변수 — `--session-bar-height` (하단, 상단 `--status-bar-height`의 짝)
+
+무전기·실시간위치 진행 중 바(`ActiveSessionBar`, F-N-01 FR-2)가 화면 하단에 떠 있을 때 자신의 실측 렌더 높이(safe-area 패딩 포함)를 `ResizeObserver`로 재서 `:root`에 게시한다(`frontend/src/components/shell/ActiveSessionBar.tsx`). 숨겨지거나 언마운트되면 `0px`로 되돌아간다. 기본값(`tokens.css`)도 `0px`.
+
+**화면 하단에 고정(`position: fixed; bottom: 0`) 또는 사실상 고정(flex column 끝의 in-flow 액션 바/컴포저)된 요소를 새로 추가할 때는 반드시 `var(--session-bar-height, 0px)`를 더한다** — 세션 바가 없을 때는 `0px`라 무해하고, 있을 때는 그 위로 자동으로 비킨다.
+
+```css
+/* fixed 하단 CTA 바 */
+.ctaBar {
+  position: fixed;
+  bottom: var(--session-bar-height, 0px);
+}
+
+/* in-flow 액션 바(flex column 끝) — 컬럼 자체를 들어올린다 */
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--session-bar-height, 0px);
+}
+
+/* 스크롤 전용 페이지 — 스크롤 컨테이너의 기존 하단 패딩에 가산 */
+.scroll {
+  padding-bottom: calc(32px + var(--session-bar-height, 0px));
+}
+```
+
+페이지가 탭바 위(`aboveTabBar`)에서만 세션 바를 마주치고 자체 하단 고정 요소가 없다면(예: 홈 탭) 이 변수를 쓸 필요가 없다 — 탭바 자체는 `ActiveSessionBar`가 `var(--tabbar-height)`로 알아서 위로 비켜 앉는다.
+
 ---
 
 ## 3. 공통 UI 컴포넌트

@@ -2274,8 +2274,9 @@ export default function DmDetail() {
         </div>
       )}
 
-      {/* 하단 고정 "진행 중 바" (F-N-01 FR-2) — 채팅방에서는 입력창 바로 위 in-flow. */}
-      <ActiveSessionBar variant="inline" />
+      {/* 채팅방 안 "진행 중 바" (F-N-01 FR-2, 대표 판정 2026-09-24) — 이 방의 세션일 때만
+          입력창 바로 위 in-flow 로 뜬다. 다른 화면·다른 방에는 뜨지 않는다. */}
+      {conversationId && <ActiveSessionBar conversationId={conversationId} />}
 
       <MessageComposer
         ref={composerRef}

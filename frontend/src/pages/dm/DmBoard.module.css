@@ -78,8 +78,7 @@
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  /* 탭바 대신 쓰는 하단 여백(72px) + 세션 바가 떠 있으면 그 높이도 더 비킨다 (F-N-01 FR-2 r4). */
-  padding-bottom: calc(72px + var(--bottom-safe) + var(--session-bar-height, 0px));
+  padding-bottom: calc(72px + var(--bottom-safe));
 }
 
 /* ── 글 목록 ───────────────────────────────────────────────── */

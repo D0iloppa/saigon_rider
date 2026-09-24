@@ -64,8 +64,7 @@
 }
 
 .body {
-  /* 세션 바(무전기·실시간위치)가 떠 있으면 그 높이만큼 더 비킨다 (F-N-01 FR-2 r4). */
-  padding: 18px 20px calc(24px + var(--session-bar-height, 0px));
+  padding: 18px 20px 24px;
   display: flex;
   flex-direction: column;
 }

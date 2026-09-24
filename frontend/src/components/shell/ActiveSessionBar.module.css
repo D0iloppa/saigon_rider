@@ -1,38 +1,7 @@
-/* 하단 고정 "진행 중 바" (F-N-01 FR-2) — 무전기 캡슐·위치공유 버블을 대체.
- * 스토리보드 화면 샘플은 떠 있는 알약(pill) 칩이 아니라 화면 폭 전체를 잡는 "바"다 —
+/* 채팅방 안 "진행 중 바" (F-N-01 FR-2, 대표 판정 2026-09-24) — 무전기 캡슐·위치공유 버블을
+ * 대체해, 그 세션이 속한 DM 방의 입력창 바로 위에만 in-flow 로 뜬다(다른 화면엔 없음).
  * 배경·모서리는 .bar(바 전체) 하나에만 주고, .cell 은 그 안의 투명한 구획일 뿐이다. */
 
-.fixedWrap {
-  position: fixed;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: var(--app-max-width);
-  z-index: 55; /* 탭바(10)보다 위, 플로팅 다이얼로그류보다는 아래 */
-  /* 탭바 없는 화면(채팅방 등)에서만 이 바 자신이 홈 인디케이터 세이프에어리어를 확보한다.
-   * 탭바가 보이는 화면에서는 탭바가 이미 자기 몫의 세이프에어리어를 갖고 있으므로(TabBar.module.css
-   * height: 56px + bottom-safe), 여기서 또 더하면 탭바 위에 그만큼 빈 틈이 뜬다 — 아래 규칙으로 뺀다. */
-  padding-bottom: var(--bottom-safe);
-  box-sizing: border-box;
-  pointer-events: none;
-}
-
-/* 탭바가 보이는 화면(AppShell.HIDE_TABBAR_PATHS 밖)에서는 탭바(--tabbar-height + 홈 인디케이터
- * 세이프에어리어) 위로 올라앉는다 — TabBar 는 position: relative 로 뷰포트 최하단에 in-flow 로
- * 자리잡으므로, 이 바를 그냥 bottom: 0 에 두면 탭바와 같은 자리에서 겹친다. 탭바가 이미
- * 세이프에어리어를 갖고 있으니 이 바 쪽 padding-bottom 은 0으로 — 안 그러면 탭바 위에
- * 세이프에어리어만큼 빈 틈이 뜬다. */
-.fixedWrap[data-above-tabbar='true'] {
-  bottom: calc(var(--tabbar-height, 72px) + var(--bottom-safe));
-  padding-bottom: 0;
-}
-
-.fixedWrap .bar {
-  pointer-events: auto;
-}
-
-/* 채팅방(DmDetail) 인라인 인스턴스 — 입력창 바로 위, in-flow, 화면 폭 그대로. */
 .inlineWrap {
   flex-shrink: 0;
 }

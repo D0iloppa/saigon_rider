@@ -6,7 +6,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
 import { CancelReasonSheet } from '@/components/ui/CancelReasonSheet';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { ActiveSessionBar } from '@/components/shell/ActiveSessionBar';
+import { SessionCellsProvider } from '@/components/shell/ActiveSessionBar';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { preloadRideMapStyle } from '@/lib/rideMapPreload';
@@ -568,9 +568,9 @@ export default function App() {
       <Dialog />
       <ConfirmDialog />
       <CancelReasonSheet />
-      {/* 하단 고정 "진행 중 바" (F-N-01 FR-2) — 무전기·위치공유 세션을 화면 하단(탭바 위)에 고정
-          표시한다(채팅방 화면에서는 대신 DmDetail 이 입력창 위에 자체 인스턴스를 렌더). */}
-      <ActiveSessionBar />
+      {/* 무전기·위치공유 세션 런타임 — 화면과 무관하게 유지된다. 보이는 바는 그 세션이 속한
+          채팅방 안에서만 DmDetail 이 입력창 위에 그린다(F-N-01 FR-2, 대표 판정 2026-09-24). */}
+      <SessionCellsProvider>
       <AppShell
         isAuthenticated={!!user}
         splashVisible={splashVisible}
@@ -729,6 +729,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </BackgroundRoutes>}
       </AppShell>
+      </SessionCellsProvider>
     </BrowserRouter>
   );
 }

@@ -12,27 +12,35 @@ test('the walkie session bar labels only live presence, never total conversation
   assert.match(source, /walkieTalkie\.presenceUnavailable/);
 });
 
-test('the fixed bar hides whenever any BottomSheet is open, not only on the DM detail route', () => {
-  assert.match(source, /import \{ useSheetPresenceStore \} from '@\/store\/useSheetPresenceStore';/);
-  assert.match(source, /const sheetOpen = useSheetPresenceStore\(\(s\) => s\.openCount > 0\)/);
-  assert.match(source, /DM_DETAIL_PATH\.test\(pathname\) \|\| sheetOpen/);
+// F-N-01 FR-2 (대표 판정 2026-09-24) — 전역 고정 바를 폐기하고, 세션이 속한 DM 방 안에서만
+// in-flow 로 보인다. 세션 로직(join/하트비트/수신음성 재생)은 화면과 무관하게 유지되도록
+// SessionCellsProvider 로 분리했다.
+test('there is no globally fixed session bar — ActiveSessionBar only renders room-scoped inline UI', () => {
+  assert.doesNotMatch(source, /fixedWrap/);
+  assert.doesNotMatch(source, /variant === 'fixed'/);
+  assert.doesNotMatch(source, /HIDE_TABBAR_PATHS/);
+  assert.doesNotMatch(css, /\.fixedWrap/);
+  assert.match(source, /export function ActiveSessionBar\(\{ conversationId \}: ActiveSessionBarProps\)/);
 });
 
-test('BottomSheet reports its open state to the shared sheet presence store', () => {
-  const bottomSheetSource = readFileSync(
-    new URL('../ui/BottomSheet.tsx', import.meta.url),
-    'utf8',
-  );
-  assert.match(bottomSheetSource, /import \{ useSheetPresenceStore \} from '@\/store\/useSheetPresenceStore';/);
-  assert.match(bottomSheetSource, /useSheetPresenceStore\.getState\(\)\.increment\(\)/);
-  assert.match(bottomSheetSource, /useSheetPresenceStore\.getState\(\)\.decrement\(\)/);
+test('the bar only shows when the session belongs to the room it is rendered in', () => {
+  assert.match(source, /const walkieHere = walkie\.active && walkie\.conversationId === conversationId/);
+  assert.match(source, /const locationHere = location\.active && location\.conversationId === conversationId/);
+  assert.match(source, /if \(!walkieHere && !locationHere\) return null/);
 });
 
-test('the fixed bar publishes its own rendered height as --session-bar-height instead of a per-page hardcoded allowlist (F-N-01 FR-2 r4)', () => {
-  assert.doesNotMatch(source, /PAGE_BOTTOM_BAR_HEIGHTS/);
-  assert.match(source, /document\.documentElement\.style\.setProperty\('--session-bar-height', `\$\{el\.getBoundingClientRect\(\)\.height\}px`\)/);
-  assert.match(source, /document\.documentElement\.style\.setProperty\('--session-bar-height', '0px'\)/);
-  assert.match(css, /bottom: calc\(var\(--tabbar-height, 72px\) \+ var\(--bottom-safe\)\)/);
+test('the session runtime (join/heartbeat/voice playback) is mounted app-wide, decoupled from the visible bar', () => {
+  assert.match(source, /export function SessionCellsProvider\(\{ children \}: \{ children: ReactNode \}\)/);
+  assert.match(source, /<audio ref=\{walkie\.audioRef\} onEnded=\{walkie\.handlePlaybackEnded\} \/>/);
+  const appSource = readFileSync(new URL('../../App.tsx', import.meta.url), 'utf8');
+  assert.match(appSource, /import \{ SessionCellsProvider \} from '@\/components\/shell\/ActiveSessionBar';/);
+  assert.match(appSource, /<SessionCellsProvider>/);
+  assert.doesNotMatch(appSource, /<ActiveSessionBar \/>/);
+});
+
+test('DmDetail renders the bar scoped to its own route conversationId', () => {
+  const dmDetailSource = readFileSync(new URL('../../pages/dm/DmDetail.tsx', import.meta.url), 'utf8');
+  assert.match(dmDetailSource, /<ActiveSessionBar conversationId=\{conversationId\} \/>/);
 });
 
 test('the session bar follows the storyboard surface treatment rather than a dark floating pill', () => {

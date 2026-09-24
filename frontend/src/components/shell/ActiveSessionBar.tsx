@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Mic, Square, X, MapPinned, Radio, Users } from 'lucide-react';
-import { HIDE_TABBAR_PATHS } from '@/components/layout/AppShell';
 import { native, type WalkieTalkieCapability } from '@/lib/native';
 import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
 import { VoiceQueue, type WalkiePresence } from '@d-modules/walkie-talkie';
@@ -22,7 +21,6 @@ import { useLiveLocationChannelRuntime } from '@/components/location/useLiveLoca
 import { LiveLocationModal } from '@/components/location/LiveLocationModal';
 import { leaveLocationChannel } from '@/api/locationChannel';
 import { useConfirmStore } from '@/store/useConfirmStore';
-import { useSheetPresenceStore } from '@/store/useSheetPresenceStore';
 import { toast } from '@/components/ui/Toast';
 import { playSound } from '@/lib/sound';
 import styles from './ActiveSessionBar.module.css';
@@ -30,9 +28,6 @@ import styles from './ActiveSessionBar.module.css';
 // 'playing' — 수신 음성메시지 자동재생 중. 재생 완료까지는 송신(PTT)을 잠근다(반이중 에티켓).
 type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'uploading' | 'playing';
 
-// 채팅방(DmDetail) 라우트 패턴 — 이 화면에서는 App.tsx 전역 인스턴스를 숨기고 DmDetail 이
-// 입력창 바로 위에 자체 인스턴스를 렌더한다(F-N-01 FR-2 "채팅방: 입력창 위").
-const DM_DETAIL_PATH = /^\/dm\/[^/]+$/;
 const PRESENCE_HEARTBEAT_MS = 15000;
 
 /**
@@ -538,7 +533,7 @@ function useLocationSessionCell() {
     );
   }, [confirmOpen, conversationId, clear, t]);
 
-  return { active: !!conversationId, activeCount, openModal, requestClose };
+  return { active: !!conversationId, conversationId, activeCount, openModal, requestClose };
 }
 
 type LocationSessionCell = ReturnType<typeof useLocationSessionCell>;
@@ -708,8 +703,6 @@ function WalkieCell({ cell, onOpenChat }: { cell: WalkieSessionCell; onOpenChat:
         <X size={13} strokeWidth={2.5} />
       </button>
 
-      <audio ref={cell.audioRef} onEnded={cell.handlePlaybackEnded} />
-
       <WalkieTalkieConsentModal
         open={cell.consentOpen}
         onConsent={cell.handleConsentAgree}
@@ -799,83 +792,71 @@ function LocationCell({ cell }: { cell: LocationSessionCell }) {
   );
 }
 
+interface SessionCellsContextValue {
+  walkie: WalkieSessionCell;
+  location: LocationSessionCell;
+}
+
+const SessionCellsContext = createContext<SessionCellsContextValue | null>(null);
+
+/**
+ * 세션 런타임(F-N-01 FR-2, 대표 판정 2026-09-24) — 무전기 채널 join/하트비트/수신 음성
+ * 자동재생, 실시간 위치공유 SSE 를 **현재 화면과 무관하게** 계속 유지한다. `App.tsx` 에
+ * 항상(라우트 불문) 1개만 마운트한다 — 채팅방 안팎을 오가도 세션이 끊기지 않아야 하기
+ * 때문에, 보이는 바 UI(`ActiveSessionBar`, DmDetail 전용)와 세션 로직을 분리했다.
+ * 수신 음성 재생용 `<audio>` 는 여기서 항상 렌더한다(바 UI 가시성과 무관하게 재생돼야 함).
+ */
+export function SessionCellsProvider({ children }: { children: ReactNode }) {
+  const walkie = useWalkieSessionCell();
+  const location = useLocationSessionCell();
+
+  return (
+    <SessionCellsContext.Provider value={{ walkie, location }}>
+      {children}
+      <audio ref={walkie.audioRef} onEnded={walkie.handlePlaybackEnded} />
+      {location.active && <LiveLocationModal />}
+    </SessionCellsContext.Provider>
+  );
+}
+
+function useSessionCells() {
+  const ctx = useContext(SessionCellsContext);
+  if (!ctx) throw new Error('ActiveSessionBar must be rendered inside SessionCellsProvider');
+  return ctx;
+}
+
 interface ActiveSessionBarProps {
-  /**
-   * 'fixed'(기본) — App.tsx 전역 마운트, 화면 하단(탭바 위)에 고정. 채팅방(DmDetail)에서는
-   * 렌더하지 않는다(그 화면은 'inline' 인스턴스가 입력창 위에 대신 뜬다).
-   * 'inline' — DmDetail 이 입력창 바로 위에 in-flow 로 렌더할 때 사용.
-   */
-  variant?: 'fixed' | 'inline';
+  /** 이 바를 그리는 채팅방의 대화 ID — 세션이 **이 방의 것일 때만** 보인다. 다른 방이거나
+   * 방 밖(매물 상세·홈 등)이면 렌더하지 않는다(대표 판정 2026-09-24, 이전 하단 고정 바 폐기). */
+  conversationId: string;
 }
 
 /**
- * 하단 고정 "진행 중 바" (F-N-01 FR-2) — 무전기·위치공유 세션을 떠다니는 캡슐/버블 대신
- * 화면 하단 한 줄에 고정 표시한다. 드래그·자동 펼침·더블탭 없음: 바 탭=대화방 이동,
- * 롱프레스 또는 우측 X=확인 후 닫기.
+ * 채팅방 안 "진행 중 바" (F-N-01 FR-2, 대표 판정 2026-09-24) — 무전기·위치공유 세션을 그
+ * 세션이 속한 DM 방의 입력창 바로 위에만 in-flow 로 표시한다. 다른 화면(매물 상세·홈 등)에는
+ * 전역 고정 바를 두지 않는다 — 방을 나가도 세션 자체는 `SessionCellsProvider` 가 유지한다.
+ * 드래그·자동 펼침·더블탭 없음: 바 탭=대화방 이동, 롱프레스 또는 우측 X=확인 후 닫기.
  */
-export function ActiveSessionBar({ variant = 'fixed' }: ActiveSessionBarProps) {
-  const { pathname } = useLocation();
+export function ActiveSessionBar({ conversationId }: ActiveSessionBarProps) {
   const navigate = useNavigate();
-  const walkie = useWalkieSessionCell();
-  const location = useLocationSessionCell();
-  const sheetOpen = useSheetPresenceStore((s) => s.openCount > 0);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const { walkie, location } = useSessionCells();
 
-  // fixed 인스턴스는 채팅방 화면(자체 inline 인스턴스가 대신 뜬다)이거나, BottomSheet 가
-  // 열려 있는 화면(예: 프로필 더보기 시트)에서 숨는다 — 그렇지 않으면 z-index 상 시트
-  // 콘텐츠 사이에 이 전역 바가 끼어들어 시트 항목처럼 겹쳐 보인다.
-  const suppressed = variant === 'fixed' && (DM_DETAIL_PATH.test(pathname) || sheetOpen);
-  // 탭바가 보이는 화면(AppShell.HIDE_TABBAR_PATHS 밖)에서는 탭바 위로 올라앉아야 한다 —
-  // 그렇지 않으면 fixed 바가 탭바와 같은 자리(viewport bottom)에서 겹친다(버그: 채팅방 나가면
-  // 잘못된 위치에 고정). 탭바가 없는 화면(예: 업체 상세의 CTA 바)에서는 이 바가 그대로
-  // 화면 최하단(bottom:0)에 앉고, 그 화면의 CTA 바가 `--session-bar-height` 를 읽어 위로
-  // 비켜준다(F-N-01 FR-2 r4 — 페이지별 하드코드 높이 allowlist 대신 전역 인셋 변수 하나로 통일).
-  const aboveTabBar = variant === 'fixed' && !HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
-  const visible = !suppressed && (walkie.active || location.active);
+  const walkieHere = walkie.active && walkie.conversationId === conversationId;
+  const locationHere = location.active && location.conversationId === conversationId;
 
-  // 실제 렌더 높이(safe-area 패딩 포함)를 `--session-bar-height` 로 게시 — 화면의 하단 고정
-  // CTA 바/스크롤 콘텐츠가 이 값을 더해 이 바에 가리지 않게 스스로 비킨다. fixed 인스턴스가
-  // 숨겨지거나 언마운트되면 0px 로 리셋한다. inline(DmDetail) 인스턴스는 in-flow 라
-  // 아래에 이 바를 피해야 할 별도 고정 요소가 없으므로 게시하지 않는다.
-  useLayoutEffect(() => {
-    if (variant !== 'fixed') return;
-    if (!visible) {
-      document.documentElement.style.setProperty('--session-bar-height', '0px');
-      return;
-    }
-    const el = wrapRef.current;
-    if (!el) return;
-    const publish = () => {
-      document.documentElement.style.setProperty('--session-bar-height', `${el.getBoundingClientRect().height}px`);
-    };
-    publish();
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(publish);
-    ro.observe(el);
-    return () => {
-      ro.disconnect();
-      document.documentElement.style.setProperty('--session-bar-height', '0px');
-    };
-  }, [variant, visible]);
-
-  if (!visible) return null;
+  if (!walkieHere && !locationHere) return null;
 
   return (
-    <div
-      ref={variant === 'fixed' ? wrapRef : undefined}
-      className={variant === 'fixed' ? styles.fixedWrap : styles.inlineWrap}
-      data-above-tabbar={aboveTabBar || undefined}
-    >
+    <div className={styles.inlineWrap}>
       <div className={styles.bar}>
-        {walkie.active && (
+        {walkieHere && (
           <WalkieCell
             cell={walkie}
             onOpenChat={() => walkie.conversationId && navigate(`/dm/${walkie.conversationId}`)}
           />
         )}
-        {location.active && <LocationCell cell={location} />}
+        {locationHere && <LocationCell cell={location} />}
       </div>
-      {location.active && <LiveLocationModal />}
     </div>
   );
 }

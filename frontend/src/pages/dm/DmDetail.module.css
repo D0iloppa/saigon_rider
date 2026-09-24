@@ -10,6 +10,12 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
+}
+
+/* 콘텐츠 래퍼 — DmDetail.tsx 의 콘텐츠 growth 전용 ResizeObserver 타깃(contentRef).
+ * 실제 flex 레이아웃(기존 .messages 의 것)은 여기로 옮겼다 — .messages 는 순수 스크롤
+ * 뷰포트로만 쓴다. */
+.messagesInner {
   display: flex;
   flex-direction: column;
   gap: 8px;

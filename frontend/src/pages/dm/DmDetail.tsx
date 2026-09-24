@@ -225,6 +225,7 @@ export default function DmDetail() {
   const [pinPreview, setPinPreview] = useState<{ lat: number; lng: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<MessageComposerHandle>(null);
   const otherName = conv?.otherUserNickname ?? locationState?.conv?.otherUserNickname ?? t('dm.detailTitle');
@@ -544,7 +545,12 @@ export default function DmDetail() {
     const ro = new ResizeObserver(() => {
       if (pinnedRef.current) el.scrollTop = el.scrollHeight;
     });
+    // listRef(뷰포트 자신) 는 인라인 세션 바/탭바 등 형제 요소가 바뀌어 뷰포트 자체 박스가
+    // 줄어드는 경우를 잡는다. contentRef(콘텐츠 래퍼) 는 음성 버블 파형·이미지처럼 메시지
+    // 배열 변경 없이 내부 콘텐츠 높이만 늘어나 scrollHeight 만 커지는 경우를 잡는다 — 전자만
+    // 관찰하면 후자는 뷰포트 박스 자체가 그대로라 콜백이 아예 안 불린다.
     ro.observe(el);
+    if (contentRef.current) ro.observe(contentRef.current);
     return () => ro.disconnect();
   }, []);
 
@@ -1613,6 +1619,11 @@ export default function DmDetail() {
           if (el.scrollTop < 60 && !loading) void loadOlder();
         }}
       >
+        {/* .messages(스크롤 뷰포트)와 별도로 이 콘텐츠 래퍼를 둔다 — 음성 버블 파형/이미지
+            로드처럼 메시지 배열(messages/voiceItems) 변경 없이 내부 콘텐츠 높이만 늘어나는
+            경우, listRef(뷰포트 자신의 박스)를 보는 ResizeObserver는 반응하지 않는다(뷰포트
+            자신의 크기가 아니라 scrollHeight만 커지므로). contentRef 를 함께 관찰해 그 growth 도 잡는다. */}
+        <div ref={contentRef} className={styles.messagesInner}>
         {loading ? (
           <p className={styles.loadingText}>{t('common.loading')}</p>
         ) : loadError ? (
@@ -2235,6 +2246,7 @@ export default function DmDetail() {
             </Fragment>
           );
         })}
+        </div>
       </div>
 
       {/* 답장 작성 중 인용 프리뷰 바 — 입력창 바로 위 */}

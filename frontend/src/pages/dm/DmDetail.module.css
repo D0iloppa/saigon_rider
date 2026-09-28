@@ -254,6 +254,75 @@
   border-bottom: 1px solid var(--line);
 }
 
+/* "외 N건" 토글 + in-flow 아코디언 (F-DM-02, 260928 실기기 피드백) */
+.listingBarToggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--brand-50);
+  white-space: nowrap;
+}
+
+.listingBarChevronOpen {
+  transform: rotate(180deg);
+}
+
+.listingAccordion {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.listingAccordionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.listingAccordionMain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.listingStageBadge {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--brand-50);
+  color: var(--brand-500);
+}
+
+.listingStageBadge[data-stage='reserved'] {
+  background: var(--line);
+  color: var(--text-3);
+}
+
+.listingSendCardBtn {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--brand-500);
+  color: #fff;
+  white-space: nowrap;
+}
+
 .contextThumb {
   width: 44px;
   height: 44px;

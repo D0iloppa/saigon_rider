@@ -247,6 +247,19 @@ export interface DmConversation {
   blockedByMe: boolean;
 }
 
+/** F-DM-02(260928) — 상단 매물바 아코디언 1행. */
+export interface DmConversationListingItem {
+  id: string;
+  title: string;
+  priceVnd: number;
+  thumbnailUrl: string | null;
+  status: string;
+  /** 'IN_PROGRESS'(이 대화에서 ACCEPTED 약속 존재) | 'INQUIRY' */
+  stage: 'IN_PROGRESS' | 'INQUIRY';
+  reservedByOther: boolean;
+  linkedAt: string;
+}
+
 export interface DmNotice {
   messageId: string;
   content: string | null;
@@ -320,6 +333,13 @@ export interface DmAppointmentMeta {
   setByName?: string;
   /** kind === 'listing_divider' 일 때 구분자에 표시할 매물 제목. */
   listingTitle?: string;
+  /** message_type === 'card' 일 때 카드 종류 — 'item'(매물) | 'walkie'(워키토키 초대, 렌더 통합용). */
+  subtype?: 'item' | 'walkie';
+  /** subtype === 'item' 일 때 매물 id/제목/가격/썸네일 스냅샷(서버가 전송 시점에 재조회해 채움). */
+  listingId?: string;
+  title?: string;
+  priceVnd?: number;
+  thumbnailUrl?: string | null;
 }
 
 export type AppointmentStatus = 'PROPOSED' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';

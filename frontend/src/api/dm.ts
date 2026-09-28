@@ -5,6 +5,7 @@ import type {
   AppointmentCancelReason,
   DmAppointmentMeta,
   DmConversation,
+  DmConversationListingItem,
   DmMessage,
   DmReadWatermark,
   DmReaction,
@@ -219,6 +220,22 @@ export async function fetchConversation(conversationId: string): Promise<DmConve
   return transformConversation(raw);
 }
 
+/** F-DM-02(260928) — 방에 얽힌 매물 목록(상단 매물바 아코디언). 거래중 → 문의중 순. */
+export async function fetchConversationListings(conversationId: string): Promise<DmConversationListingItem[]> {
+  requireSession();
+  const raw = await api.realFetch<any[]>(`/dm/conversations/${conversationId}/listings`);
+  return raw.map((item) => ({
+    id: item.id,
+    title: item.title,
+    priceVnd: item.price_vnd,
+    thumbnailUrl: item.thumbnail_url ?? null,
+    status: item.status,
+    stage: item.stage,
+    reservedByOther: item.reserved_by_other ?? false,
+    linkedAt: item.linked_at,
+  }));
+}
+
 /**
  * 메시지 목록/증분 동기화.
  * `after` 는 **updated_at 워터마크** — 신규뿐 아니라 수정/삭제/공감변경된 메시지가 전부
@@ -297,6 +314,11 @@ export async function sendMessage(
     }),
   }, 'bff', { rethrow: true });
   return transformMessage(raw);
+}
+
+/** F-DM-02(260928) — [카드 보내기]. 서버가 매물을 다시 조회해 스냅샷을 만들므로 title/price 는 보내지 않는다. */
+export async function sendListingCard(conversationId: string, listingId: string): Promise<DmMessage> {
+  return sendMessage(conversationId, '', { messageType: 'card', meta: { subtype: 'item', listingId } });
 }
 
 /** 본인 텍스트 메시지 수정 — 수정본에는 editedAt 이 찍힌다. */
@@ -395,6 +417,8 @@ export interface ProposeAppointmentInput {
   placeName?: string | null;
   placeLat?: number | null;
   placeLng?: number | null;
+  /** F-DM-02(260928) — 방 상단에서 선택한 대표 매물. 생략 시 서버가 최근 문의 매물로 폴백. */
+  listingId?: string | null;
 }
 
 /** 약속 제안. 채팅 타임라인용 appointment 메시지를 반환한다. */
@@ -411,6 +435,7 @@ export async function proposeAppointment(
       place_name: input.placeName ?? null,
       place_lat: input.placeLat ?? null,
       place_lng: input.placeLng ?? null,
+      listing_id: input.listingId ?? null,
     }),
   });
   return transformMessage(raw);

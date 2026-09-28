@@ -1,0 +1,71 @@
+/* F-DM-02(260928) — 알림톡풍 제네릭 카드 (매물 카드 / 워키토키 초대 공용 셸) */
+.card {
+  max-width: 75%;
+  min-width: 210px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+}
+
+.cardMine {
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.cardTheirs {
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.cardHeader {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--brand-500);
+}
+
+.cardContent {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cardSubtitle {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.cardDivider {
+  height: 1px;
+  background: var(--line);
+  margin: 2px 0;
+}
+
+.cardBody {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.cardButtonSlot {
+  margin-top: 4px;
+}
+
+.cardTime {
+  align-self: flex-end;
+  font-size: 11px;
+  color: var(--text-3);
+  margin: 4px 4px 0 0;
+}

@@ -957,6 +957,8 @@ body {
 .roleTag { padding: 1px 6px; border-radius: 5px; background: var(--surface-2); font-size: 11px; font-weight: 700; color: var(--text-2); }
 /* 실기기 피드백 반영(260928): 완료 외 진행중(ACCEPTED) 거래도 섞이므로 단계 배지가 필요하다. */
 .stageTag { padding: 1px 6px; border-radius: 5px; background: #fff3cd; font-size: 11px; font-weight: 700; color: #b8860b; }
+/* 실기기 피드백 3차(260928): 판매중 매물도 판매 이력에 포함(당근 판매내역 모델) — 3번째 배지 색 */
+.stageTagOnSale { background: #e6f7ee; color: #1f9d55; }
 </style>
 </head>
 <body>
@@ -989,8 +991,18 @@ body {
       </div>
       <div class="sectionHead" style="padding-left:0;padding-right:0">
         <span class="sectionLabel">거래 이력</span>
-        <span class="sectionAside num">8건</span>
+        <span class="sectionAside num">9건</span>
       </div>
+      <!-- 실기기 피드백 3차(260928): 내 ON_SALE 매물 — 판매중 배지, 상단 고정, 상대·일자 없음(TradeRow 판매중 행 그대로) -->
+      <article class="histRow">
+        <span class="histThumb ph ph--gear"></span>
+        <div class="histBody">
+          <span class="histTitle">Winner X 튜닝 배기 머플러 미개봉</span>
+          <span class="histMeta"><span class="roleTag">판매</span><span class="stageTag stageTagOnSale">판매중</span></span>
+          <span class="histPrice num">1.200.000 đ</span>
+        </div>
+        <div class="histAside"></div>
+      </article>
       <article class="histRow">
         <span class="histThumb ph ph--moto"></span>
         <div class="histBody">

@@ -671,6 +671,7 @@
     "tradeSold": "Sold",
     "tradeBought": "Bought",
     "tradeStageInProgress": "In progress",
+    "tradeStageOnSale": "On sale",
     "tradeStageCompleted": "Completed",
     "reviewDone": "Reviewed",
     "leaveReview": "Leave review",

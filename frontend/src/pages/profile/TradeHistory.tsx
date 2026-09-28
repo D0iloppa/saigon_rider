@@ -7,7 +7,7 @@ import TradeRow from '@/components/market/TradeRow';
 import ReviewSheet from '@/components/market/ReviewSheet';
 import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
-import { fetchTrades, type TradeHistory as Trade } from '@/api/market';
+import { fetchTrades, fetchListings, listingToTradeRow, type TradeHistory as Trade } from '@/api/market';
 import { useUserStore } from '@/store/useUserStore';
 import sys from '@/styles/system.module.css';
 import styles from './TradeHistory.module.css';
@@ -52,11 +52,25 @@ export default function TradeHistory() {
     load();
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 260928 실기기 피드백 3차: 판매 이력에 판매중 매물도 포함(당근 판매내역 모델).
+  // 예약중(RESERVED)은 이미 trades 의 IN_PROGRESS 행으로 노출되므로 여기선 ON_SALE 만 가져온다.
+  const [onSaleListings, setOnSaleListings] = useState<Trade[]>([]);
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchListings({ sellerId: user.id, hideSold: false, size: 20 })
+      .then((page) => {
+        setOnSaleListings(page.items.filter((l) => l.status === 'ON_SALE').map(listingToTradeRow));
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
   const visibleTrades = useMemo(() => {
     const filtered = roleFilter === 'all' ? trades : trades.filter((tr) => tr.role === roleFilter);
     // 백엔드가 이미 최신순(updated_at desc)으로 내려주므로 오래된순은 뒤집기만 하면 된다.
-    return sortOrder === 'recent' ? filtered : [...filtered].reverse();
-  }, [trades, roleFilter, sortOrder]);
+    const sorted = sortOrder === 'recent' ? filtered : [...filtered].reverse();
+    // 판매중 매물은 정렬 토글 대상이 아니고 항상 최상단 고정.
+    return roleFilter === 'bought' ? sorted : [...onSaleListings, ...sorted];
+  }, [trades, roleFilter, sortOrder, onSaleListings]);
 
   return (
     <div className={styles.page}>

@@ -75,6 +75,7 @@
   color: var(--text-3);
 }
 .stageBadge[data-stage="IN_PROGRESS"] { background: #fff3cd; color: #b8860b; }
+.stageBadge[data-stage="ON_SALE"] { background: #e6f7ee; color: #1f9d55; }
 .title {
   font-size: 14px;
   font-weight: 600;

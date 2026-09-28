@@ -12,7 +12,7 @@ import {
 import { useUserStore } from '@/store/useUserStore';
 import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
 import { useDmStore } from '@/store/useDmStore';
-import { fetchTrades, fetchListings, type TradeHistory, type ListingCard as Listing } from '@/api/market';
+import { fetchTrades, fetchListings, listingToTradeRow, type TradeHistory, type ListingCard as Listing } from '@/api/market';
 import ReviewSheet from '@/components/market/ReviewSheet';
 import TradeRow from '@/components/market/TradeRow';
 import { SkillTree } from './SkillTree';
@@ -338,6 +338,12 @@ export default function ProfileMain() {
   // user이 User로 narrowing된 이후 캡처 → async 클로저에서도 타입 안전
   const u = user;
   const { needed, progress } = expToNextLevel(u.levelExp, u.level);
+
+  // 260928 실기기 피드백 3차: 판매 이력에 판매중 매물도 포함(당근 판매내역 모델).
+  // 예약중(RESERVED)은 이미 trades 의 IN_PROGRESS 행으로 노출되므로 판매 탭에서만, ON_SALE 만 더한다.
+  const onSaleTradeRows = tradeTab === 'sold'
+    ? (sellingListings ?? []).filter((l) => l.status === 'ON_SALE').map(listingToTradeRow)
+    : [];
 
 
   return (
@@ -690,7 +696,7 @@ export default function ProfileMain() {
         <div className={styles.tradeSection}>
           <div className={styles.tradeHeader}>
             <h3 className={styles.tradeSectionTitle}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</h3>
-            {trades.some((tr) => tr.role === tradeTab) && (
+            {(trades.some((tr) => tr.role === tradeTab) || onSaleTradeRows.length > 0) && (
               <button
                 type="button"
                 className={styles.tradeMore}
@@ -726,14 +732,15 @@ export default function ProfileMain() {
             />
           ) : (() => {
             const filtered = trades.filter((tr) => tr.role === tradeTab);
-            return filtered.length === 0 ? (
+            const combined = [...onSaleTradeRows, ...filtered];
+            return combined.length === 0 ? (
               <p className={styles.tradeEmpty}>
                 {tradeTab === 'bought'
                   ? t('profile.noTradesBought')
                   : t('profile.noTradesSold')}
               </p>
             ) : (
-              filtered.slice(0, 3).map((tr) => (
+              combined.slice(0, 3).map((tr) => (
                 <TradeRow
                   key={tr.appointmentId}
                   trade={tr}

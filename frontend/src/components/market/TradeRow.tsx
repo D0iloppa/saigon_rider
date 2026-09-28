@@ -37,6 +37,8 @@ export default function TradeRow({ trade: tr, onOpen, onReview, variant = 'card'
             <span className={styles.stageBadge} data-stage={tr.stage}>
               {tr.stage === 'COMPLETED'
                 ? t('profile.tradeStageCompleted', { defaultValue: '거래완료' })
+                : tr.stage === 'ON_SALE'
+                ? t('profile.tradeStageOnSale', { defaultValue: '판매중' })
                 : t('profile.tradeStageInProgress', { defaultValue: '거래중' })}
             </span>
             <span className={styles.title}>{tr.listingTitle}</span>

@@ -1008,6 +1008,10 @@ body {
 .tradeTitleRow{display:flex;align-items:center;gap:6px;min-width:0;}
 .roleBadge{flex-shrink:0;padding:2px 7px;border-radius:6px;background:var(--surface-2);color:var(--text-2);font-size:10.5px;font-weight:700;}
 .roleBadgeSold{background:var(--brand-50);color:var(--brand-700);}
+/* 실기기 피드백 3차(260928): 판매중 매물도 판매 이력에 포함(당근 판매내역 모델) — 3종 배지 */
+.stageBadge{flex-shrink:0;padding:2px 7px;border-radius:6px;background:var(--surface-2);color:var(--text-3);font-size:10.5px;font-weight:700;}
+.stageBadgeInProgress{background:#fff3cd;color:#b8860b;}
+.stageBadgeOnSale{background:#e6f7ee;color:#1f9d55;}
 .tradeTitle{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tradeMeta{font-size:11.5px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .myReview{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:var(--text-3);}
@@ -1081,33 +1085,32 @@ body {
       <button class="entryRow" type="button"><span class="entryIcon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2.5 12.5V2h10.5l8.09 8.09a2 2 0 0 1 0 2.82"/><circle cx="7.5" cy="7.5" r="1"/></svg></span><span class="entryLabel">내 매물<span class="entrySub">판매 중 2 · 예약 중 1</span></span><span class="verifyChevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span></button>
       <button class="entryRow" type="button"><span class="entryIcon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></span><span class="entryLabel">다른 사람에게 보이는 내 프로필</span><span class="verifyChevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span></button>
       <button class="entryRow" type="button"><span class="entryIcon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></svg></span><span class="entryLabel">비즈니스 파트너 시작하기</span><span class="verifyChevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span></button>
-      <!-- 실기기 피드백 2차(260928): 거래 이력은 [구매|판매] 2탭·구매 우선으로 복원 —
-           이전 260928 1차의 [판매 중|구매|판매 완료] 3탭 통합안은 폐기(내 매물이 위 독립 행으로 분리됐으므로). -->
+      <!-- 실기기 피드백 3차(260928): [구매|판매] 2탭은 유지하되, 판매 탭에 내 ON_SALE 매물도 함께
+           노출(당근 판매내역 모델) — 판매중 배지, 상단 고정. RESERVED는 거래중 행으로만 노출(중복 방지). -->
       <div class="tradeSection">
         <div class="tradeHeader"><h3 class="tradeSectionTitle">거래 이력</h3><span class="tradeMore">전체 보기<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span></div>
-        <div class="tradeSubTabRow"><span class="tradeSubTab tradeSubTabActive">구매</span><span class="tradeSubTab">판매</span></div>
+        <div class="tradeSubTabRow"><span class="tradeSubTab">구매</span><span class="tradeSubTab tradeSubTabActive">판매</span></div>
+        <div class="tradeRow">
+          <span class="tradeThumb ph ph--gear"></span>
+          <span class="tradeInfo">
+            <span class="tradeTitleRow"><span class="roleBadge roleBadgeSold">판매</span><span class="stageBadge stageBadgeOnSale">판매중</span><span class="tradeTitle">Winner X 튜닝 배기 머플러 미개봉</span></span>
+            <span class="tradeMeta num">1.200.000 đ</span>
+          </span>
+        </div>
         <div class="tradeRow">
           <span class="tradeThumb ph ph--moto"></span>
           <span class="tradeInfo">
-            <span class="tradeTitleRow"><span class="roleBadge">구매</span><span class="tradeTitle">Honda Vision 2021 8천km</span></span>
-            <span class="tradeMeta num">28.500.000 đ · Minh Anh · 2026.09.14</span>
+            <span class="tradeTitleRow"><span class="roleBadge roleBadgeSold">판매</span><span class="stageBadge stageBadgeInProgress">거래중</span><span class="tradeTitle">Yamaha Sirius 2019 서류 완비</span></span>
+            <span class="tradeMeta num">15.900.000 đ · Bảo Trân</span>
           </span>
-          <button class="reviewBtn" type="button">후기 남기기</button>
         </div>
         <div class="tradeRow">
           <span class="tradeThumb ph ph--helmet"></span>
           <span class="tradeInfo">
-            <span class="tradeTitleRow"><span class="roleBadge">구매</span><span class="tradeTitle">AGV 헬멧 M 사이즈</span></span>
-            <span class="tradeMeta num">1.900.000 đ · Quang Duy · 2026.08.30</span>
-            <span class="myReview"><span class="myReviewStar"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.11a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg></span><span class="num">5.0</span> · 후기완료</span>
+            <span class="tradeTitleRow"><span class="roleBadge roleBadgeSold">판매</span><span class="stageBadge">거래완료</span><span class="tradeTitle">AGV K1 헬멧 M사이즈 거의 새것</span></span>
+            <span class="tradeMeta num">1.850.000 đ · Thảo Vy · 2026.09.11</span>
           </span>
-        </div>
-        <div class="tradeRow">
-          <span class="tradeThumb ph ph--parts"></span>
-          <span class="tradeInfo">
-            <span class="tradeTitleRow"><span class="roleBadge">구매</span><span class="tradeTitle">순정 머플러 (Air Blade)</span></span>
-            <span class="tradeMeta num">750.000 đ · Bảo Trân · 2026.08.11</span>
-          </span>
+          <button class="reviewBtn" type="button">후기 남기기</button>
         </div>
       </div>
     </div>

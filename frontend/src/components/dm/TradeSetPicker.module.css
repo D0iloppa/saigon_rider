@@ -46,12 +46,14 @@
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0,1fr) — 1fr 은 min-content(긴 제목) 만큼 늘어나 좌우 칸 폭이 달라졌다(실기기 260928). */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   padding: 4px 0 12px;
 }
 
 .cell {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -66,6 +68,14 @@
   position: relative;
   width: 100%;
   aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+/* AppImage 래퍼가 원본 비율을 따르지 않도록 칸을 꽉 채운다 — 모든 썸네일 1:1 */
+.cellThumbWrap > * {
+  width: 100%;
+  height: 100%;
 }
 
 .cellThumb {

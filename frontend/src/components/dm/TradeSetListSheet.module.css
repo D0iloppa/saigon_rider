@@ -1,0 +1,119 @@
+/* F-DM-02 FR-6 — 세트 목록 시트 (260928 회귀 복구) */
+.title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.rowInfo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rowTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowPrice {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rowBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.rowSendBtn {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+
+.rowSendBtn:disabled {
+  opacity: 0.5;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.footerSummary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.footerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.editBtn {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+
+.bundleBtn {
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--brand-500);
+}
+
+.bundleBtn:disabled {
+  opacity: 0.5;
+}

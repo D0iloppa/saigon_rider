@@ -73,6 +73,7 @@ from ..services.dm_policy import (
 )
 from ..services.listing_state import log_transition
 from ..services.trade_sets import (
+    bundle_snapshot_meta,
     find_accepted_appointment,
     get_active_set,
     get_or_create_active_set,
@@ -930,36 +931,49 @@ async def send_message(
     ):
         raise HTTPException(status_code=400, detail="content, image_content_id or audio_content_id is required")
 
-    # F-DM-02(260928) — 알림톡풍 카드 메시지. subtype='item' 만 지원(워키토키 초대는 walkie_invite
-    # 로 계속 생성됨 — 렌더 레이어만 CardBubble 로 공유). meta 는 클라이언트 값을 신뢰하지 않고
-    # 서버가 매물에서 다시 조회해 스냅샷을 만든다.
+    # F-DM-02(260928) — 알림톡풍 카드 메시지. subtype 'item'(물품 정보 보내기)·'bundle'(묶음 정보
+    # 보내기, F-DM-02 FR-6 세트 목록 시트) 지원(워키토키 초대는 walkie_invite 로 계속 생성됨 —
+    # 렌더 레이어만 CardBubble 로 공유). meta 는 클라이언트 값을 신뢰하지 않고 서버가 매물/세트에서
+    # 다시 조회해 스냅샷을 만든다.
     card_listing: MarketplaceListing | None = None
     if body.message_type == "card":
-        if not body.meta or body.meta.get("subtype") != "item" or not body.meta.get("listingId"):
+        card_subtype = body.meta.get("subtype") if body.meta else None
+        if card_subtype == "item":
+            if not body.meta.get("listingId"):
+                raise HTTPException(status_code=400, detail="Unsupported card message")
+            try:
+                card_listing_id = uuid.UUID(str(body.meta["listingId"]))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid listingId") from None
+            card_listing = await db.get(MarketplaceListing, card_listing_id)
+            if card_listing is None:
+                raise HTTPException(status_code=404, detail="Listing not found")
+            # 이 방과 무관한 제3자 매물이나 이미 팔린 매물이 문의중 티어로 새 나가지 않게 — 판매자가
+            # 이 대화 참가자 중 하나(자기 다른 매물 공유 포함) + 아직 거래 가능한 상태만 허용.
+            if card_listing.seller_id not in (conv.participant_1, conv.participant_2):
+                raise HTTPException(status_code=403, detail="Invalid conversation context")
+            if card_listing.status not in ("ON_SALE", "RESERVED"):
+                raise HTTPException(status_code=409, detail="Listing is no longer available")
+            await _link_conversation_listing(db, conv_id, card_listing.id, source="card")
+            # 메타 키는 appointmentId/priceOfferId 와 같은 기존 관례(camelCase) 를 따른다 —
+            # 이 JSONB 는 프론트가 그대로 소비하는 뷰 전용 스냅샷이다.
+            body.meta = {
+                "subtype": "item",
+                "listingId": str(card_listing.id),
+                "title": card_listing.title,
+                "priceVnd": card_listing.price_vnd,
+                "thumbnailUrl": _market_thumbnail_url(card_listing),
+            }
+        elif card_subtype == "bundle":
+            ts = await get_active_set(db, conv_id)
+            if ts is None:
+                raise HTTPException(status_code=409, detail="No active trade set")
+            bundle_meta = await bundle_snapshot_meta(db, ts)
+            if not bundle_meta["listingIds"]:
+                raise HTTPException(status_code=409, detail="Trade set has no active items")
+            body.meta = bundle_meta
+        else:
             raise HTTPException(status_code=400, detail="Unsupported card message")
-        try:
-            card_listing_id = uuid.UUID(str(body.meta["listingId"]))
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid listingId") from None
-        card_listing = await db.get(MarketplaceListing, card_listing_id)
-        if card_listing is None:
-            raise HTTPException(status_code=404, detail="Listing not found")
-        # 이 방과 무관한 제3자 매물이나 이미 팔린 매물이 문의중 티어로 새 나가지 않게 — 판매자가
-        # 이 대화 참가자 중 하나(자기 다른 매물 공유 포함) + 아직 거래 가능한 상태만 허용.
-        if card_listing.seller_id not in (conv.participant_1, conv.participant_2):
-            raise HTTPException(status_code=403, detail="Invalid conversation context")
-        if card_listing.status not in ("ON_SALE", "RESERVED"):
-            raise HTTPException(status_code=409, detail="Listing is no longer available")
-        await _link_conversation_listing(db, conv_id, card_listing.id, source="card")
-        # 메타 키는 appointmentId/priceOfferId 와 같은 기존 관례(camelCase) 를 따른다 —
-        # 이 JSONB 는 프론트가 그대로 소비하는 뷰 전용 스냅샷이다.
-        body.meta = {
-            "subtype": "item",
-            "listingId": str(card_listing.id),
-            "title": card_listing.title,
-            "priceVnd": card_listing.price_vnd,
-            "thumbnailUrl": _market_thumbnail_url(card_listing),
-        }
 
     # payment_qr 는 전용 참가자 인증 경로로만 제공하는 private Content 다. 일반 DM 에
     # private Content 를 붙이면 imgproxy URL 직렬화로 우회될 수 있으므로 차단한다.

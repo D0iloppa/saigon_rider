@@ -8,7 +8,8 @@ import styles from './TradeSetBar.module.css';
 interface Props {
   tradeSet: TradeSet;
   isSeller: boolean;
-  onOpenFirstItem: () => void;
+  /** 썸네일/제목/"외 N" 탭 — 목록 시트(F-DM-02 FR-6)를 연다(260928 회귀 복구). */
+  onOpenList: () => void;
   /** 판매자만 탭 가능 — 상태 시트(F-DM-02 FR-7)를 연다. */
   onStatusTap: () => void;
 }
@@ -22,7 +23,7 @@ function deriveStatusLabel(ts: TradeSet, t: ReturnType<typeof useTranslation>['t
 }
 
 /** F-DM-02 FR-1 — 방 상단 세트 바. 대표 썸네일(+N) · 상태 라벨(판매자만 탭 가능) · "첫 물품 외 N" · 총액. */
-export function TradeSetBar({ tradeSet, isSeller, onOpenFirstItem, onStatusTap }: Props) {
+export function TradeSetBar({ tradeSet, isSeller, onOpenList, onStatusTap }: Props) {
   const { t } = useTranslation();
   const activeItems = tradeSet.items.filter((it) => it.status !== 'REMOVED' && it.status !== 'CANCELLED');
   const first = activeItems[0];
@@ -32,7 +33,7 @@ export function TradeSetBar({ tradeSet, isSeller, onOpenFirstItem, onStatusTap }
 
   return (
     <div className={styles.bar}>
-      <button type="button" className={styles.thumbWrap} onClick={onOpenFirstItem}>
+      <button type="button" className={styles.thumbWrap} onClick={onOpenList}>
         <AppImage src={first.thumbnailUrl ?? undefined} alt="" className={styles.thumb} />
         {otherCount > 0 && <span className={styles.thumbBadge}>+{otherCount}</span>}
       </button>
@@ -44,7 +45,7 @@ export function TradeSetBar({ tradeSet, isSeller, onOpenFirstItem, onStatusTap }
         ) : (
           <span className={styles.statusLabelPlain}>{statusLabel}</span>
         )}
-        <button type="button" className={styles.titleRow} onClick={onOpenFirstItem}>
+        <button type="button" className={styles.titleRow} onClick={onOpenList}>
           <span className={styles.title}>{first.title}</span>
           {otherCount > 0 && (
             <span className={styles.otherCount}>

@@ -22,6 +22,7 @@ import { TradeSetBar } from '@/components/dm/TradeSetBar';
 import { TradeSetChips } from '@/components/dm/TradeSetChips';
 import { TradeSetPicker } from '@/components/dm/TradeSetPicker';
 import { TradeSetStatusSheet } from '@/components/dm/TradeSetStatusSheet';
+import { TradeSetListSheet } from '@/components/dm/TradeSetListSheet';
 import { tradeSetErrorMessage } from '@/components/dm/tradeSetErrors';
 import {
   fetchMessages,
@@ -52,6 +53,8 @@ import {
   fetchMarketplaceTransaction,
   fetchTradeSet,
   updateTradeSetStatus,
+  sendListingCard,
+  sendBundleCard,
   DM_REACTION_EMOJIS,
   DM_REPORT_REASONS,
   type DmReportReason,
@@ -268,6 +271,7 @@ export default function DmDetail() {
   const [tradeSet, setTradeSet] = useState<TradeSet | null>(null);
   const [tradeSetPickerOpen, setTradeSetPickerOpen] = useState(false);
   const [tradeSetStatusOpen, setTradeSetStatusOpen] = useState(false);
+  const [tradeSetListOpen, setTradeSetListOpen] = useState(false);
   const refreshTradeSet = useCallback(() => {
     if (!conversationId) return;
     fetchTradeSet(conversationId).then(setTradeSet).catch(() => {});
@@ -701,6 +705,20 @@ export default function DmDetail() {
     } finally {
       setSending(false);
     }
+  };
+
+  // F-DM-02 FR-6(260928 회귀 복구) — 목록 시트 행 [물품 정보 보내기]/하단 [묶음 정보 보내기].
+  // 에러는 호출부(TradeSetListSheet)가 토스트로 처리하므로 여기서는 throw 만 한다.
+  const handleSendItemCard = async (listingId: string) => {
+    if (!conversationId) return;
+    const msg = await sendListingCard(conversationId, listingId);
+    applyIncoming([msg]);
+  };
+
+  const handleSendBundleCard = async () => {
+    if (!conversationId) return;
+    const msg = await sendBundleCard(conversationId);
+    applyIncoming([msg]);
   };
 
   // 워키토키 헤더메뉴 "워키토키" 탭 — 이 대화방으로 참여 + 상대방에게 초대카드 전송(채널 존재를 모를 수 있으므로).
@@ -1719,7 +1737,7 @@ export default function DmDetail() {
           <TradeSetBar
             tradeSet={tradeSet}
             isSeller={myId === tradeSet.sellerId}
-            onOpenFirstItem={() => selectedListingId && navigate(`/market/${selectedListingId}`)}
+            onOpenList={() => setTradeSetListOpen(true)}
             onStatusTap={() => setTradeSetStatusOpen(true)}
           />
           <TradeSetChips
@@ -2772,6 +2790,21 @@ export default function DmDetail() {
             refreshConv();
             setReviewOpen(true);
           }}
+        />
+      )}
+
+      {/* F-DM-02 FR-6 — 세트 목록 시트(세트 바 탭, 260928 회귀 복구). */}
+      {isDirect && tradeSet && conversationId && (
+        <TradeSetListSheet
+          open={tradeSetListOpen}
+          onClose={() => setTradeSetListOpen(false)}
+          tradeSet={tradeSet}
+          sellerNickname={myId === tradeSet.sellerId ? user?.nickname ?? '' : otherName}
+          isBuyer={myId !== tradeSet.sellerId}
+          onRowTap={(listingId) => { setTradeSetListOpen(false); navigate(`/market/${listingId}`); }}
+          onSendItemCard={handleSendItemCard}
+          onSendBundleCard={handleSendBundleCard}
+          onEditItems={() => { setTradeSetListOpen(false); setTradeSetPickerOpen(true); }}
         />
       )}
 

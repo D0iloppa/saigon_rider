@@ -133,6 +133,34 @@ async def trade_set_out(db: AsyncSession, ts: TradeSet) -> TradeSetOut:
     )
 
 
+async def bundle_snapshot_meta(db: AsyncSession, ts: TradeSet) -> dict:
+    """묶음 카드 meta 스냅샷(listingIds/titles/totalVnd) — 세트의 활성 항목(INQUIRY/RESERVED)만
+    포함한다. 수동 전송([묶음 정보 보내기], FR-6)과 자동 담기 카드가 같은 모양을 공유한다."""
+    items = (
+        (
+            await db.execute(
+                select(TradeSetItem)
+                .where(TradeSetItem.set_id == ts.id, TradeSetItem.status.in_(("INQUIRY", "RESERVED")))
+                .order_by(TradeSetItem.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    listings: list[MarketplaceListing] = []
+    for it in items:
+        listing = await db.get(MarketplaceListing, it.listing_id)
+        if listing is not None:
+            listings.append(listing)
+    total = await set_total_vnd(db, ts)
+    return {
+        "subtype": "bundle",
+        "listingIds": [str(listing.id) for listing in listings],
+        "titles": [listing.title for listing in listings],
+        "totalVnd": total,
+    }
+
+
 async def get_or_create_active_set(
     db: AsyncSession, conversation_id: uuid.UUID, buyer_id: uuid.UUID, seller_id: uuid.UUID
 ) -> TradeSet:

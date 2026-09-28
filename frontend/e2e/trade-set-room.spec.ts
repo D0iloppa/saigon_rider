@@ -71,6 +71,21 @@ test('trade-set room UI: buyer builds a set via picker, seller reserves via stat
     await expect(page.getByText('외 1', { exact: false })).toBeVisible();
     await expect(page.getByText('묶음 구매 요청', { exact: false })).toBeVisible();
 
+    // F-DM-02 FR-6(260928 회귀 복구) — 세트 바(썸네일/제목) 탭 → 목록 시트에 A·B 둘 다 보인다.
+    await page.getByText(titleA, { exact: false }).first().click();
+    await expect(page.getByText(titleA, { exact: false }).last()).toBeVisible();
+    await expect(page.getByText(titleB, { exact: false }).last()).toBeVisible();
+
+    // B 행의 [물품 정보 보내기] → B 제목의 물품 카드가 새로 생긴다.
+    const rowB = page.locator('text=' + titleB).locator('..');
+    await rowB.getByRole('button', { name: '물품 정보 보내기' }).click();
+    await expect(page.getByText('매물', { exact: true }).last()).toBeVisible();
+
+    // 다시 열어 [묶음 정보 보내기] → 묶음 카드가 새로 생긴다.
+    await page.getByText(titleA, { exact: false }).first().click();
+    await page.getByRole('button', { name: '묶음 정보 보내기' }).click();
+    await expect(page.getByText('묶음 구매 요청', { exact: false }).last()).toBeVisible();
+
     // 판매자 화면 — 같은 방에서 상태 라벨 탭 → [예약중]
     const sellerCtx = await browser.newContext({ baseURL: BASE_URL });
     const sellerPage = await sellerCtx.newPage();

@@ -301,6 +301,18 @@ export async function sendMessage(
   return transformMessage(raw);
 }
 
+/** F-DM-02 FR-6(260928 회귀 복구) — 목록 시트 행 [물품 정보 보내기]. 서버가 매물을 다시 조회해
+ * 스냅샷을 만드므로 title/price 는 보내지 않는다. */
+export async function sendListingCard(conversationId: string, listingId: string): Promise<DmMessage> {
+  return sendMessage(conversationId, '', { messageType: 'card', meta: { subtype: 'item', listingId } });
+}
+
+/** F-DM-02 FR-6(260928 회귀 복구) — 목록 시트 하단 [묶음 정보 보내기]. 서버가 이 방의 활성 세트에서
+ * 스냅샷(listingIds/titles/totalVnd)을 만든다. */
+export async function sendBundleCard(conversationId: string): Promise<DmMessage> {
+  return sendMessage(conversationId, '', { messageType: 'card', meta: { subtype: 'bundle' } });
+}
+
 /** 본인 텍스트 메시지 수정 — 수정본에는 editedAt 이 찍힌다. */
 export async function editMessage(conversationId: string, messageId: string, content: string): Promise<DmMessage> {
   const raw = await api.realFetch<any>(

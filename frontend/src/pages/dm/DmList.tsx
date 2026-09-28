@@ -38,6 +38,12 @@ export default function DmList() {
         defaultValue: '약속 제안: {{when}} {{place}}',
       }).trim();
     }
+    if (c.lastMessageType === 'card' && c.lastMessageMeta?.subtype === 'bundle') {
+      return t('dm.tradeSetBundlePreview', {
+        count: c.lastMessageMeta.titles?.length ?? 0,
+        defaultValue: '[묶음] {{count}}개 물품',
+      });
+    }
     return c.lastMessagePreview ?? '';
   };
   // 서버는 enum 만 내리고 라벨은 뷰어 로케일로 매핑 (DmDetail 의 약속 상태 라벨과 동일 키 재사용)

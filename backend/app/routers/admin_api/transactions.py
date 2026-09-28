@@ -262,13 +262,10 @@ async def rollback_payment_report(
     if tx is None:
         raise HTTPException(status_code=404, detail="transaction not found")
     appt = await db.get(MarketplaceAppointment, appointment_id)
-    if (
-        tx.payment_status != "PAYMENT_REPORTED"
-        or appt is None
-        or appt.status != "ACCEPTED"
-        or listing.status != "RESERVED"
-    ):
-        raise HTTPException(status_code=409, detail="Transaction is no longer an active reserved appointment")
+    # 260928: listing.status==RESERVED 를 더 이상 요구하지 않는다 — accept_appointment 가 매물을
+    # 자동 예약중으로 바꾸지 않으므로(판매자 명시 전환만), 결제 게이트와 동일하게 약속 ACCEPTED +
+    # 결제 신고 상태만으로 판정한다(리뷰어 지적 #3).
+    if tx.payment_status != "PAYMENT_REPORTED" or appt is None or appt.status != "ACCEPTED":
         raise HTTPException(status_code=409, detail="Transaction is no longer an active reserved appointment")
 
     now = datetime.now(UTC)

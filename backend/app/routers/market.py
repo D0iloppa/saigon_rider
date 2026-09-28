@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy import delete, func, literal_column, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -111,9 +112,12 @@ from ..services.search_index import immediate_blob
 from ..services.search_norm import norm
 from ..services.service_area import in_service_area
 from ..services.trade_sets import (
+    cancel_reserved_item,
     find_accepted_appointment,
     get_active_set,
     get_or_create_active_set,
+    is_reserved_for,
+    release_listing_to_on_sale,
     reserve_listing_for_set,
     set_total_vnd,
     trade_set_out,
@@ -1358,19 +1362,19 @@ async def block_user(
                 appt.status = "CANCELLED"
                 appt.cancel_reason = "BLOCKED"
                 appt.updated_at = now
-                listing = await db.get(MarketplaceListing, appt.listing_id)
-                if was_accepted and listing is not None and listing.status == "RESERVED":
-                    listing.status = "ON_SALE"
-                    listing.updated_at = now
-                    log_transition(
-                        db,
-                        listing.id,
-                        "RESERVED",
-                        "ON_SALE",
-                        actor_type="user",
-                        actor_id=session_uid,
-                        reason="blocked_counterpart",
-                    )
+                if was_accepted:
+                    # 리뷰어 지적 #2 — 직접 listing.status 를 뒤집으면 trade_set_item 이 RESERVED
+                    # 에 갇혀 재예약(부분 유니크)이 막히고 d1 알림도 빠진다. 공유 헬퍼로 통일한다.
+                    locked_listing = (
+                        await db.execute(
+                            select(MarketplaceListing).where(MarketplaceListing.id == appt.listing_id).with_for_update()
+                        )
+                    ).scalar_one_or_none()
+                    if locked_listing is not None:
+                        await release_listing_to_on_sale(
+                            db, locked_listing, actor_id=session_uid, reason="blocked_counterpart"
+                        )
+                        await cancel_reserved_item(db, appt.conversation_id, locked_listing.id)
                 if was_accepted:
                     transaction = (
                         await db.execute(
@@ -1397,7 +1401,7 @@ async def block_user(
                         {
                             "appointment_id": str(appt.id),
                             "conversation_id": str(appt.conversation_id),
-                            "listing_title": listing.title if listing else "",
+                            "listing_title": locked_listing.title if locked_listing else "",
                             "recipient_id": str(user_id),
                         },
                     )
@@ -1490,50 +1494,81 @@ async def create_review(
     is_seller = listing.seller_id == body.reviewer_id
     is_buyer = listing.seller_id == body.target_id
 
-    if is_seller:
-        # 판매자가 리뷰: 구매자가 target이어야 함 — 완료된 약속에서 상대방 확인
-        completed_appt = (
-            await db.execute(
-                select(MarketplaceAppointment)
-                .join(DmConversation, DmConversation.id == MarketplaceAppointment.conversation_id)
-                .where(
-                    MarketplaceAppointment.listing_id == body.listing_id,
-                    MarketplaceAppointment.status == "COMPLETED",
-                    or_(
-                        DmConversation.participant_1 == body.target_id,
-                        DmConversation.participant_2 == body.target_id,
-                    ),
-                )
-            )
-        ).scalar_one_or_none()
-        if completed_appt is None:
-            raise HTTPException(status_code=400, detail="no completed trade with this buyer")
-    elif is_buyer:
-        # MKT-1: 구매자가 판매자를 리뷰 — 대칭 참여 검증(완료된 약속에 리뷰어=참여자). 별점 테러 차단.
-        completed_appt = (
-            await db.execute(
-                select(MarketplaceAppointment)
-                .join(DmConversation, DmConversation.id == MarketplaceAppointment.conversation_id)
-                .where(
-                    MarketplaceAppointment.listing_id == body.listing_id,
-                    MarketplaceAppointment.status == "COMPLETED",
-                    or_(
-                        DmConversation.participant_1 == body.reviewer_id,
-                        DmConversation.participant_2 == body.reviewer_id,
-                    ),
-                )
-            )
-        ).scalar_one_or_none()
-        if completed_appt is None:
-            raise HTTPException(status_code=400, detail="no completed trade with this seller")
-    else:
+    buyer_id = body.target_id if is_seller else body.reviewer_id if is_buyer else None
+    seller_id = body.reviewer_id if is_seller else body.target_id if is_buyer else None
+
+    if buyer_id is None or seller_id is None:
         raise HTTPException(status_code=400, detail="review target must be a trade participant")
 
-    # 중복 방지: 같은 매물·리뷰어·대상 조합이 이미 있으면 거절
+    # 260928: 완료된 세트 항목(채팅만으로 합의해 약속 없이 완료한 거래 포함)도 자격을 준다
+    # — 기존 "완료된 약속" 조건만으로는 세트 모델의 무약속 완료가 리뷰 불가였다(리뷰어 지적 #1).
+    reviewable_set = (
+        await db.execute(
+            select(TradeSet)
+            .join(TradeSetItem, TradeSetItem.set_id == TradeSet.id)
+            .where(
+                TradeSetItem.listing_id == body.listing_id,
+                TradeSetItem.status == "COMPLETED",
+                TradeSet.buyer_id == buyer_id,
+                TradeSet.seller_id == seller_id,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    if reviewable_set is None:
+        if is_seller:
+            # 판매자가 리뷰: 구매자가 target이어야 함 — 완료된 약속에서 상대방 확인
+            completed_appt = (
+                await db.execute(
+                    select(MarketplaceAppointment)
+                    .join(DmConversation, DmConversation.id == MarketplaceAppointment.conversation_id)
+                    .where(
+                        MarketplaceAppointment.listing_id == body.listing_id,
+                        MarketplaceAppointment.status == "COMPLETED",
+                        or_(
+                            DmConversation.participant_1 == body.target_id,
+                            DmConversation.participant_2 == body.target_id,
+                        ),
+                    )
+                )
+            ).scalar_one_or_none()
+            if completed_appt is None:
+                raise HTTPException(status_code=400, detail="no completed trade with this buyer")
+        else:
+            # MKT-1: 구매자가 판매자를 리뷰 — 대칭 참여 검증(완료된 약속에 리뷰어=참여자). 별점 테러 차단.
+            completed_appt = (
+                await db.execute(
+                    select(MarketplaceAppointment)
+                    .join(DmConversation, DmConversation.id == MarketplaceAppointment.conversation_id)
+                    .where(
+                        MarketplaceAppointment.listing_id == body.listing_id,
+                        MarketplaceAppointment.status == "COMPLETED",
+                        or_(
+                            DmConversation.participant_1 == body.reviewer_id,
+                            DmConversation.participant_2 == body.reviewer_id,
+                        ),
+                    )
+                )
+            ).scalar_one_or_none()
+            if completed_appt is None:
+                raise HTTPException(status_code=400, detail="no completed trade with this seller")
+
+    # 중복 방지 — d4: 후기는 세트당 상대(카운터파티) 1인 1회. 이 매물이 속한 세트가 있으면 그 세트의
+    # 모든 항목 매물에 대해, 없으면(레거시 약속 경로) 이 매물 하나에 대해 리뷰어·대상 조합을 검사한다
+    # — 세트 항목이 N개 COMPLETED 라고 N번 리뷰할 수 있으면 안 된다(리뷰어 지적 #1).
+    if reviewable_set is not None:
+        dedup_listing_ids = (
+            (await db.execute(select(TradeSetItem.listing_id).where(TradeSetItem.set_id == reviewable_set.id)))
+            .scalars()
+            .all()
+        )
+    else:
+        dedup_listing_ids = [body.listing_id]
     dup = (
         await db.execute(
             select(MarketplaceReview).where(
-                MarketplaceReview.listing_id == body.listing_id,
+                MarketplaceReview.listing_id.in_(dedup_listing_ids),
                 MarketplaceReview.reviewer_id == body.reviewer_id,
                 MarketplaceReview.target_id == body.target_id,
             )
@@ -1987,7 +2022,13 @@ async def reserve_listing(
     if listing.status == "SOLD":
         raise HTTPException(status_code=409, detail="Listing already sold")
     await reserve_listing_for_set(db, listing, ts, actor_id=session_uid)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # 리뷰어 지적 #4 — 부분 유니크(listing_id WHERE status IN (RESERVED, COMPLETED))가 동시
+        # 경쟁을 막는다(ad_contract.py:310 관례).
+        await db.rollback()
+        raise HTTPException(status_code=409, detail={"code": "listing_reservation_conflict"}) from None
     return await trade_set_out(db, ts)
 
 
@@ -2070,7 +2111,12 @@ async def complete_listing(
     if remaining is None:
         ts.status = "CLOSED"
         ts.updated_at = now
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # 리뷰어 지적 #4 — listing.status == "SOLD" 로의 동시 완료 경쟁 방지(ad_contract.py:310 관례).
+        await db.rollback()
+        raise HTTPException(status_code=409, detail={"code": "listing_reservation_conflict"}) from None
     return await trade_set_out(db, ts)
 
 
@@ -3024,19 +3070,11 @@ async def respond_transaction_cancel_request(
         await db.commit()
         return _cancel_request_out(cancel_request)
 
-    # AGREE — mutual cancellation, the deadlock exit.
+    # AGREE — mutual cancellation, the deadlock exit. 리뷰어 지적 #2: 공유 헬퍼로 매물 복귀
+    # + d1 알림을 통일하고, 예약중 세트 항목도 CANCELLED 로 맞춘다(재예약 부분 유니크 해제).
     if appt.status == "ACCEPTED" and listing.status == "RESERVED":
-        listing.status = "ON_SALE"
-        listing.updated_at = now
-        log_transition(
-            db,
-            listing.id,
-            "RESERVED",
-            "ON_SALE",
-            actor_type="user",
-            actor_id=session_uid,
-            reason="transaction_cancel_agreed",
-        )
+        await release_listing_to_on_sale(db, listing, actor_id=session_uid, reason="transaction_cancel_agreed")
+        await cancel_reserved_item(db, conv.id, listing.id)
     appt.status = "CANCELLED"
     appt.cancel_reason = cancel_request.reason
     appt.updated_at = now
@@ -3387,10 +3425,11 @@ async def propose_price_offer(
     if not listing.is_negotiable:
         raise HTTPException(status_code=403, detail="Listing does not accept price offers")
     # 소유자 결정(260928 d1) — RESERVED/SOLD 매물은 제안 차단. 판매 진행 중인 매물에
-    # 다른 대화방에서 새 제안이 들어오는 걸 막는다.
-    if listing.status == "RESERVED":
+    # 다른 대화방에서 새 제안이 들어오는 걸 막는다. 단, 이 매물이 이미 나에게 예약된 세트
+    # 몫이면(예: 협상 중 흥정) 막지 않는다(리뷰어 지적 #5).
+    if listing.status == "RESERVED" and not await is_reserved_for(db, listing.id, session_uid):
         raise HTTPException(status_code=409, detail={"code": "LISTING_RESERVED"})
-    if listing.status != "ON_SALE":
+    if listing.status not in ("ON_SALE", "RESERVED"):
         raise HTTPException(status_code=409, detail="Listing is no longer available")
     if session_uid == listing.seller_id:
         raise HTTPException(status_code=403, detail="Seller cannot make an offer")

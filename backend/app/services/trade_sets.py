@@ -40,6 +40,22 @@ async def get_active_set(db: AsyncSession, conversation_id: uuid.UUID) -> TradeS
     ).scalar_one_or_none()
 
 
+async def is_reserved_for(db: AsyncSession, listing_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """d1(260928) — 이 매물이 user_id 본인에게 RESERVED 된 세트의 구매자 몫이면 True.
+    LISTING_RESERVED 409 가드에서 예약 당사자 본인은 예외로 둔다(리뷰어 지적 #5) —
+    dm.py create_conversation 의 reserved_for_me 카브아웃과 동일 조건을 공유한다."""
+    return (
+        await db.execute(
+            select(TradeSetItem.id)
+            .join(TradeSet, TradeSet.id == TradeSetItem.set_id)
+            .where(
+                TradeSetItem.listing_id == listing_id, TradeSetItem.status == "RESERVED", TradeSet.buyer_id == user_id
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none() is not None
+
+
 async def accepted_offer_amount(db: AsyncSession, conversation_id: uuid.UUID, listing_id: uuid.UUID) -> int | None:
     return (
         await db.execute(
@@ -166,14 +182,19 @@ async def upsert_item(db: AsyncSession, set_id: uuid.UUID, listing_id: uuid.UUID
 
 
 async def release_listing_to_on_sale(
-    db: AsyncSession, listing: MarketplaceListing, *, actor_id: uuid.UUID, reason: str
+    db: AsyncSession,
+    listing: MarketplaceListing,
+    *,
+    actor_id: uuid.UUID | None,
+    reason: str,
+    actor_type: str = "user",
 ) -> None:
     """예약중 매물을 판매중으로 되돌리고, d1 opt-in 구독자에게 알림을 적재한다(§3.6 #14)."""
     now = datetime.now(UTC)
     if listing.status == "RESERVED":
         listing.status = "ON_SALE"
         listing.updated_at = now
-        log_transition(db, listing.id, "RESERVED", "ON_SALE", actor_type="user", actor_id=actor_id, reason=reason)
+        log_transition(db, listing.id, "RESERVED", "ON_SALE", actor_type=actor_type, actor_id=actor_id, reason=reason)
     subs = (
         (
             await db.execute(
@@ -222,7 +243,9 @@ async def reserve_listing_for_set(
             select(TradeSetItem).where(TradeSetItem.set_id == ts.id, TradeSetItem.listing_id == listing.id)
         )
     ).scalar_one_or_none()
-    if item is not None and item.status != "RESERVED":
+    # 리뷰어 지적 #4 — INQUIRY 에서만 RESERVED 로 전이한다. REMOVED/CANCELLED 항목까지 되살리면
+    # 이미 빠진(또는 취소된) 항목이 부활해버린다.
+    if item is not None and item.status == "INQUIRY":
         item.status = "RESERVED"
         item.updated_at = now
 
@@ -279,3 +302,21 @@ async def find_accepted_appointment(
             )
         )
     ).scalar_one_or_none()
+
+
+async def cancel_reserved_item(db: AsyncSession, conversation_id: uuid.UUID, listing_id: uuid.UUID) -> None:
+    """거래가 취소돼(차단·양측 합의 취소·만료) 예약중 항목을 되돌릴 때 — 판매자의 자발적
+    판매중 전환(INQUIRY 복귀)과 달리 취소된 거래는 CANCELLED 로 종결한다(리뷰어 지적 #2)."""
+    ts = await get_active_set(db, conversation_id)
+    if ts is None:
+        return
+    item = (
+        await db.execute(
+            select(TradeSetItem).where(
+                TradeSetItem.set_id == ts.id, TradeSetItem.listing_id == listing_id, TradeSetItem.status == "RESERVED"
+            )
+        )
+    ).scalar_one_or_none()
+    if item is not None:
+        item.status = "CANCELLED"
+        item.updated_at = datetime.now(UTC)

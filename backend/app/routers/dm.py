@@ -26,7 +26,6 @@ from ..models import (
     MarketplacePriceOffer,
     MarketplaceTransaction,
     Report,
-    TradeSet,
     TradeSetItem,
     User,
     UserBlock,
@@ -77,6 +76,7 @@ from ..services.trade_sets import (
     find_accepted_appointment,
     get_active_set,
     get_or_create_active_set,
+    is_reserved_for,
     release_listing_to_on_sale,
     reserve_listing_for_set,
     set_total_vnd,
@@ -596,21 +596,8 @@ async def create_conversation(
             raise HTTPException(status_code=404, detail="Listing not found")
         # d1(260928) — 다른 사람에게 예약중인 매물은 새로 채팅을 걸 수 없다. 그 매물로 이미
         # RESERVED 된 세트의 구매자 본인이면 자기 방이므로 허용.
-        if listing.status == "RESERVED":
-            reserved_for_me = (
-                await db.execute(
-                    select(TradeSetItem.id)
-                    .join(TradeSet, TradeSet.id == TradeSetItem.set_id)
-                    .where(
-                        TradeSetItem.listing_id == listing.id,
-                        TradeSetItem.status == "RESERVED",
-                        TradeSet.buyer_id == _session_uid,
-                    )
-                    .limit(1)
-                )
-            ).scalar_one_or_none() is not None
-            if not reserved_for_me:
-                raise HTTPException(status_code=409, detail={"code": "LISTING_RESERVED"})
+        if listing.status == "RESERVED" and not await is_reserved_for(db, listing.id, _session_uid):
+            raise HTTPException(status_code=409, detail={"code": "LISTING_RESERVED"})
 
     p1, p2 = sorted([_session_uid, body.other_user_id])
 
@@ -2299,9 +2286,12 @@ async def add_trade_set_items(
         if listing.seller_id not in (conv.participant_1, conv.participant_2):
             raise HTTPException(status_code=403, detail="Invalid conversation context")
         if listing.status != "ON_SALE":
-            if listing.status == "RESERVED":
+            # 리뷰어 지적 #5 — 이 매물이 이미 나(session_uid) 에게 예약된 세트 몫이면 담기를
+            # 막지 않는다(예: 예약중 항목을 다시 세트에 추가하는 재진입 경로).
+            if listing.status == "RESERVED" and not await is_reserved_for(db, listing.id, session_uid):
                 raise HTTPException(status_code=409, detail={"code": "LISTING_RESERVED"})
-            raise HTTPException(status_code=409, detail="Listing is no longer available")
+            elif listing.status != "RESERVED":
+                raise HTTPException(status_code=409, detail="Listing is no longer available")
         listings.append(listing)
 
     seller_id = listings[0].seller_id
@@ -2532,5 +2522,11 @@ async def update_trade_set_status(
         ts.status = "CLOSED"
         ts.updated_at = now
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # 리뷰어 지적 #4 — 동시 요청이 같은 매물을 RESERVED/COMPLETED 로 만들려는 경쟁을
+        # (listing_id WHERE status IN (RESERVED, COMPLETED)) 부분 유니크가 막는다(ad_contract.py:310 관례).
+        await db.rollback()
+        raise HTTPException(status_code=409, detail={"code": "listing_reservation_conflict"}) from None
     return await trade_set_out(db, ts)

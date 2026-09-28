@@ -19,7 +19,7 @@ from ..models import (
     MarketplaceTransactionCancelRequest,
 )
 from ..services import noti_events
-from ..services.listing_state import log_transition
+from ..services.trade_sets import cancel_reserved_item, release_listing_to_on_sale
 
 log = logging.getLogger(__name__)
 
@@ -77,16 +77,11 @@ async def _expire_one(db: AsyncSession, request_id: uuid.UUID, now: datetime) ->
         )
     ).scalar_one_or_none()
     if listing is not None and appt.status == "ACCEPTED" and listing.status == "RESERVED":
-        listing.status = "ON_SALE"
-        listing.updated_at = now
-        log_transition(
-            db,
-            listing.id,
-            "RESERVED",
-            "ON_SALE",
-            actor_type="system",
-            reason="transaction_cancel_request_expired",
+        # 리뷰어 지적 #2 — 공유 헬퍼로 통일해 d1 알림 + 세트 항목 CANCELLED 전이까지 함께 처리한다.
+        await release_listing_to_on_sale(
+            db, listing, actor_id=None, actor_type="system", reason="transaction_cancel_request_expired"
         )
+        await cancel_reserved_item(db, transaction.conversation_id, listing.id)
     if appt.status == "ACCEPTED":
         appt.status = "CANCELLED"
         appt.cancel_reason = cancel_request.reason

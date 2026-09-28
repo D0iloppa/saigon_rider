@@ -112,7 +112,7 @@ export default function ProfileMain() {
     if (!uid) return;
     fetchListings({ sellerId: uid, hideSold: false, size: 20 })
       .then((page) => {
-        setSellingListings(page.items.filter((l) => l.status !== 'SOLD'));
+        setSellingListings(page.items.filter((l) => l.status === 'ON_SALE' || l.status === 'RESERVED'));
         setSellingError(false);
       })
       .catch(() => setSellingError(true));

@@ -35,3 +35,9 @@ export function consumeReturnTo(): string | null {
   sessionStorage.removeItem(KEY);
   return isSafeReturnPath(v) ? v : null;
 }
+
+/** 소비하지 않고 저장된 목적지를 조회한다 — 스플래시가 홈으로 갈지 미리 가늠하는 용도. */
+export function peekReturnTo(): string | null {
+  const v = sessionStorage.getItem(KEY);
+  return isSafeReturnPath(v) ? v : null;
+}

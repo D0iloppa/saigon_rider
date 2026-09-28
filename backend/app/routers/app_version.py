@@ -28,6 +28,8 @@ async def get_app_config(db: AsyncSession = Depends(get_db)) -> dict:
         "is_dev": os.getenv("APP_ENV", "development").lower() not in ("production", "prod"),
         # auth.py _otp_bypass_enabled() 판정을 그대로 노출 — OTP 검증 완화 UI 여부 (운영에서는 항상 False)
         "otp_dev_bypass": _otp_bypass_enabled(),
+        # 스플래시가 홈 데이터 프리페치를 기다릴 최대 시간(ms) — 재빌드 없이 서버에서 조정.
+        "splash_prefetch_timeout_ms": int(os.getenv("SPLASH_PREFETCH_TIMEOUT_MS", "3000")),
     }
 
 

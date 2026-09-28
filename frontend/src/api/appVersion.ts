@@ -7,6 +7,7 @@ export interface AppConfig {
   isDev: boolean;
   otpDevBypass: boolean;
   keywordAlertMaxCount: number;
+  splashPrefetchTimeoutMs: number;
 }
 
 export async function fetchAppConfig(): Promise<AppConfig> {
@@ -17,6 +18,7 @@ export async function fetchAppConfig(): Promise<AppConfig> {
       is_dev: boolean;
       otp_dev_bypass?: boolean;
       keyword_alert_max_count?: number;
+      splash_prefetch_timeout_ms?: number;
     }>('/app-config');
     return {
       dmPollInterval: raw.dm_poll_interval ?? 30,
@@ -24,9 +26,17 @@ export async function fetchAppConfig(): Promise<AppConfig> {
       isDev: raw.is_dev ?? false,
       otpDevBypass: raw.otp_dev_bypass ?? false,
       keywordAlertMaxCount: raw.keyword_alert_max_count ?? 20,
+      splashPrefetchTimeoutMs: raw.splash_prefetch_timeout_ms ?? 3000,
     };
   } catch {
-    return { dmPollInterval: 30, googleClientId: '', isDev: false, otpDevBypass: false, keywordAlertMaxCount: 20 };
+    return {
+      dmPollInterval: 30,
+      googleClientId: '',
+      isDev: false,
+      otpDevBypass: false,
+      keywordAlertMaxCount: 20,
+      splashPrefetchTimeoutMs: 3000,
+    };
   }
 }
 

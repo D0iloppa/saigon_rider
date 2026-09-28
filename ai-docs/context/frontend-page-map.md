@@ -43,6 +43,8 @@
 >
 > **계약 테스트가 고정한다** — `pages/market/marketFirstValue.contract.test.mjs`: 4파일 전부 `'/home'` 폴백 필수 + `'/market'` 폴백 금지, 게스트 CTA 는 마켓 필수. 나머지 마켓 우선 항목(익명 진입 시 위치 자동요청 금지 / 스플래시 문구는 퀘스트가 아니라 오토바이 거래·만남)은 **그대로 유효**하다.
 >
+> **구현(260928) 스플래시 홈 프리페치 + 서버구동 타임아웃**: `App.tsx` 마운트 시 `lib/homePrefetch.ts`(`startHomePrefetch()`)가 부팅(세션 검증) 작업과 병렬로 홈 첫 화면 데이터(내 주변 인기 상품·업체 소식·최근 등록 상품·광고, FALLBACK=중심가 좌표 기준)를 미리 조회하고 각 섹션 첫 3~4장 썸네일을 `new Image().src`로 프리로드한다. 스플래시 fade-out 은 부팅 완료 + (목적지가 홈일 때만) `homeDataReady()` 완료 또는 서버값 `app-config.splash_prefetch_timeout_ms`(기본 3000, env `SPLASH_PREFETCH_TIMEOUT_MS`) 경과 중 먼저 오는 쪽까지 기다린다(로그인/온보딩으로 가는 경로는 늘리지 않음 — `lib/returnTo.ts` `peekReturnTo()`로 판별). `HomePage.tsx` 는 첫 로드에서 좌표가 아직 FALLBACK 이면(=GPS 미측위) 프리페치 결과를 재사용해 중복 요청을 만들지 않는다. 같은 커밋에서 `fix(map)`: `useLocationStore.ts` 의 `notifyFallback()`(지역-밖 토스트 등)이 `lib/splashOverlay.ts` 로 스플래시 오버레이가 내려간 뒤로 지연되도록 고쳤다 — 종전엔 스플래시 밑에서 이미 마운트된 홈의 `ensureLocation()` 이 토스트를 스플래시 위에 띄웠다.
+>
 > ⚠️ **로그인 후 목적지는 4파일 8곳에 흩어져 있다.** 2026-08-13 에 `Splash` 한 곳만 바꿨다가 "OAuth 로그인은 마켓 / 스플래시 재진입은 홈"으로 갈리는 상태를 만든 적이 있다 — 바꿀 때는 반드시 8곳 전부 + 계약 테스트를 함께 고칠 것.
 
 | 한글 메뉴 | 라우트 | 페이지 파일 | i18n 키 |

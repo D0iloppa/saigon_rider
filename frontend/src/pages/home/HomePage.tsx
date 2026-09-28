@@ -23,6 +23,7 @@ import { native } from '@/lib/native';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { apiRegisterDeviceMap } from '@/api/device';
 import { fetchWards, resolveWardByCoords, type Ward } from '@/api/master';
+import { getHomePrefetch } from '@/lib/homePrefetch';
 import { AppImage } from '@/components/ui/AppImage';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullIndicator } from '@/components/ui/PullIndicator';
@@ -158,6 +159,8 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const didInit = useRef(false);
+  // 스플래시 프리페치 결과를 첫 로드에만 재사용한다(중복 요청 방지) — lib/homePrefetch.ts.
+  const isFirstLoad = useRef(true);
 
   const [xp, setXp] = useState(0);
   const [totalKm, setTotalKm] = useState(0);
@@ -250,6 +253,11 @@ export default function HomePage() {
     // 기준 좌표·반경 모두 useServiceLocation 하나로 통일한다.
     const refLat = infoOrigin.lat;
     const refLng = infoOrigin.lng;
+    // 스플래시 프리페치는 미측위 상태(중심가 FALLBACK 좌표)로 시작됐다 — 첫 로드에서 좌표가
+    // 아직 그대로면(=GPS 측위 전) 재사용, 이미 실측 좌표로 바뀌었으면 새로 조회한다.
+    const usingFallbackCoords = lat === FALLBACK.lat && lng === FALLBACK.lng;
+    const prefetch = isFirstLoad.current ? getHomePrefetch() : null;
+    isFirstLoad.current = false;
     setFloodStatus('loading');
     setNearbyStatus('loading');
     setRecentStatus('loading');
@@ -257,20 +265,26 @@ export default function HomePage() {
     setCommunityStatus('loading');
     setGasStatus('loading');
     setRepairStatus('loading');
-    if (ADS_ENABLED) fetchAds(null).then(setAds).catch(() => setAds([]));
+    if (ADS_ENABLED) {
+      (prefetch?.adsPromise ?? fetchAds(null)).then(setAds).catch(() => setAds([]));
+    }
     return Promise.allSettled([
       // "내 주변 인기 상품" — 'gps' 범위면 반경 안에서만 고른다(대표 지시 2026-08-06).
       // '전체'면 반경 없이 거리순 — 기준점이 도시 중심이라 반경으로 자르면 의미가 없다.
-      fetchListings({
-        lat, lng, sort: 'distance', size: 8,
-        radiusKm: scopeMode === 'gps' ? NEARBY_RADIUS_KM : null,
-      })
-        .then((p) => { setNearbyProducts(p.items); setNearbyStatus('ready'); })
+      (prefetch?.nearbyPromise && usingFallbackCoords && scopeMode === 'gps'
+        ? prefetch.nearbyPromise
+        : fetchListings({
+            lat, lng, sort: 'distance', size: 8,
+            radiusKm: scopeMode === 'gps' ? NEARBY_RADIUS_KM : null,
+          }).then((p) => p.items))
+        .then((items) => { setNearbyProducts(items); setNearbyStatus('ready'); })
         .catch(() => { setNearbyProducts([]); setNearbyStatus('unavailable'); }),
-      fetchListings({ lat, lng, sort: 'recent', hideSold: true, size: 8 })
-        .then((p) => { setRecentProducts(p.items); setRecentStatus('ready'); })
+      (prefetch?.recentPromise && usingFallbackCoords
+        ? prefetch.recentPromise
+        : fetchListings({ lat, lng, sort: 'recent', hideSold: true, size: 8 }).then((p) => p.items))
+        .then((items) => { setRecentProducts(items); setRecentStatus('ready'); })
         .catch(() => { setRecentProducts([]); setRecentStatus('unavailable'); }),
-      fetchBizNewsFeed(10)
+      (prefetch?.bizNewsPromise ?? fetchBizNewsFeed(10))
         .then((items) => { setBizNews(items); setBizNewsStatus('ready'); })
         .catch(() => { setBizNews([]); setBizNewsStatus('unavailable'); }),
       weatherApi.get(refLat, refLng).then((value) => {

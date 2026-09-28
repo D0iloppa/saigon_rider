@@ -15,9 +15,9 @@ interface Props {
   variant?: 'card' | 'plain';
 }
 
-/** 거래일시 YYYY.MM.DD */
-function fmtDate(iso: string): string {
-  return iso.slice(0, 10).replace(/-/g, '.');
+/** 거래일시 YYYY.MM.DD (진행중 건은 완료일시가 없어 null 허용) */
+function fmtDate(iso: string | null): string | null {
+  return iso ? iso.slice(0, 10).replace(/-/g, '.') : null;
 }
 
 /** 거래 이력 1행 — 프로필 요약·전체 이력 페이지 공용. 매물·역할·상대·거래일시·내 후기. */
@@ -34,10 +34,17 @@ export default function TradeRow({ trade: tr, onOpen, onReview, variant = 'card'
             <span className={styles.roleBadge} data-role={tr.role}>
               {tr.role === 'sold' ? t('profile.tradeSold', { defaultValue: '판매' }) : t('profile.tradeBought', { defaultValue: '구매' })}
             </span>
+            <span className={styles.stageBadge} data-stage={tr.stage}>
+              {tr.stage === 'COMPLETED'
+                ? t('profile.tradeStageCompleted', { defaultValue: '거래완료' })
+                : t('profile.tradeStageInProgress', { defaultValue: '거래중' })}
+            </span>
             <span className={styles.title}>{tr.listingTitle}</span>
           </div>
           <span className={styles.meta}>
-            {formatPriceVnd(tr.priceVnd, t)} · {tr.counterpartNickname ?? '—'} · {fmtDate(tr.completedAt)}
+            {[formatPriceVnd(tr.priceVnd, t), tr.counterpartNickname ?? '—', fmtDate(tr.completedAt)]
+              .filter(Boolean)
+              .join(' · ')}
           </span>
           {tr.myReview && (
             <span className={styles.myReview}>
@@ -48,7 +55,7 @@ export default function TradeRow({ trade: tr, onOpen, onReview, variant = 'card'
           )}
         </div>
       </button>
-      {!tr.reviewLeft && onReview && (
+      {tr.stage === 'COMPLETED' && !tr.reviewLeft && onReview && (
         <button type="button" className={styles.reviewBtn} onClick={onReview}>
           {t('profile.leaveReview', { defaultValue: '후기 남기기' })}
         </button>

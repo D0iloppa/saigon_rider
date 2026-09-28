@@ -3188,7 +3188,9 @@ async def get_trades(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    """내가 참여한 COMPLETED 약속 = 완료 거래 목록. 역할(판매/구매)·상대·후기여부 포함."""
+    """내가 참여한 진행중(ACCEPTED)/완료(COMPLETED) 약속 = 거래 목록. 역할(판매/구매)·상대·후기여부·단계(stage) 포함.
+
+    260928 실기기 피드백: 완료 건만 보이던 것에 진행중 거래도 함께 노출 — 취소/거절 건은 제외."""
     if user_id != session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
     rows = (
@@ -3196,7 +3198,7 @@ async def get_trades(
             select(MarketplaceAppointment, DmConversation)
             .join(DmConversation, DmConversation.id == MarketplaceAppointment.conversation_id)
             .where(
-                MarketplaceAppointment.status == "COMPLETED",
+                MarketplaceAppointment.status.in_(["ACCEPTED", "COMPLETED"]),
                 or_(DmConversation.participant_1 == user_id, DmConversation.participant_2 == user_id),
             )
             .order_by(MarketplaceAppointment.updated_at.desc())
@@ -3235,7 +3237,8 @@ async def get_trades(
                 counterpart_id=counterpart_id,
                 counterpart_nickname=counterpart.nickname if counterpart else None,
                 counterpart_avatar_url=resolve_avatar_url(counterpart) if counterpart else None,
-                completed_at=appt.updated_at,
+                stage="COMPLETED" if appt.status == "COMPLETED" else "IN_PROGRESS",
+                completed_at=appt.updated_at if appt.status == "COMPLETED" else None,
                 review_left=review is not None,
                 my_review=ReviewBrief(
                     rating=review.rating,

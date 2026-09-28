@@ -3,6 +3,41 @@
   background: var(--bg);
 }
 
+/* 필터(구매/판매)·정렬 칩 — MarketSearch.module.css .filterRow/.filterChip 레이아웃 미러 */
+.filterRow {
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.filterRow::-webkit-scrollbar {
+  display: none;
+}
+
+.filterChip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.filterChipActive {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+
 .list {
   padding: 8px 20px 24px;
   display: flex;

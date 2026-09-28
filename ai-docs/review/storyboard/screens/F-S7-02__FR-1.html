@@ -955,6 +955,8 @@ body {
 .histAside { flex: 0 0 auto; display: flex; align-items: center; }
 .histDone { font-size: 12.5px; font-weight: 600; color: var(--text-3); }
 .roleTag { padding: 1px 6px; border-radius: 5px; background: var(--surface-2); font-size: 11px; font-weight: 700; color: var(--text-2); }
+/* 실기기 피드백 반영(260928): 완료 외 진행중(ACCEPTED) 거래도 섞이므로 단계 배지가 필요하다. */
+.stageTag { padding: 1px 6px; border-radius: 5px; background: #fff3cd; font-size: 11px; font-weight: 700; color: #b8860b; }
 </style>
 </head>
 <body>
@@ -976,10 +978,27 @@ body {
       </div>
     </header>
     <div class="histScroll">
-      <div class="sectionHead" style="padding-left:0;padding-right:0">
-        <span class="sectionLabel">완료한 거래</span>
-        <span class="sectionAside num">7건</span>
+      <!-- 실기기 피드백 반영(260928): [전체/구매/판매] 필터 + [최신순/오래된순] 정렬 칩 신설
+           (F-S7-03 FR-2 r3/r4 판정의 "후기 미작성 우선 정렬"을 단순 토글로 대체). -->
+      <div class="filterRow" style="margin-right:0;padding-right:0">
+        <span class="sortChip" style="background:var(--text);color:#fff">전체</span>
+        <span class="sortChip">구매</span>
+        <span class="sortChip">판매</span>
+        <span class="chipDivider"></span>
+        <span class="sortChip">최신순</span>
       </div>
+      <div class="sectionHead" style="padding-left:0;padding-right:0">
+        <span class="sectionLabel">거래 이력</span>
+        <span class="sectionAside num">8건</span>
+      </div>
+      <article class="histRow">
+        <span class="histThumb ph ph--moto"></span>
+        <div class="histBody">
+          <span class="histTitle">Honda Vision 2021 실주행 8천km 무사고</span>
+          <span class="histMeta"><span class="roleTag">구매</span><span class="stageTag">거래중</span>Minh Anh</span>
+        </div>
+        <div class="histAside"></div>
+      </article>
       <article class="histRow">
         <span class="histThumb ph ph--moto"></span>
         <div class="histBody">

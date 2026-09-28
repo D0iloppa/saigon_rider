@@ -37190,7 +37190,8 @@ body {
 <div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>B</td><td>행 탭</td><td>보조</td><td>이동</td><td>현재 매물 광고 / 제안 그 거래의 대화방</td><td>사후 사용자가 원하는 것은 "그 거래"(상대·합의·후기). 코드 주석은 원래 대화방</td></tr><tr><td>B</td><td>후기 작성</td><td><strong>주행동</strong></td><td>진행</td><td>후기 시트</td><td>B1 S7 성공 신호가 "후기 제출" — 이 화면에 남은 유일한 진행 행동</td></tr></tbody></table></div>
 <div class="field field-prose"><div class="field-label">제안</div> ① 행 탭 목적지를 <strong>그 거래의 대화방(DM)</strong> 하나로 고정한다(현재 매물 상세는 제거). 근거: 대화방 <code>C</code>에 이미 후기 배너가 붙어 있어(F-S7-01 FR-1, B0-4 "상단 고정 진행 배너") 상대·합의·후기가 한 자리에 모이고, 매물 상세는 SOLD 이후 "현재 광고"라 재판매·삭제 시 목적지가 깨진다. ② 매물을 다시 보려는 경로는 대화방 <code>C</code> 매물 카드로 남긴다(별도 진입점 추가하지 않음). <strong>검증:</strong> 이력 행 탭 → 해당 거래 대화방 진입, 매물이 삭제·재등록된 거래에서도 행 탭이 유효할 것.</div>
 <div class="field field-prose"><div class="field-label">근거</div> TH-1~3, <code>TradeHistory.tsx:15</code>(주석 "항목 탭 → 거래완료(DM) 화면"), <code>TradeHistory.tsx:69</code>(<code>onOpen={() =&gt; navigate(</code>/dm/${tr.conversationId}<code>)}</code> — 주석과 실제 구현이 일치, 매물 상세가 아닌 대화방으로 고정됨).</div>
-<div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)<br>---</div>
+<div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)</div>
+<div class="field field-prose"><div class="field-label">실기기 피드백 반영(260928)</div> r1(DM 방 고정)을 <strong>번복</strong>한다 — 실기기에서 DM 방이 그 거래와 무관한 최신 매물 카드를 보여주는 사례가 확인됐다(대화가 이후 다른 매물로도 이어지는 DM 특성상, "그 거래"의 스냅샷이 아니라 대화의 최신 상태가 뜬다). 행 탭 목적지를 <strong><code>/market/:listingId</code>(매물 상세)로 재확정</strong>한다. <code>TradeRow.tsx</code>에 거래 단계 배지(거래중/거래완료)를 추가해 매물 상세만으로도 "그 거래가 끝났는지"를 알 수 있게 보완했다. <code>TradeHistory.tsx</code>·<code>ProfileMain.tsx</code> 거래 섹션 모두 이 목적지로 통일. (F-P-02 FR-3의 같은 항목도 동일 판정.)<br>---</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
@@ -38148,6 +38149,8 @@ body {
 .histAside { flex: 0 0 auto; display: flex; align-items: center; }
 .histDone { font-size: 12.5px; font-weight: 600; color: var(--text-3); }
 .roleTag { padding: 1px 6px; border-radius: 5px; background: var(--surface-2); font-size: 11px; font-weight: 700; color: var(--text-2); }
+/* 실기기 피드백 반영(260928): 완료 외 진행중(ACCEPTED) 거래도 섞이므로 단계 배지가 필요하다. */
+.stageTag { padding: 1px 6px; border-radius: 5px; background: #fff3cd; font-size: 11px; font-weight: 700; color: #b8860b; }
 </style>
 </head>
 <body>
@@ -38169,10 +38172,27 @@ body {
       </div>
     </header>
     <div class=&quot;histScroll&quot;>
-      <div class=&quot;sectionHead&quot; style=&quot;padding-left:0;padding-right:0&quot;>
-        <span class=&quot;sectionLabel&quot;>완료한 거래</span>
-        <span class=&quot;sectionAside num&quot;>7건</span>
+      <!-- 실기기 피드백 반영(260928): [전체/구매/판매] 필터 + [최신순/오래된순] 정렬 칩 신설
+           (F-S7-03 FR-2 r3/r4 판정의 &quot;후기 미작성 우선 정렬&quot;을 단순 토글로 대체). -->
+      <div class=&quot;filterRow&quot; style=&quot;margin-right:0;padding-right:0&quot;>
+        <span class=&quot;sortChip&quot; style=&quot;background:var(--text);color:#fff&quot;>전체</span>
+        <span class=&quot;sortChip&quot;>구매</span>
+        <span class=&quot;sortChip&quot;>판매</span>
+        <span class=&quot;chipDivider&quot;></span>
+        <span class=&quot;sortChip&quot;>최신순</span>
       </div>
+      <div class=&quot;sectionHead&quot; style=&quot;padding-left:0;padding-right:0&quot;>
+        <span class=&quot;sectionLabel&quot;>거래 이력</span>
+        <span class=&quot;sectionAside num&quot;>8건</span>
+      </div>
+      <article class=&quot;histRow&quot;>
+        <span class=&quot;histThumb ph ph--moto&quot;></span>
+        <div class=&quot;histBody&quot;>
+          <span class=&quot;histTitle&quot;>Honda Vision 2021 실주행 8천km 무사고</span>
+          <span class=&quot;histMeta&quot;><span class=&quot;roleTag&quot;>구매</span><span class=&quot;stageTag&quot;>거래중</span>Minh Anh</span>
+        </div>
+        <div class=&quot;histAside&quot;></div>
+      </article>
       <article class=&quot;histRow&quot;>
         <span class=&quot;histThumb ph ph--moto&quot;></span>
         <div class=&quot;histBody&quot;>
@@ -38257,6 +38277,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안</div> ① 정렬을 최신순 고정으로 <strong>명시 확정</strong>한다(정렬 컨트롤을 두지 않는다) — 이 화면의 목적은 "최근 거래 재방문"이고, 선택지를 주면 후기 미작성 거래를 찾는 동선이 오히려 길어진다. ② 전량 반환은 상한을 정한다 — 기본안은 서버 <code>limit</code> 도입 + 하단 [더보기](프로필 시트 미니 리스트의 [더보기]와 같은 문법). <strong>검증:</strong> 완료 거래 50건 계정에서 <code>/trades</code> 최초 렌더까지의 요청이 1건이고 응답 크기가 상한 안인지, 최상단 행이 가장 최근 완료 건인지.</div>
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 거래가 수백 건 쌓인 계정에서 첫 렌더가 길어지고(전량 직렬 조회 — 서버가 행마다 매물·상대·후기를 개별 조회한다) 스켈레톤이 오래 남는다. 사용자는 "멈췄다"고 판단해 뒤로 나간다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>frontend/src/pages/profile/TradeHistory.tsx:16-38</code>(TopBar + 단일 목록, 정렬·필터 UI 없음), <code>:27-34</code>(<code>fetchTrades(user.id)</code> 1회, 페이지 파라미터 없음), <code>backend/app/routers/market.py:2852-2871</code>(<code>status == "COMPLETED"</code> + 내가 참여한 대화, <code>order_by(updated_at.desc())</code>, <code>limit</code> 없음), <code>:2873-2879</code>(행마다 <code>db.get(MarketplaceListing)</code> · <code>db.get(User)</code> · 후기 조회 — N+1).</div>
+<div class="field field-prose"><div class="field-label">실기기 피드백 반영(260928)</div> "목록 범위 = 완료 거래 전량"을 <strong>확장</strong>한다 — 진행중(<code>ACCEPTED</code>) 약속도 함께 포함하고, 응답에 <code>stage</code>(<code>IN_PROGRESS</code>|<code>COMPLETED</code>) 필드를 추가한다(<code>completed_at</code>은 진행중 건에서 <code>null</code>). 취소·거절(<code>CANCELLED</code>/<code>DECLINED</code>/<code>PROPOSED</code>)은 여전히 제외 — "사후 재방문" 목적은 유지하되, 프로필 거래 섹션의 [판매 중] 탭이 매물 자체(ON_SALE/RESERVED)를 보여주게 되면서 [판매 완료] 탭과 [구매] 탭도 진행중 거래를 숨길 이유가 없어졌다(구매자는 거래중 상태도 추적하고 싶어한다). 정렬은 <code>updated_at desc</code> 그대로 — <code>limit</code> 미도입은 이번 라운드 범위 밖으로 남긴다(제안②는 유효, 별도 판정 대기).</div>
 <div class="field"><div class="field-label">화면 목업(자동 생성)</div><div class="mockup-wrap"><div class="phone-mock"><div class="mock-band mock-band-B"><span class="band-tag">B</span><div class="mock-band-items"><div class="mock-item w-text">거래 행 목록(완료 거래 전량)</div><div class="mock-item w-text">정렬 = 완료 최신순(고정, UI 없음)</div></div></div></div><div class="mock-legend"><span class="legend-title">범례</span><span class="mock-item w-primary">채움</span><span class="legend-eq">=주행동</span><span class="mock-item w-secondary">외곽선</span><span class="legend-eq">=보조</span><span class="mock-item w-ghost">흐림</span><span class="legend-eq">=숨김</span><span class="mock-item w-danger">위험색</span><span class="legend-eq">=파괴적</span><span class="mock-item w-text">텍스트</span><span class="legend-eq">=표시</span><span class="warn-badge" title="이유 없음">⚠</span><span class="legend-eq">=이유 없음</span></div></div></div>
 </section>
 <section class="scene" id="F-S7-03__FR-2">
@@ -38271,6 +38292,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924 — 킷 기본안 ①에 대한 이견 채택)</div> ① 헤더 아래 세그먼트 <code>[전체][판매][구매]</code>(당근 판매내역/구매내역 분리를 한 화면 세그먼트로) — 서버 <code>role</code> 필터 파라미터. ② 정렬 규칙 = <strong>후기 미작성 상단 고정 → 완료 최신순</strong>(토글 대신 정렬로 S7 성공 신호를 위로). ③ 빈 세그먼트 문구 "판매한 거래가 없어요" / "구매한 거래가 없어요"(CTA 없음 — [전체]로 돌아가면 됨), 전체 0건은 FR-3 빈 상태. ④ 행 배지 [판매]/[구매]·합의가·상대·완료일·내 후기 요약은 현행. 후기 요약은 FR-3 모델(👍/👎 + 태그 수)로 표기. 취소된 거래는 "취소됨(합의)" 배지로 목록 하단(F-X-01 FR-2).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 F(서버: <code>/trades?role=</code> + 정렬).</div>
 <div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — 후기 요약 표기는 ★ 별점 유지; 승인안 ④의 "후기 요약은 FR-3 모델(👍/👎 + 태그 수)로 표기" 제외, 기존 별점 요약(★ 평균 + 태그 수)으로 대체. 나머지 승인안(①~③ 세그먼트·정렬·빈 상태 문구)은 유효.</div>
+<div class="field field-prose"><div class="field-label">실기기 피드백 반영(260928)</div> r3의 정렬 규칙("후기 미작성 상단 고정 → 완료 최신순")을 <strong>단순화로 대체</strong>한다 — 실기기 사용성 확인 결과, 후기 여부로 자동 정렬하면 "왜 최신 거래가 아래에 있지"라는 혼란이 더 커 단순 [최신순/오래된순] 토글로 되돌렸다(최신순 기본, 서버가 이미 <code>updated_at desc</code>로 내려주므로 오래된순은 클라이언트에서 뒤집기만 한다 — 별도 API 정렬 파라미터 불필요). 세그먼트는 승인안 ①을 그대로 따르되 라벨을 <code>[전체][구매][판매]</code>로(구매 우선 — 코드 관례상 role 값 순서와 일치) 조정했다. 빈 상태 문구(③)와 행 요소(④, ★ 별점 유지)는 r3/r4 그대로 유효.</div>
 <div class="field"><div class="field-label">화면 목업(자동 생성)</div><div class="mockup-wrap"><div class="phone-mock"><div class="mock-band mock-band-B"><span class="band-tag">B</span><div class="mock-band-items"><div class="mock-item w-text">역할 배지 [판매]/[구매]</div><div class="mock-item w-text">합의가 표기</div><div class="mock-item w-text">상대 닉네임 · 완료일</div><div class="mock-item w-text">내 후기 요약(별점 + 코멘트/후기완료)</div></div></div></div><div class="mock-legend"><span class="legend-title">범례</span><span class="mock-item w-primary">채움</span><span class="legend-eq">=주행동</span><span class="mock-item w-secondary">외곽선</span><span class="legend-eq">=보조</span><span class="mock-item w-ghost">흐림</span><span class="legend-eq">=숨김</span><span class="mock-item w-danger">위험색</span><span class="legend-eq">=파괴적</span><span class="mock-item w-text">텍스트</span><span class="legend-eq">=표시</span><span class="warn-badge" title="이유 없음">⚠</span><span class="legend-eq">=이유 없음</span></div></div></div>
 </section>
 <section class="scene" id="F-S7-03__FR-3">
@@ -43859,6 +43881,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1, 2차 재설계)</div> <strong>안 B 확정(260922, 사용자 최종 선택)</strong> — <code>⋯</code>(소셜 더보기)는 제거하지 않고 소셜 지표 행(<code>.socialRow</code>, [팔로워 n][팔로잉 n]) 우측 끝으로 이동, 거래축 분기 줄(<code>.profileActions</code>)에는 [내 매물][거래이력] 2요소만 남아 균등 2등분 레이아웃이 된다. <strong>구현 완료(260922)</strong>: <code>ProfileMain.tsx</code> — <code>.socialRow</code> 안에 <code>.socialMoreBtn</code>(구 <code>.addFriendIconBtn</code>을 이 자리로 옮기며 개명) 버튼 신설(<code>setSocialActionsOpen</code> 핸들러 재사용), <code>.profileActions</code>에서 더보기 버튼 제거. <code>ProfileMain.module.css</code> — <code>.addFriendIconBtn</code>(P2-15 44px 히트영역 확장 포함) 삭제 후 <code>.socialRow{position:relative}</code> + <code>.socialMoreBtn{position:absolute; right:0}</code> 신설로 이관. 시트 안 [프로필 공유]·[친구 추가]를 <code>.verifyCard</code>→<code>.collapsedActionRow</code>(<code>.priceEditBtn</code> 톤)로 바꾼 시각 스타일 변경은 안 A/B와 무관하게 유효해 그대로 유지. 1차 제안 ④(3요소 높이 통일)는 대상 소멸로 폐기 확정 — <code>.heroEntryRow</code>/<code>.heroEntryIcon</code>은 260919 원본(padding 7px 10px, 아이콘 24px) 그대로다.</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 화면 샘플을 <strong>안 B 확정 구조</strong>로 재생성 — <code>⋯</code>는 소셜 지표 행 우측, 거래축 줄에는 목적지 진입만, 탭 줄 [피드|기록|배지] 제거(FR-5 제거 판정과 정합), 구 액션행 [공유][친구추가][채팅] 삭제(F-N-02 FR-6 ①). ② <strong>대표 확정 사항 재검토 → 승인(일괄)</strong>: 거래축 줄을 <code>[내 매물] [거래이력] [찜]</code> <strong>3등분</strong>으로 확장한다 — 안 B의 "2요소 균등"은 "동일 무게·동일 성격끼리 균등"이 본뜻이고 [찜]도 <code>보조</code>·<code>이동</code>·거래축(S1 유예한 판단의 재개)이라 P-1을 깨지 않는다. [찜] → 통합 찜 화면(F-MP-02 FR-1: <code>/map/favorites</code> 탭 [매물|업체]). 순서 S0 → S7 → S1 재개: [내 매물][거래이력][찜]. ③ <code>⋯</code> 시트는 [프로필 공유][사람 찾기](라벨 갱신, F-SOC-01 FR-3).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2, "대표 확정 사항 재검토" 항목 포함 승인) — 구현 대기 · 구현 패키지 H([찜] 진입) + U(와이어).</div>
+<div class="field field-prose"><div class="field-label">실기기 피드백 반영(260928)</div> r3([내 매물][거래이력][찜] 3등분 헤더 확장)을 <strong>폐기</strong>한다 — 실기기에서 이 줄 자체가 시트 안 거래 섹션(FR-3)의 "전체 보기"와 목적지가 겹치는 순중복으로 지적됐다(같은 화면 안에 같은 목적지로 가는 진입이 둘). 고정 헤더의 거래축 분기 줄(<code>.profileActions</code>)을 <strong>통째로 제거</strong>하고, 거래축 분기는 시트 안 거래 섹션(FR-3, 이제 [판매 중|구매|판매 완료] 3탭)이 단독으로 맡는다. [찜] 진입 확장은 이번 판정과 무관하게 보류(별도 트래킹). Q1~Q4의 "고정 영역은 분기 지도"라는 원칙 자체는 유효하되, 그 분기 지도를 헤더가 아니라 시트 최상단 섹션이 맡는 것으로 위치만 재조정한 것이다.</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
@@ -46101,6 +46124,7 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 후기 미작성 거래가 목록 하단에 밀리면 S7이 끝나지 않는다(후기 제출률 하락).</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>ProfileMain.tsx:669-677</code>(내 매물, 260922 제거됨 — 아래 판정 참조), <code>:682-690</code>(공개 미리보기), <code>:694-711</code>(파트너 시작), <code>:717-721</code>(전체 보기), <code>:723-737</code>(서브탭), <code>:761-762,1030-1036</code>(행 탭·리뷰 시트).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 내 매물 진입 행 항목만) — 시트 안 단독 [내 매물] 진입 행은 헤더(FR-1 제안③)와 완전 중복이라 제거했다. 거래 섹션의 [전체 보기](<code>tradeMore</code>, <code>/trades</code>)는 아래 거래 미니 리스트(<code>tradeRow</code>)와 짝을 이루는 "섹션 헤더 + 더보기" 패턴이라 <strong>유지</strong> — 제거하면 그 섹션의 더보기 기능 자체가 없어지므로 단독 중복 진입점과 성격이 다르다. 제안①(거래 행 탭 목적지를 DM 방으로)은 F-S7-02 FR-1과 묶인 별도 판정으로 미확정(☐) 유지.</div>
+<div class="field field-prose"><div class="field-label">실기기 피드백 반영(260928)</div> 세 가지를 함께 확정한다. ① <strong>행 탭 목적지 재확정</strong>: 제안①(DM 방 이관)은 채택하지 않는다 — F-S7-02 FR-1의 260928 판정과 동일하게 <code>/market/:listingId</code>로 고정(DM 방이 무관한 최신 매물을 보여주는 실기기 결함 때문). ② <strong>서브탭 확장·기본값 변경</strong>: [구매|판매] 2탭을 <strong>[판매 중|구매|판매 완료] 3탭</strong>으로 바꾸고 기본 탭을 <strong>판매 중</strong>으로 변경한다 — FR-1이 폐기한 헤더 [내 매물] 진입의 목적지(<code>/market/search?mine=1</code>)를 이 탭이 흡수해, "내 활성 매물 확인"이 시트를 접은 상태에서도 한 탭 안에 있다. 판매 중 탭은 <code>fetchListings({sellerId, hideSold:false})</code> 결과에서 <code>SOLD</code> 제외 후 미리보기 3건, RESERVED는 "예약중" 배지(<code>ListingCard</code> 기존 로직 재사용), [전체 보기]는 <code>/market/search?mine=1</code>. 구매/판매 완료 탭은 기존 <code>fetchTrades</code> 데이터를 <code>role</code>과 <code>stage</code>(신규, F-S7-03 FR-1)로 나눠 재활용 — 구매 탭은 전 단계, 판매 완료 탭은 <code>stage==='COMPLETED'</code>만(진행중 판매는 판매 중 탭에 RESERVED로 이미 보인다). [전체 보기]는 <code>/trades?role=</code>. ③ 후기 남기기 버튼은 <code>stage==='COMPLETED'</code>일 때만 노출하도록 <code>TradeRow</code>에 가드를 추가했다(진행중 거래에 후기 버튼이 뜨는 오류 방지).</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
@@ -47178,35 +47202,33 @@ body {
   <div class=&quot;pSheet&quot; style=&quot;top:150px&quot;>
     <div class=&quot;pSheetHandle&quot;><span class=&quot;grabber&quot; style=&quot;margin-bottom:0&quot;></span></div>
     <div class=&quot;pSheetBody&quot;>
-      <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;18.5&quot; cy=&quot;17.5&quot; r=&quot;3.5&quot;/><circle cx=&quot;5.5&quot; cy=&quot;17.5&quot; r=&quot;3.5&quot;/><circle cx=&quot;15&quot; cy=&quot;5&quot; r=&quot;1&quot;/><path d=&quot;M12 17.5V14l-3-3 4-3 2 3h2&quot;/></svg></span><span class=&quot;entryLabel&quot;>내 매물</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;3&quot;/></svg></span><span class=&quot;entryLabel&quot;>다른 사람에게 보이는 내 프로필</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7&quot;/><path d=&quot;M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8&quot;/><path d=&quot;M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4&quot;/><path d=&quot;M2 7h20&quot;/><path d=&quot;M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7&quot;/></svg></span><span class=&quot;entryLabel&quot;>비즈니스 파트너 시작하기</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
+      <!-- 실기기 피드백 반영(260928): 헤더 [내 매물][거래이력] 진입 줄(F-P-02 FR-1)을 폐기하고,
+           이 섹션의 서브탭을 [판매 중|구매|판매 완료] 3탭으로 확장 — 판매 중 탭이 옛 [내 매물] 목적지를 흡수한다. -->
       <div class=&quot;tradeSection&quot;>
         <div class=&quot;tradeHeader&quot;><h3 class=&quot;tradeSectionTitle&quot;>거래 이력</h3><span class=&quot;tradeMore&quot;>전체 보기<svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></div>
-        <div class=&quot;tradeSubTabRow&quot;><span class=&quot;tradeSubTab tradeSubTabActive&quot;>구매</span><span class=&quot;tradeSubTab&quot;>판매</span></div>
+        <div class=&quot;tradeSubTabRow&quot;><span class=&quot;tradeSubTab tradeSubTabActive&quot;>판매 중</span><span class=&quot;tradeSubTab&quot;>구매</span><span class=&quot;tradeSubTab&quot;>판매 완료</span></div>
         <div class=&quot;tradeRow&quot;>
           <span class=&quot;tradeThumb ph ph--moto&quot;></span>
           <span class=&quot;tradeInfo&quot;>
-            <span class=&quot;tradeTitleRow&quot;><span class=&quot;roleBadge&quot;>구매</span><span class=&quot;tradeTitle&quot;>Honda Vision 2021 8천km</span></span>
-            <span class=&quot;tradeMeta num&quot;>28.500.000 đ · Minh Anh · 2026.09.14</span>
+            <span class=&quot;tradeTitleRow&quot;><span class=&quot;tradeTitle&quot;>Honda Vision 2021 8천km</span></span>
+            <span class=&quot;tradeMeta num&quot;>28.500.000 đ</span>
           </span>
-          <button class=&quot;reviewBtn&quot; type=&quot;button&quot;>후기 남기기</button>
         </div>
         <div class=&quot;tradeRow&quot;>
           <span class=&quot;tradeThumb ph ph--helmet&quot;></span>
           <span class=&quot;tradeInfo&quot;>
-            <span class=&quot;tradeTitleRow&quot;><span class=&quot;roleBadge&quot;>구매</span><span class=&quot;tradeTitle&quot;>AGV 헬멧 M 사이즈</span></span>
-            <span class=&quot;tradeMeta num&quot;>1.900.000 đ · Quang Duy · 2026.08.30</span>
-            <span class=&quot;myReview&quot;><span class=&quot;myReviewStar&quot;><svg width=&quot;11&quot; height=&quot;11&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;currentColor&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.11a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z&quot;/></svg></span><span class=&quot;num&quot;>5.0</span> · 후기완료</span>
+            <span class=&quot;tradeTitleRow&quot;><span class=&quot;roleBadge&quot;>예약중</span><span class=&quot;tradeTitle&quot;>AGV 헬멧 M 사이즈</span></span>
+            <span class=&quot;tradeMeta num&quot;>1.900.000 đ</span>
           </span>
         </div>
         <div class=&quot;tradeRow&quot;>
           <span class=&quot;tradeThumb ph ph--parts&quot;></span>
           <span class=&quot;tradeInfo&quot;>
-            <span class=&quot;tradeTitleRow&quot;><span class=&quot;roleBadge&quot;>구매</span><span class=&quot;tradeTitle&quot;>순정 머플러 (Air Blade)</span></span>
-            <span class=&quot;tradeMeta num&quot;>750.000 đ · Bảo Trân · 2026.08.11</span>
+            <span class=&quot;tradeTitleRow&quot;><span class=&quot;tradeTitle&quot;>순정 머플러 (Air Blade)</span></span>
+            <span class=&quot;tradeMeta num&quot;>750.000 đ</span>
           </span>
-          <button class=&quot;reviewBtn&quot; type=&quot;button&quot;>후기 남기기</button>
         </div>
       </div>
     </div>

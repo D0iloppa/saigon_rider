@@ -428,7 +428,8 @@ export interface TradeHistory {
   counterpartId: string;
   counterpartNickname: string | null;
   counterpartAvatarUrl: string | null;
-  completedAt: string;
+  stage: 'IN_PROGRESS' | 'COMPLETED';
+  completedAt: string | null;
   reviewLeft: boolean;
   myReview: ReviewBrief | null;
 }
@@ -455,7 +456,8 @@ export async function fetchTrades(userId: string): Promise<TradeHistory[]> {
     counterpartId: r.counterpart_id,
     counterpartNickname: r.counterpart_nickname ?? null,
     counterpartAvatarUrl: r.counterpart_avatar_url ?? null,
-    completedAt: r.completed_at,
+    stage: r.stage,
+    completedAt: r.completed_at ?? null,
     reviewLeft: !!r.review_left,
     myReview: r.my_review ? transformReviewBrief(r.my_review) : null,
   }));

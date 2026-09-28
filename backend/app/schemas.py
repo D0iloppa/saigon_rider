@@ -1600,7 +1600,8 @@ class TradeHistoryItem(BaseModel):
     counterpart_id: UUID
     counterpart_nickname: str | None = None
     counterpart_avatar_url: str | None = None
-    completed_at: datetime
+    stage: Literal["IN_PROGRESS", "COMPLETED"]
+    completed_at: datetime | None = None
     review_left: bool
     my_review: ReviewBrief | None = None
 

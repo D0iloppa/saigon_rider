@@ -18,7 +18,7 @@
 > - **하단 고정 바 신설** — `components/shell/ActiveSessionBar.tsx`(신규). 무전기·실시간위치 플로팅 캡슐/버블(`WalkieTalkieFloatingButton`/`LiveLocationFloatingButton`, 두 파일 모두 삭제됨)을 대체. ~~전역 마운트는 `App.tsx`, DM 방 안에서는 `DmDetail.tsx`가 인라인으로 렌더~~ **(2026-09-24 대표 번복, 아래 참조)**.
 > - **(2026-09-24 대표 번복) 전역 고정 바 폐기 → DM 방 안 전용** — 위 항목의 "전역 fixed 인스턴스"(탭바 위 상시 고정 표시, `useSheetPresenceStore` 억제, `PAGE_BOTTOM_BAR_HEIGHTS`/`--session-bar-height` 인셋)는 전부 걷어냈다. `App.tsx`는 이제 세션 로직만 돌리는 `SessionCellsProvider`를 항상 마운트(방을 나가도 join/하트비트/수신 음성 자동재생 유지)하고, 보이는 바(`ActiveSessionBar`, `conversationId` prop)는 `DmDetail.tsx`가 **자기 방의 세션일 때만** 입력창 위 in-flow 로 그린다. `useSheetPresenceStore.ts` 삭제(고아 정리). 근거: F-N-01 FR-2 판정(r5, 260924).
 > - **`/map/search` 로그인 게이트 제거** — `App.tsx`에서 `PrivateRoute` 밖으로 이동(비로그인 지도 검색 허용). `/map/favorites`·`/map/profile`은 게이트 유지.
-> - **거래 이력 행 목적지 변경** — `TradeHistory.tsx`(F-S7-02)·`ProfileMain.tsx`(F-P-02, 거래 섹션) 둘 다 `/market/:id` → `/dm/:conversationId`로 통일.
+> - **거래 이력 행 목적지 변경** — `TradeHistory.tsx`(F-S7-02)·`ProfileMain.tsx`(F-P-02, 거래 섹션) 둘 다 `/market/:id` → `/dm/:conversationId`로 통일. **⚠️ 2026-09-28 실기기 피드백으로 번복** — DM 방이 무관한 최신 매물을 보여내는 문제가 발견돼 `/market/:listingId`로 재확정(§3.5·§3.11 참조).
 > - **`/profile` 시트에서 게임화 탭(퀘스트 이력·뱃지) 제거** — `ProfileMain.tsx`의 `TABS` 배열·렌더 분기·`.tabRow{display:none}` 규칙 삭제, 피드 탭만 남음.
 > - **커뮤니티 그룹 진입점 신설** — `/feed`(FeedList.tsx) 필터 줄에 "그룹" 내비게이션 칩 추가 → `/community/groups`. 단 그 라우트들은 여전히 `PrivateRoute`라 비로그인 진입은 로그인 벽에 막힘(후속 판정 필요, 미해결).
 > - **백엔드 신규 엔드포인트** — `DELETE /feed/{post_id}/comments/{comment_id}`(본인 댓글 삭제, hard-delete) 신설.
@@ -433,7 +433,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 > 📋 **스토리보드**: 개인 프로필 허브(고정헤더/인증·라운지/거래축/내 피드/게이미피케이션 잔재) [F-P-02 FR-1](../review/storyboard/index.html#F-P-02__FR-1)·[FR-2](../review/storyboard/index.html#F-P-02__FR-2)·[FR-3](../review/storyboard/index.html#F-P-02__FR-3)·[FR-4](../review/storyboard/index.html#F-P-02__FR-4)·[FR-5](../review/storyboard/index.html#F-P-02__FR-5) — 설계 근거·제안·판정은 스토리보드 참조.
 
 - **페이지**: `pages/profile/ProfileMain.tsx` — 3레이어 + 드래거블 시트 구조 (상세: [`frontend.md`](frontend.md) §4)
-- **핵심 컴포넌트**: `StatusBar`, `SkillTree`, `ReviewSheet`, `TradeRow`, `LevelBadge`, `ImageCarousel`, `ItemSvgRenderer`
+- **핵심 컴포넌트**: `StatusBar`, `SkillTree`, `ReviewSheet`, `TradeRow`, `ListingCard`, `LevelBadge`, `ImageCarousel`, `ItemSvgRenderer`
+- **🔧 실기기 피드백 반영(260928)** — 소셜·액션 섹션의 [내 매물][거래이력] 헤더 진입 줄(`.profileActions`, 2026-09-22 신설)을 **폐기**했다 — 시트 안 거래 섹션의 "전체 보기"와 목적지가 겹치는 순중복이었다. 대신 거래 섹션(시트 중단) 서브탭을 **[구매|판매] 2탭 → [판매 중|구매|판매 완료] 3탭**으로 확장하고 기본 탭을 **판매 중**으로 바꿨다 — 판매 중 탭이 옛 헤더 [내 매물]의 목적지(`/market/search?mine=1`)를 흡수한다. 판매 중 탭은 `fetchListings({sellerId, hideSold:false})` 결과에서 `SOLD` 제외 후 `ListingCard`로 미리보기 3건을 보여주고(`RESERVED`는 기존 "예약중" 배지 재사용), 구매/판매 완료 탭은 `fetchTrades`를 `role`·`stage`(신규, §3.11)로 나눠 재활용한다(판매 완료 탭은 `stage==='COMPLETED'`만 — 진행중 판매는 판매 중 탭에 RESERVED로 이미 보인다). 거래 행 탭 목적지는 `/market/:listingId`로 §3.11과 동일하게 통일(2026-09-21 DM 방 통일 판정을 재차 번복).
 - **휴대폰 인증 CTA 카드 (2026-07-17)**: sheetBody 최상단 카드, `user.phoneVerified` 기준 분기 — 미인증 → "휴대폰 인증 필요" 표시 + 탭 시 `/auth/phone-verify` 이동, 인증완료 → "휴대폰 인증 완료" 표시(비탭).
 - **하위 진입점** (모두 ProfileMain에서 navigate):
   - 설정 아이콘 → `/settings` (하위: `notifications`/`language`/`account`/`blocked`/`profile`/`support`/`support/:id`/`privacy`/`terms`). 설정 메뉴에서 **공지사항(`/notices`)·FAQ(`/faq`)** 행 2개로도 진입 (2026-07-18, `Settings.tsx` — admin 콘솔 CMS 연동 화면, 아래 §3.8)
@@ -762,7 +763,9 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 | 라우트 | 페이지 파일 | 내용 |
 |---|---|---|
-| `/trades` | `pages/profile/TradeHistory.tsx` | 거래 이력 목록 — 행 탭 → `/dm/:conversationId` 고정(2026-09-21, 위 개요 참조), [후기 작성] 채움 칩 |
+| `/trades` | `pages/profile/TradeHistory.tsx` | 거래 이력 목록 — 행 탭 → `/market/:listingId`(2026-09-28 실기기 피드백으로 재확정, 아래 참조), [후기 작성] 채움 칩(완료 거래만) |
+
+> **🔧 실기기 피드백 반영(260928)** — 세 가지 변경. **① 행 탭 목적지 재확정**: 2026-09-21 에 `/dm/:conversationId`로 통일했던 것을 **`/market/:listingId`로 되돌린다** — 실기기에서 DM 방이 그 거래와 무관한(대화가 이후 다른 매물로도 이어지는) 최신 매물 카드를 보여주는 사례가 확인됐다. 대신 `TradeRow.tsx`에 거래 단계 배지(거래중/거래완료)를 추가해 매물 상세만으로도 거래가 끝났는지 알 수 있게 보완했다. `ProfileMain.tsx` 거래 섹션의 같은 행도 동일 목적지로 통일. **② 목록 범위 확장**: `GET /market/trades`(`backend/app/routers/market.py`)가 완료(`COMPLETED`)뿐 아니라 진행중(`ACCEPTED`) 약속도 포함하도록 바뀌었다 — 응답에 `stage`(`IN_PROGRESS`|`COMPLETED`) 필드가 추가되고, 진행중 건은 `completed_at`이 `null`이다(취소·거절은 여전히 제외). `TradeRow`의 [후기 남기기] 버튼은 `stage==='COMPLETED'`일 때만 노출하도록 가드했다. **③ 필터·정렬 칩 신설**: TopBar 아래 `[전체][구매][판매]`(단일 선택 role 필터) + `[최신순/오래된순]` 토글 칩 — 서버가 이미 `updated_at desc`로 내려주므로 오래된순은 클라이언트에서 배열을 뒤집는 것으로 처리(별도 API 파라미터 없음). `?role=` 쿼리로 초기 필터를 지정할 수 있다(`ProfileMain.tsx` 거래 섹션의 [전체 보기]가 사용).
 
 ### 3.12 약속·이동·만남·완료 (거래 여정 S4~S7)
 

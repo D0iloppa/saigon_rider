@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, Bike } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
@@ -12,11 +12,22 @@ import { useUserStore } from '@/store/useUserStore';
 import sys from '@/styles/system.module.css';
 import styles from './TradeHistory.module.css';
 
-/** 전체 거래 이력 페이지 — 프로필 '거래 이력 > 전체 보기'. 항목 탭 → 거래완료(DM) 화면. */
+type RoleFilter = 'all' | 'bought' | 'sold';
+type SortOrder = 'recent' | 'oldest';
+
+/** 전체 거래 이력 페이지 — 프로필 '거래 이력 > 전체 보기'. 항목 탭 → 매물 상세. */
 export default function TradeHistory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { search } = useLocation();
   const user = useUserStore((s) => s.user);
+
+  const initialRole = useMemo<RoleFilter>(() => {
+    const r = new URLSearchParams(search).get('role');
+    return r === 'bought' || r === 'sold' ? r : 'all';
+  }, [search]);
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>(initialRole);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
 
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,9 +52,38 @@ export default function TradeHistory() {
     load();
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const visibleTrades = useMemo(() => {
+    const filtered = roleFilter === 'all' ? trades : trades.filter((tr) => tr.role === roleFilter);
+    // 백엔드가 이미 최신순(updated_at desc)으로 내려주므로 오래된순은 뒤집기만 하면 된다.
+    return sortOrder === 'recent' ? filtered : [...filtered].reverse();
+  }, [trades, roleFilter, sortOrder]);
+
   return (
     <div className={styles.page}>
       <TopBar title={t('profile.tradeHistory', { defaultValue: '거래 이력' })} />
+      <div className={styles.filterRow}>
+        {(['all', 'bought', 'sold'] as const).map((r) => (
+          <button
+            key={r}
+            className={`${styles.filterChip} ${roleFilter === r ? styles.filterChipActive : ''}`}
+            onClick={() => setRoleFilter(r)}
+          >
+            {r === 'all'
+              ? t('profile.tradeFilterAll', { defaultValue: '전체' })
+              : r === 'bought'
+              ? t('profile.tradeBought', { defaultValue: '구매' })
+              : t('profile.tradeSold', { defaultValue: '판매' })}
+          </button>
+        ))}
+        <button
+          className={`${styles.filterChip} ${sortOrder === 'oldest' ? styles.filterChipActive : ''}`}
+          onClick={() => setSortOrder(sortOrder === 'recent' ? 'oldest' : 'recent')}
+        >
+          {sortOrder === 'recent'
+            ? t('profile.sortRecent', { defaultValue: '최신순' })
+            : t('profile.sortOldest', { defaultValue: '오래된순' })}
+        </button>
+      </div>
       <div className={styles.list}>
         {loading ? (
           <div className={sys.card} style={{ margin: 0 }}>
@@ -59,7 +99,7 @@ export default function TradeHistory() {
               onAction={load}
             />
           </div>
-        ) : trades.length === 0 ? (
+        ) : visibleTrades.length === 0 ? (
           <div className={sys.card} style={{ margin: 0 }}>
             <StateBlock
               icon={Bike}
@@ -70,11 +110,11 @@ export default function TradeHistory() {
             />
           </div>
         ) : (
-          trades.map((tr) => (
+          visibleTrades.map((tr) => (
             <TradeRow
               key={tr.appointmentId}
               trade={tr}
-              onOpen={() => navigate(`/dm/${tr.conversationId}`)}
+              onOpen={() => navigate(`/market/${tr.listingId}`)}
               onReview={() => setReviewTarget({ targetId: tr.counterpartId, listingId: tr.listingId })}
             />
           ))

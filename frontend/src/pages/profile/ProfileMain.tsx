@@ -4,17 +4,18 @@ import { useTranslation } from 'react-i18next';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   Settings, Building2, Coffee, Moon, BadgeCheck, Smartphone, ChevronRight,
-  Route, Flag, Medal, Gem, Trophy, Bike, Store, Plus, Camera, Flame,
-  MessageCircle, MoreVertical, ClipboardList,
+  Route, Flag, Medal, Gem, Trophy, Store, Plus, Camera, Flame,
+  MessageCircle, MoreVertical,
   UserPlus, AlertCircle, Eye, type LucideIcon,
   Share2, MoreHorizontal,
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
 import { useDmStore } from '@/store/useDmStore';
-import { fetchTrades, type TradeHistory } from '@/api/market';
+import { fetchTrades, fetchListings, type TradeHistory, type ListingCard as Listing } from '@/api/market';
 import ReviewSheet from '@/components/market/ReviewSheet';
 import TradeRow from '@/components/market/TradeRow';
+import ListingCard from '@/pages/market/ListingCard';
 import { SkillTree } from './SkillTree';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useDialogStore } from '@/store/useDialogStore';
@@ -101,6 +102,23 @@ export default function ProfileMain() {
   }, [user?.id]);
 
   useEffect(() => { loadTrades(); }, [loadTrades]);
+
+  // 260928 실기기 피드백: 거래 이력 섹션 "판매 중" 탭 — 내 매물(ON_SALE/RESERVED) 미리보기
+  const [sellingListings, setSellingListings] = useState<Listing[]>([]);
+  const [sellingError, setSellingError] = useState(false);
+
+  const loadSelling = useCallback(() => {
+    const uid = user?.id;
+    if (!uid) return;
+    fetchListings({ sellerId: uid, hideSold: false, size: 20 })
+      .then((page) => {
+        setSellingListings(page.items.filter((l) => l.status !== 'SOLD'));
+        setSellingError(false);
+      })
+      .catch(() => setSellingError(true));
+  }, [user?.id]);
+
+  useEffect(() => { loadSelling(); }, [loadSelling]);
 
   useEffect(() => {
     if (!user?.phone) return;
@@ -218,8 +236,8 @@ export default function ProfileMain() {
   const [bizLoading, setBizLoading] = useState(true);
   const [bizUnansweredCount, setBizUnansweredCount] = useState<number | null>(null);
 
-  // ── 거래 이력 서브탭 ──
-  const [tradeTab, setTradeTab] = useState<'bought' | 'sold'>('bought');
+  // ── 거래 이력 서브탭 ── 260928: 판매 중(내 매물) 우선 노출로 3탭 구성 + 기본값 변경
+  const [tradeTab, setTradeTab] = useState<'selling' | 'bought' | 'sold'>('selling');
 
   // ── feeds 탭 상태 ──
   const [myFeeds, setMyFeeds] = useState<FeedPost[]>([]);
@@ -401,27 +419,6 @@ export default function ProfileMain() {
           </button>
           <button className={styles.socialMoreBtn} onClick={() => setSocialActionsOpen(true)} aria-label={t('common.expand')}>
             <MoreHorizontal size={18} strokeWidth={2.2} />
-          </button>
-        </div>
-
-        <div className={styles.profileActions}>
-          <button
-            type="button"
-            onClick={() => navigate('/market/search?mine=1')}
-            className={styles.heroEntryRow}
-          >
-            <span className={styles.heroEntryIcon}><Bike size={18} /></span>
-            <span className={styles.heroEntryLabel}>{t('profile.tabMyListings')}</span>
-            <ChevronRight size={18} className={styles.heroEntryChevron} />
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/trades')}
-            className={styles.heroEntryRow}
-          >
-            <span className={styles.heroEntryIcon}><ClipboardList size={18} /></span>
-            <span className={styles.heroEntryLabel}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</span>
-            <ChevronRight size={18} className={styles.heroEntryChevron} />
           </button>
         </div>
       </div>
@@ -671,13 +668,26 @@ export default function ProfileMain() {
         <div className={styles.tradeSection}>
           <div className={styles.tradeHeader}>
             <h3 className={styles.tradeSectionTitle}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</h3>
-            {trades.length > 0 && (
-              <button type="button" className={styles.tradeMore} onClick={() => navigate('/trades')}>
+            {(tradeTab === 'selling'
+              ? sellingListings.length > 0
+              : trades.some((tr) => tr.role === (tradeTab === 'bought' ? 'bought' : 'sold'))) && (
+              <button
+                type="button"
+                className={styles.tradeMore}
+                onClick={() => navigate(tradeTab === 'selling' ? '/market/search?mine=1' : `/trades?role=${tradeTab}`)}
+              >
                 {t('profile.seeAll', { defaultValue: '전체 보기' })} <ChevronRight size={14} />
               </button>
             )}
           </div>
           <div className={styles.tradeSubTabRow}>
+            <button
+              type="button"
+              className={`${styles.tradeSubTab} ${tradeTab === 'selling' ? styles.tradeSubTabActive : ''}`}
+              onClick={() => setTradeTab('selling')}
+            >
+              {t('profile.tradeSelling', { defaultValue: '판매 중' })}
+            </button>
             <button
               type="button"
               className={`${styles.tradeSubTab} ${tradeTab === 'bought' ? styles.tradeSubTabActive : ''}`}
@@ -690,10 +700,26 @@ export default function ProfileMain() {
               className={`${styles.tradeSubTab} ${tradeTab === 'sold' ? styles.tradeSubTabActive : ''}`}
               onClick={() => setTradeTab('sold')}
             >
-              {t('profile.tradeSold', { defaultValue: '판매' })}
+              {t('profile.tradeSoldDone', { defaultValue: '판매 완료' })}
             </button>
           </div>
-          {tradesError ? (
+          {tradeTab === 'selling' ? (
+            sellingError ? (
+              <StateBlock
+                icon={AlertCircle}
+                tone="error"
+                title={t('profile.tradesLoadError', { defaultValue: '거래 이력을 불러오지 못했어요' })}
+                actionLabel={t('common.retry')}
+                onAction={loadSelling}
+              />
+            ) : sellingListings.length === 0 ? (
+              <p className={styles.tradeEmpty}>{t('profile.noTradesSelling', { defaultValue: '판매 중인 매물이 없어요' })}</p>
+            ) : (
+              sellingListings.slice(0, 3).map((l) => (
+                <ListingCard key={l.id} listing={l} onClick={() => navigate(`/market/${l.id}`)} />
+              ))
+            )
+          ) : tradesError ? (
             <StateBlock
               icon={AlertCircle}
               tone="error"
@@ -702,7 +728,9 @@ export default function ProfileMain() {
               onAction={loadTrades}
             />
           ) : (() => {
-            const filtered = trades.filter((tr) => tr.role === (tradeTab === 'bought' ? 'bought' : 'sold'));
+            const filtered = trades.filter((tr) =>
+              tradeTab === 'bought' ? tr.role === 'bought' : tr.role === 'sold' && tr.stage === 'COMPLETED',
+            );
             return filtered.length === 0 ? (
               <p className={styles.tradeEmpty}>
                 {tradeTab === 'bought'
@@ -715,7 +743,7 @@ export default function ProfileMain() {
                   key={tr.appointmentId}
                   trade={tr}
                   variant="plain"
-                  onOpen={() => navigate(`/dm/${tr.conversationId}`)}
+                  onOpen={() => navigate(`/market/${tr.listingId}`)}
                   onReview={() => setReviewTarget({ targetId: tr.counterpartId, listingId: tr.listingId })}
                 />
               ))

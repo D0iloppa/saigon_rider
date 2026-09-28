@@ -43883,6 +43883,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 화면 샘플을 <strong>안 B 확정 구조</strong>로 재생성 — <code>⋯</code>는 소셜 지표 행 우측, 거래축 줄에는 목적지 진입만, 탭 줄 [피드|기록|배지] 제거(FR-5 제거 판정과 정합), 구 액션행 [공유][친구추가][채팅] 삭제(F-N-02 FR-6 ①). ② <strong>대표 확정 사항 재검토 → 승인(일괄)</strong>: 거래축 줄을 <code>[내 매물] [거래이력] [찜]</code> <strong>3등분</strong>으로 확장한다 — 안 B의 "2요소 균등"은 "동일 무게·동일 성격끼리 균등"이 본뜻이고 [찜]도 <code>보조</code>·<code>이동</code>·거래축(S1 유예한 판단의 재개)이라 P-1을 깨지 않는다. [찜] → 통합 찜 화면(F-MP-02 FR-1: <code>/map/favorites</code> 탭 [매물|업체]). 순서 S0 → S7 → S1 재개: [내 매물][거래이력][찜]. ③ <code>⋯</code> 시트는 [프로필 공유][사람 찾기](라벨 갱신, F-SOC-01 FR-3).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2, "대표 확정 사항 재검토" 항목 포함 승인) — 구현 대기 · 구현 패키지 H([찜] 진입) + U(와이어).</div>
 <div class="field field-prose"><div class="field-label">실기기 피드백 반영(260928)</div> r3([내 매물][거래이력][찜] 3등분 헤더 확장)을 <strong>폐기</strong>한다 — 실기기에서 이 줄 자체가 시트 안 거래 섹션(FR-3)의 "전체 보기"와 목적지가 겹치는 순중복으로 지적됐다(같은 화면 안에 같은 목적지로 가는 진입이 둘). 고정 헤더의 거래축 분기 줄(<code>.profileActions</code>)을 <strong>통째로 제거</strong>하고, 거래축 분기는 시트 안 거래 섹션(FR-3, 이제 [판매 중|구매|판매 완료] 3탭)이 단독으로 맡는다. [찜] 진입 확장은 이번 판정과 무관하게 보류(별도 트래킹). Q1~Q4의 "고정 영역은 분기 지도"라는 원칙 자체는 유효하되, 그 분기 지도를 헤더가 아니라 시트 최상단 섹션이 맡는 것으로 위치만 재조정한 것이다.</div>
+<div class="field field-prose"><div class="field-label">실기기 피드백 2차(260928)</div> 내 매물은 거래 이력과 분리해 시트 상단 카드 그룹의 독립 행으로 배치(판매 중/예약 중 카운트), 거래 이력은 [구매|판매] 2탭·구매 우선. 이전 260928 1차의 3탭 통합안은 폐기.</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
@@ -44873,6 +44874,7 @@ body {
 .entryRow{display:flex;align-items:center;gap:12px;width:100%;margin:12px 0 0;padding:13px 16px;border-radius:16px;border:1px solid var(--line);background:var(--surface);text-align:left;}
 .entryIcon{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:var(--surface-2);color:var(--text-2);flex-shrink:0;}
 .entryLabel{flex:1;min-width:0;font-size:14.5px;font-weight:600;color:var(--text);}
+.entrySub{display:block;font-size:12px;font-weight:500;color:var(--text-3);margin-top:2px;}
 
 .tabRow{display:flex;background:var(--surface);border-radius:14px;padding:4px;margin:12px 0;box-shadow:var(--shadow-card);}
 .pTab{flex:1;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:14px;font-weight:600;color:var(--text-2);border:0;background:none;}
@@ -44973,7 +44975,8 @@ body {
         <span class=&quot;pTab&quot;>기록</span>
         <span class=&quot;pTab&quot;>배지</span>
       </div>
-      <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;18.5&quot; cy=&quot;17.5&quot; r=&quot;3.5&quot;/><circle cx=&quot;5.5&quot; cy=&quot;17.5&quot; r=&quot;3.5&quot;/><circle cx=&quot;15&quot; cy=&quot;5&quot; r=&quot;1&quot;/><path d=&quot;M12 17.5V14l-3-3 4-3 2 3h2&quot;/></svg></span><span class=&quot;entryLabel&quot;>내 매물</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
+      <!-- 실기기 피드백 2차(260928): 내 매물은 판매 중/예약 중 카운트를 보여주는 독립 행 -->
+      <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2.5 12.5V2h10.5l8.09 8.09a2 2 0 0 1 0 2.82&quot;/><circle cx=&quot;7.5&quot; cy=&quot;7.5&quot; r=&quot;1&quot;/></svg></span><span class=&quot;entryLabel&quot;>내 매물<span class=&quot;entrySub&quot;>판매 중 2 · 예약 중 1</span></span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;3&quot;/></svg></span><span class=&quot;entryLabel&quot;>다른 사람에게 보이는 내 프로필</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7&quot;/><path d=&quot;M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8&quot;/><path d=&quot;M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4&quot;/><path d=&quot;M2 7h20&quot;/><path d=&quot;M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7&quot;/></svg></span><span class=&quot;entryLabel&quot;>비즈니스 파트너 시작하기</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
     </div>
@@ -46126,6 +46129,7 @@ body {
 <div class="field field-prose"><div class="field-label">근거</div> <code>ProfileMain.tsx:669-677</code>(내 매물, 260922 제거됨 — 아래 판정 참조), <code>:682-690</code>(공개 미리보기), <code>:694-711</code>(파트너 시작), <code>:717-721</code>(전체 보기), <code>:723-737</code>(서브탭), <code>:761-762,1030-1036</code>(행 탭·리뷰 시트).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 내 매물 진입 행 항목만) — 시트 안 단독 [내 매물] 진입 행은 헤더(FR-1 제안③)와 완전 중복이라 제거했다. 거래 섹션의 [전체 보기](<code>tradeMore</code>, <code>/trades</code>)는 아래 거래 미니 리스트(<code>tradeRow</code>)와 짝을 이루는 "섹션 헤더 + 더보기" 패턴이라 <strong>유지</strong> — 제거하면 그 섹션의 더보기 기능 자체가 없어지므로 단독 중복 진입점과 성격이 다르다. 제안①(거래 행 탭 목적지를 DM 방으로)은 F-S7-02 FR-1과 묶인 별도 판정으로 미확정(☐) 유지.</div>
 <div class="field field-prose"><div class="field-label">실기기 피드백 반영(260928)</div> 세 가지를 함께 확정한다. ① <strong>행 탭 목적지 재확정</strong>: 제안①(DM 방 이관)은 채택하지 않는다 — F-S7-02 FR-1의 260928 판정과 동일하게 <code>/market/:listingId</code>로 고정(DM 방이 무관한 최신 매물을 보여주는 실기기 결함 때문). ② <strong>서브탭 확장·기본값 변경</strong>: [구매|판매] 2탭을 <strong>[판매 중|구매|판매 완료] 3탭</strong>으로 바꾸고 기본 탭을 <strong>판매 중</strong>으로 변경한다 — FR-1이 폐기한 헤더 [내 매물] 진입의 목적지(<code>/market/search?mine=1</code>)를 이 탭이 흡수해, "내 활성 매물 확인"이 시트를 접은 상태에서도 한 탭 안에 있다. 판매 중 탭은 <code>fetchListings({sellerId, hideSold:false})</code> 결과에서 <code>SOLD</code> 제외 후 미리보기 3건, RESERVED는 "예약중" 배지(<code>ListingCard</code> 기존 로직 재사용), [전체 보기]는 <code>/market/search?mine=1</code>. 구매/판매 완료 탭은 기존 <code>fetchTrades</code> 데이터를 <code>role</code>과 <code>stage</code>(신규, F-S7-03 FR-1)로 나눠 재활용 — 구매 탭은 전 단계, 판매 완료 탭은 <code>stage==='COMPLETED'</code>만(진행중 판매는 판매 중 탭에 RESERVED로 이미 보인다). [전체 보기]는 <code>/trades?role=</code>. ③ 후기 남기기 버튼은 <code>stage==='COMPLETED'</code>일 때만 노출하도록 <code>TradeRow</code>에 가드를 추가했다(진행중 거래에 후기 버튼이 뜨는 오류 방지).</div>
+<div class="field field-prose"><div class="field-label">실기기 피드백 2차(260928)</div> 내 매물은 거래 이력과 분리해 시트 상단 카드 그룹의 독립 행으로 배치(판매 중/예약 중 카운트), 거래 이력은 [구매|판매] 2탭·구매 우선. 이전 260928 1차의 3탭 통합안은 폐기.</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
@@ -47116,6 +47120,7 @@ body {
 .entryRow{display:flex;align-items:center;gap:12px;width:100%;margin:12px 0 0;padding:13px 16px;border-radius:16px;border:1px solid var(--line);background:var(--surface);text-align:left;}
 .entryIcon{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:var(--surface-2);color:var(--text-2);flex-shrink:0;}
 .entryLabel{flex:1;min-width:0;font-size:14.5px;font-weight:600;color:var(--text);}
+.entrySub{display:block;font-size:12px;font-weight:500;color:var(--text-3);margin-top:2px;}
 
 .tabRow{display:flex;background:var(--surface);border-radius:14px;padding:4px;margin:12px 0;box-shadow:var(--shadow-card);}
 .pTab{flex:1;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:14px;font-weight:600;color:var(--text-2);border:0;background:none;}
@@ -47203,32 +47208,37 @@ body {
   <div class=&quot;pSheet&quot; style=&quot;top:150px&quot;>
     <div class=&quot;pSheetHandle&quot;><span class=&quot;grabber&quot; style=&quot;margin-bottom:0&quot;></span></div>
     <div class=&quot;pSheetBody&quot;>
+      <!-- 실기기 피드백 2차(260928): 내 매물은 거래 이력과 분리해 시트 상단 카드 그룹의 독립 행으로 배치
+           (판매 중/예약 중 카운트) — 판매자에게 가장 중요하므로 개인 진입 행 중 최상단. -->
+      <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2.5 12.5V2h10.5l8.09 8.09a2 2 0 0 1 0 2.82&quot;/><circle cx=&quot;7.5&quot; cy=&quot;7.5&quot; r=&quot;1&quot;/></svg></span><span class=&quot;entryLabel&quot;>내 매물<span class=&quot;entrySub&quot;>판매 중 2 · 예약 중 1</span></span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;3&quot;/></svg></span><span class=&quot;entryLabel&quot;>다른 사람에게 보이는 내 프로필</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7&quot;/><path d=&quot;M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8&quot;/><path d=&quot;M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4&quot;/><path d=&quot;M2 7h20&quot;/><path d=&quot;M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7&quot;/></svg></span><span class=&quot;entryLabel&quot;>비즈니스 파트너 시작하기</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
-      <!-- 실기기 피드백 반영(260928): 헤더 [내 매물][거래이력] 진입 줄(F-P-02 FR-1)을 폐기하고,
-           이 섹션의 서브탭을 [판매 중|구매|판매 완료] 3탭으로 확장 — 판매 중 탭이 옛 [내 매물] 목적지를 흡수한다. -->
+      <!-- 실기기 피드백 2차(260928): 거래 이력은 [구매|판매] 2탭·구매 우선으로 복원 —
+           이전 260928 1차의 [판매 중|구매|판매 완료] 3탭 통합안은 폐기(내 매물이 위 독립 행으로 분리됐으므로). -->
       <div class=&quot;tradeSection&quot;>
         <div class=&quot;tradeHeader&quot;><h3 class=&quot;tradeSectionTitle&quot;>거래 이력</h3><span class=&quot;tradeMore&quot;>전체 보기<svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></div>
-        <div class=&quot;tradeSubTabRow&quot;><span class=&quot;tradeSubTab tradeSubTabActive&quot;>판매 중</span><span class=&quot;tradeSubTab&quot;>구매</span><span class=&quot;tradeSubTab&quot;>판매 완료</span></div>
+        <div class=&quot;tradeSubTabRow&quot;><span class=&quot;tradeSubTab tradeSubTabActive&quot;>구매</span><span class=&quot;tradeSubTab&quot;>판매</span></div>
         <div class=&quot;tradeRow&quot;>
           <span class=&quot;tradeThumb ph ph--moto&quot;></span>
           <span class=&quot;tradeInfo&quot;>
-            <span class=&quot;tradeTitleRow&quot;><span class=&quot;tradeTitle&quot;>Honda Vision 2021 8천km</span></span>
-            <span class=&quot;tradeMeta num&quot;>28.500.000 đ</span>
+            <span class=&quot;tradeTitleRow&quot;><span class=&quot;roleBadge&quot;>구매</span><span class=&quot;tradeTitle&quot;>Honda Vision 2021 8천km</span></span>
+            <span class=&quot;tradeMeta num&quot;>28.500.000 đ · Minh Anh · 2026.09.14</span>
           </span>
+          <button class=&quot;reviewBtn&quot; type=&quot;button&quot;>후기 남기기</button>
         </div>
         <div class=&quot;tradeRow&quot;>
           <span class=&quot;tradeThumb ph ph--helmet&quot;></span>
           <span class=&quot;tradeInfo&quot;>
-            <span class=&quot;tradeTitleRow&quot;><span class=&quot;roleBadge&quot;>예약중</span><span class=&quot;tradeTitle&quot;>AGV 헬멧 M 사이즈</span></span>
-            <span class=&quot;tradeMeta num&quot;>1.900.000 đ</span>
+            <span class=&quot;tradeTitleRow&quot;><span class=&quot;roleBadge&quot;>구매</span><span class=&quot;tradeTitle&quot;>AGV 헬멧 M 사이즈</span></span>
+            <span class=&quot;tradeMeta num&quot;>1.900.000 đ · Quang Duy · 2026.08.30</span>
+            <span class=&quot;myReview&quot;><span class=&quot;myReviewStar&quot;><svg width=&quot;11&quot; height=&quot;11&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;currentColor&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.11a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z&quot;/></svg></span><span class=&quot;num&quot;>5.0</span> · 후기완료</span>
           </span>
         </div>
         <div class=&quot;tradeRow&quot;>
           <span class=&quot;tradeThumb ph ph--parts&quot;></span>
           <span class=&quot;tradeInfo&quot;>
-            <span class=&quot;tradeTitleRow&quot;><span class=&quot;tradeTitle&quot;>순정 머플러 (Air Blade)</span></span>
-            <span class=&quot;tradeMeta num&quot;>750.000 đ</span>
+            <span class=&quot;tradeTitleRow&quot;><span class=&quot;roleBadge&quot;>구매</span><span class=&quot;tradeTitle&quot;>순정 머플러 (Air Blade)</span></span>
+            <span class=&quot;tradeMeta num&quot;>750.000 đ · Bảo Trân · 2026.08.11</span>
           </span>
         </div>
       </div>

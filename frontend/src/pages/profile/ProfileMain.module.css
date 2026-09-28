@@ -290,6 +290,14 @@
   color: var(--text);
 }
 
+.entrySub {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
 .entryChevron { color: var(--text-3); flex-shrink: 0; }
 
 .avatarWrap {

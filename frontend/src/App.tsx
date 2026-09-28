@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SessionCellsProvider } from '@/components/shell/ActiveSessionBar';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
+import { setSplashOverlayVisible } from '@/lib/splashOverlay';
 import { preloadRideMapStyle } from '@/lib/rideMapPreload';
 import { useDmStore } from '@/store/useDmStore';
 import i18n, { changeLang } from '@/lib/i18n';
@@ -29,6 +30,8 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { registerPollTask } from '@/lib/pollScheduler';
 import { captureAcqRefFromUrl, captureUtmFirstTouchFromUrl } from '@/lib/acquisition';
 import { useScreenTracking } from '@/hooks/useScreenTracking';
+import { startHomePrefetch, homeDataReady } from '@/lib/homePrefetch';
+import { peekReturnTo } from '@/lib/returnTo';
 
 // Auth
 import Splash from '@/pages/auth/Splash';
@@ -288,6 +291,12 @@ export default function App() {
   const bootStartTime = useRef(Date.now());
   // F-19: 강제 업데이트 — 판정 불가/미강제 시 항상 false(차단 안 함). shouldForceUpdate 참조.
   const [forceUpdateBlocked, setForceUpdateBlocked] = useState(false);
+  // 서버 설정값(app-config.splash_prefetch_timeout_ms) — 조회 실패 시 3000ms 폴백.
+  const splashPrefetchTimeoutMsRef = useRef(3000);
+
+  // 홈 데이터 프리페치 — 부팅 작업(세션 확인 등)과 병렬로 스플래시 동안 미리 시작한다.
+  // 목적지가 홈이 아니어도(로그인/온보딩) 저비용 GET 이라 무해하다(lib/homePrefetch.ts).
+  useEffect(() => { startHomePrefetch(); }, []);
 
   // 세션 만료 전역 핸들러 등록
   useEffect(() => {
@@ -432,8 +441,11 @@ export default function App() {
   // 그 결과가 세션 내내 고착됐다(ensureLocation 은 coords 가 있으면 재측위하지 않는다).
   useEffect(() => {
     fetchAppConfig()
-      .then((cfg) => setDevAreaBypass(cfg.isDev))
-      .catch(() => { /* fail-closed: 우회는 꺼진 상태 유지 */ });
+      .then((cfg) => {
+        setDevAreaBypass(cfg.isDev);
+        splashPrefetchTimeoutMsRef.current = cfg.splashPrefetchTimeoutMs;
+      })
+      .catch(() => { /* fail-closed: 우회는 꺼진 상태 유지, 타임아웃은 3000ms 폴백 */ });
   }, []);
 
   // GIF 백그라운드 프리로드
@@ -517,15 +529,38 @@ export default function App() {
     return () => { active = false; };
   }, [bootstrapAttempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 부팅 완료 후 최소 1200ms 보장하고 splash fade-out
+  // 부팅 완료 후 최소 1200ms 보장하고 splash fade-out. 목적지가 홈이면(로그인 사용자·특수 returnTo
+  // 없음) 추가로 홈 데이터 프리페치(homePrefetch.ts) 완료 또는 서버 설정 타임아웃 중 먼저 오는
+  // 쪽까지 기다린다 — 로그인/온보딩으로 가는 경우엔 늘리지 않는다(대표 결정 2026-09-28).
   useEffect(() => {
     if (!bootstrapped) return;
+    let cancelled = false;
+    let fadeOutTimer: ReturnType<typeof setTimeout> | undefined;
     const elapsed = Date.now() - bootStartTime.current;
-    const delay = Math.max(0, 500 - elapsed);
-    const t1 = setTimeout(() => setSplashFade(true), delay);
-    const t2 = setTimeout(() => setSplashVisible(false), delay + 600);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [bootstrapped]);
+    const minDelay = Math.max(0, 500 - elapsed);
+    const returnTo = peekReturnTo();
+    const goingToHome = !!user && (returnTo === null || returnTo === '/home');
+    const homeGate = goingToHome
+      ? Promise.race([
+          homeDataReady(),
+          new Promise<void>((resolve) => setTimeout(resolve, splashPrefetchTimeoutMsRef.current)),
+        ])
+      : Promise.resolve();
+    const minDelayGate = new Promise<void>((resolve) => setTimeout(resolve, minDelay));
+
+    Promise.all([homeGate, minDelayGate]).then(() => {
+      if (cancelled) return;
+      setSplashFade(true);
+      fadeOutTimer = setTimeout(() => { if (!cancelled) setSplashVisible(false); }, 600);
+    });
+
+    return () => { cancelled = true; clearTimeout(fadeOutTimer); };
+  }, [bootstrapped, user]);
+
+  // 스플래시 오버레이가 화면을 덮고 있는 동안엔 지도/위치 토스트(예: map.outsideArea)를 미룬다 —
+  // BackgroundRoutes 가 스플래시 밑에서 이미 홈을 마운트해 ensureLocation() 을 돌리고 있어,
+  // 토스트가 스플래시 위에 떠 보이던 버그(2026-09-28) 수정. lib/splashOverlay.ts.
+  useEffect(() => { setSplashOverlayVisible(splashVisible); }, [splashVisible]);
 
   // F-19: 강제 업데이트 판정 — 부팅 완료 후 1회, 서버 현재 버전과 설치본 버전을 비교.
   // 판정 불가(웹/설치본 버전 미확인/서버 조회 실패)면 shouldForceUpdate 가 항상 false 를 반환 — fail-open.

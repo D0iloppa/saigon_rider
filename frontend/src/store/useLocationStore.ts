@@ -9,6 +9,7 @@ import { fallbackExplorationLocation, resolveExplorationLocation } from '@/lib/e
 import { wardRegionAt } from '@/components/maps/v2/wardRegions';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { useConfirmStore } from '@/store/useConfirmStore';
+import { runAfterSplash } from '@/lib/splashOverlay';
 
 /**
  * 앱 전체 위치 컨텍스트 — 단일 SoT (대표 지시 2026-08-06 "기본을 다 GPS로 / 안잡히면 전체지역으로").
@@ -177,7 +178,9 @@ function preflightPermission(): Promise<boolean> {
 function notifyFallback(messageKey: string, defaultValue: string) {
   if (shownFallbackKeys.has(messageKey)) return;
   shownFallbackKeys.add(messageKey);
-  toast.neutral(i18n.t(messageKey, { defaultValue }));
+  // 스플래시 오버레이가 화면을 덮고 있는 동안(홈이 그 밑에서 이미 마운트돼 측위 중일 수 있다)엔
+  // 토스트를 미룬다 — 스플래시 위에 떠 보이던 버그(2026-09-28) 수정. lib/splashOverlay.ts.
+  runAfterSplash(() => toast.neutral(i18n.t(messageKey, { defaultValue })));
 }
 
 export const useLocationStore = create<LocationState>()(

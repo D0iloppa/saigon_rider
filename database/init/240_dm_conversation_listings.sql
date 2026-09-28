@@ -12,10 +12,12 @@ CREATE TABLE IF NOT EXISTS dm_conversation_listings (
 CREATE INDEX IF NOT EXISTS ix_dm_conversation_listings_conversation
     ON dm_conversation_listings (conversation_id, linked_at DESC);
 
--- 백필 1: 대화의 "최근 문의 매물" 포인터
+-- 백필 1: 대화의 "최근 문의 매물" 포인터 — context_id 는 FK 가 아니라 삭제된 매물을
+-- 가리킬 수 있으므로 실존 매물과 조인한다(FK 위반 방지).
 INSERT INTO dm_conversation_listings (conversation_id, listing_id, linked_at, source)
-SELECT c.id, c.context_id, c.last_message_at, 'inquiry'
+SELECT c.id, c.context_id, COALESCE(c.last_message_at, NOW()), 'inquiry'
 FROM dm_conversations c
+JOIN marketplace_listings l ON l.id = c.context_id
 WHERE c.context_type = 'listing' AND c.context_id IS NOT NULL
 ON CONFLICT (conversation_id, listing_id) DO NOTHING;
 

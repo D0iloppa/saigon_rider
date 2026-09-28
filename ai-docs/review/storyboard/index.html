@@ -19335,6 +19335,7 @@ K  탭바</pre></div>
 <div class="field field-prose"><div class="field-label">판정(r6, 260928) 대표 확정 — 거래 세트 모델(아코디언 폐지)</div> <code>260928_trade-request-flow-design.md</code>가 위 실기기 피드백의 "in-flow 아코디언 + <code>dm_conversation_listings</code> 다:다"를 <strong>거래 세트(<code>trade_sets</code>/<code>trade_set_items</code>) 모델로 대체</strong>한다. ① 세트 바 = 대표 썸네일(+N) · <code>[판매중 ∨]</code>(판매자 탭 → FR-7 상태 시트 / 구매자 = 라벨) · "{대표 매물명} 외 N" · <strong>세트 총액</strong>(합의가 있으면 그 값). ② 바 아래 <strong>칩 행</strong>은 단계(문의중/예약중/약속 확정/송금 신고됨/입금 확인됨/거래완료/취소됨)×역할(판매자/구매자)로 정해지는 매트릭스로 바뀐다(설계 문서 §3.3 표) — 문의중: 판매자 <code>[약속 잡기][물품편집]</code> / 구매자 <code>[가격 제안][물품편집]</code>; 약속 확정: 판매자 <code>[📅][결제 방법][위치 공유][물품편집]</code> / 구매자 <code>[📅][길안내][위치 공유][물품편집]</code>. ③ 프롬프트 카드(자동 상태 변경 없음)는 칩 행 바로 아래 1장만: 약속 ACCEPTED 직후 "예약중으로 변경할까요? [변경][나중에]"(MVP는 이 1종만, d5). ④ 종결 세트(거래완료·취소됨)는 <code>[후기 보내기]</code>/<code>[다시 약속 잡기]</code> + <code>[물품추가]</code>(=새 세트). ⑤ 물품 담기·편집은 FR-5(피커)·FR-6(편집)이 담당, 상태 변경 시트는 FR-7이 담당(모두 아래 신설). 기존 "in-flow 아코디언"·<code>dm_conversation_listings</code> 문서 서술은 이 판정으로 대체된다(코드는 아직 아코디언 — 구현 시 함께 정리).</div>
 <div class="field field-prose"><div class="field-label">구현(260928)</div> 세트 바(<code>components/dm/TradeSetBar.tsx</code>)·칩 행(<code>components/dm/TradeSetChips.tsx</code>, MVP 3단계 cut: 문의중 [+ 물품추가]/[물품편집](구매자) · 약속 확정 [📅][📍 위치 공유] · 판매자 [예약] 지름길)로 구현. 기존 아코디언(<code>dm_conversation_listings</code> 프론트 호출·"외 N건" 토글·<code>stage === 'IN_PROGRESS'</code>)은 폐기(<code>DmDetail.tsx</code>, <code>api/dm.ts</code>, <code>api/types.ts</code>). 송금 신고 후~후기까지 칩(결제 방법·완료 요청 등)은 MVP 범위 밖(후속).</div>
 <div class="field field-prose"><div class="field-label">구현(260928) — 회귀 복구</div> 위 세트 바 커밋(<code>4cab5d2a</code>)이 아코디언 폐기 과정에서 개별 매물 [카드 보내기]를 함께 지워, 세트 바 탭 = 대표 매물 상세로만 이동하고 목록·개별/묶음 카드 전송 동선이 전부 사라졌다(오너 실기기 피드백 260928). 세트 바의 썸네일/제목/"외 N" 탭을 매물 상세 이동에서 <strong>FR-6 목록 시트</strong>(<code>TradeSetListSheet</code>) 오픈으로 되돌렸다 — 판매자 "판매중 ∨" 상태 라벨 탭은 그대로 FR-7 상태 시트.</div>
+<div class="field field-prose"><div class="field-label">실기기 피드백(260928) — 페이지 전환</div> FR-6이 시트에서 <strong>전체 페이지</strong>(<code>/dm/:conversationId/items</code>)로 바뀌면서, 세트 바의 썸네일/제목/"외 N" 탭도 시트를 여는 대신 이 페이지로 <strong>이동</strong>(<code>navigate</code>)한다 — 판매자 "판매중 ∨" 상태 라벨 탭은 여전히 FR-7 상태 시트. 상세는 FR-6 참조.</div>
 <div class="field"><div class="field-label">화면 목업(자동 생성)</div><div class="mockup-wrap"><div class="phone-mock"><div class="mock-band mock-band-H"><span class="band-tag">H</span><div class="mock-band-items"><div class="mock-item w-secondary">뒤로 · 제목</div><div class="mock-item w-secondary">프로필(1:1) / 게시판(그룹)</div><div class="mock-item w-text">게시판 안읽음 점</div><div class="mock-item w-ghost">더보기(⋮)</div></div></div><div class="mock-band mock-band-C"><span class="band-tag">C</span><div class="mock-band-items"><div class="mock-item w-secondary">거래 진행상태 배너</div><div class="mock-item w-secondary">[안전거래 안내] 링크</div><div class="mock-item w-text">멤버수 바 <span class="warn-badge" title="이유 없음">⚠</span></div><div class="mock-item w-secondary">공지 배너(접힘 1줄 / 펼침 전문+등록자)</div><div class="mock-item w-secondary">공지 [내리기]</div><div class="mock-item w-secondary">매물 카드 · [약속잡기] 칩</div><div class="mock-item w-secondary">후기 배너</div><div class="mock-item w-neutral"><strong>배너 총량 규칙</strong></div></div></div></div><div class="mock-legend"><span class="legend-title">범례</span><span class="mock-item w-primary">채움</span><span class="legend-eq">=주행동</span><span class="mock-item w-secondary">외곽선</span><span class="legend-eq">=보조</span><span class="mock-item w-ghost">흐림</span><span class="legend-eq">=숨김</span><span class="mock-item w-danger">위험색</span><span class="legend-eq">=파괴적</span><span class="mock-item w-text">텍스트</span><span class="legend-eq">=표시</span><span class="warn-badge" title="이유 없음">⚠</span><span class="legend-eq">=이유 없음</span></div></div></div>
 </section>
 <section class="scene" id="F-DM-02__FR-2">
@@ -19398,30 +19399,45 @@ K  탭바</pre></div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>260928_trade-request-flow-design.md</code> §3.2·§3.4(편집 권한·잠금).</div>
 <div class="field field-prose"><div class="field-label">판정(r6, 260928)</div> 승인(대표 확정) — 구현 완료 · MVP는 이 화면 대신 FR-5 피커 재진입으로 대체(d5 절단 순서 ①). 별도 편집 시트는 만들지 않고 <code>TradeSetPicker</code> 재진입 시 현재 세트 항목이 선기입되어 체크 해제로 제거가 된다.</div>
 <div class="field field-prose"><div class="field-label">구현(260928) — 목록 시트(회귀 복구)</div> 세트 바 탭으로 여는 <code>components/dm/TradeSetListSheet.tsx</code>: 제목 "{{판매자}}님과 한 번에 거래하는 물품이에요" · 행(썸네일·제목·가격·상태 배지, 활성 항목 + 세트 CLOSED 시 완료 항목도 노출) · 행별 <strong>[물품 정보 보내기]</strong>(<code>card</code> subtype=<code>item</code> 전송) · 하단 <strong>[묶음 정보 보내기]</strong>(활성 항목 2건 이상일 때, <code>card</code> subtype=<code>bundle</code> — 서버가 세트의 활성 항목에서 스냅샷을 재조회)·구매자 전용 <strong>[물품편집]</strong>(→ <code>TradeSetPicker</code> 재진입) · 총액. "카드 보내기"는 개발 용어일 뿐 사용자 노출 라벨은 위 두 문구로 통일했다.</div>
+<div class="field field-prose"><div class="field-label">실기기 피드백(260928) — 페이지 전환</div> 오너가 바텀시트 대신 당근의 "{상대}님과 한 번에 거래하는 물품이에요" <strong>전체 페이지</strong>(2열 그리드 + 우상단 [물품 편집])를 참조로 지목 — 시트를 페이지로 교체했다. <code>TradeSetListSheet</code> 삭제, <code>pages/dm/TradeSetItems.tsx</code>(<code>/dm/:conversationId/items</code>) 신설: 헤더 좌측 [✕](방으로), 우측 텍스트 [물품편집](구매자만 — 방으로 돌아가 <code>TradeSetPicker</code>를 여는 딥링크), 제목은 그대로. 본문은 <code>TradeSetPicker</code>와 같은 2열 그리드(정사각 썸네일·제목 말줄임·가격·상태 배지)이고 헤더/하단 요약은 고정, 그리드 영역만 스크롤. 카드 탭 → 매물 상세. 각 카드의 전송 버튼은 텍스트가 아니라 <strong>아이콘 전용</strong>(lucide <code>Send</code>, aria-label "물품 정보 보내기")으로 축소해 2열 그리드에 맞췄고, 하단 고정 요약 바의 묶음 전송도 같은 아이콘 버튼(aria-label "묶음 정보 보내기", 활성 항목 2건 이상만 노출)이다. 전송 후에는 방으로 돌아가(<code>replace</code>) 새 카드가 바로 보이게 한다. 판매자·구매자 모두 이 페이지를 열 수 있다(편집 버튼만 구매자 전용).</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!doctype html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;>
-<title>세트 목록 시트 · 물품 정보/묶음 정보 보내기</title>
+<title>세트 목록 전체 페이지 · 물품 정보/묶음 정보 보내기(아이콘)</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#eef1f4;font-family:-apple-system,BlinkMacSystemFont,&quot;Noto Sans KR&quot;,sans-serif;color:#17191c}.phone{width:390px;height:844px;background:#f5f6f8;position:relative;overflow:hidden}.status{height:44px;padding:14px 20px 0;display:flex;justify-content:space-between;font-size:12px;font-weight:700}.under{padding:14px 16px}.bar{display:flex;align-items:center;gap:10px;background:white;border:1px solid #e9ebee;border-radius:16px;padding:10px 12px}.thumb{width:44px;height:44px;border-radius:10px;background:#ffd5ba;flex:none}.barInfo{flex:1;min-width:0}.barStatus{font-size:11px;font-weight:800;color:#676c73}.barTitle{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.barTotal{font-size:13px;font-weight:800}.shade{position:absolute;inset:0;background:rgba(15,18,22,.42)}.sheet{position:absolute;left:0;right:0;bottom:0;background:white;border-radius:22px 22px 0 0;padding:10px 20px 0;display:flex;flex-direction:column}.handle{width:42px;height:4px;border-radius:4px;background:#d5d7da;margin:0 auto 14px}.title{font-size:17px;font-weight:800;margin-bottom:8px}.list{max-height:330px;overflow:hidden}.row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #eceef1}.rowThumb{width:52px;height:52px;border-radius:10px;flex:none}.rowThumb.a{background:#ffd5ba}.rowThumb.b{background:#c9e6d8}.rowInfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.rowTitle{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rowPrice{font-size:13px;font-weight:800}.rowBadge{font-size:11px;font-weight:700;color:#676c73}.rowBadge.reserved{color:#bd560c}.sendBtn{flex:none;border:0;border-radius:10px;background:#f1f2f4;color:#3c4147;font-size:12px;font-weight:700;padding:8px 10px;white-space:nowrap}.footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 0 24px}.summary{font-size:13px;font-weight:700;color:#676c73}.footerActions{display:flex;gap:8px}.editBtn{border:0;border-radius:12px;background:#f1f2f4;color:#3c4147;font-size:13px;font-weight:800;padding:10px 14px}.bundleBtn{border:0;border-radius:12px;background:#ff7a1a;color:white;font-size:13px;font-weight:800;padding:10px 16px}
+*{box-sizing:border-box}body{margin:0;background:#eef1f4;font-family:-apple-system,BlinkMacSystemFont,&quot;Noto Sans KR&quot;,sans-serif;color:#17191c}.phone{width:390px;height:844px;background:#f5f6f8;position:relative;overflow:hidden;display:flex;flex-direction:column}.status{height:44px;padding:14px 20px 0;display:flex;justify-content:space-between;font-size:12px;font-weight:700;flex:none}.header{display:flex;align-items:center;gap:8px;padding:8px 12px 12px;flex:none}.closeBtn{width:32px;height:32px;border:0;background:none;color:#17191c;flex:none}.headerTitle{flex:1;min-width:0;font-size:15px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.editBtn{border:0;background:none;color:#ff7a1a;font-size:14px;font-weight:800;padding:6px 4px;flex:none}.body{flex:1;overflow:hidden;padding:8px 16px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.cell{display:flex;flex-direction:column;gap:6px}.cellThumb{width:100%;aspect-ratio:1;border-radius:12px}.cellThumb.a{background:#ffd5ba}.cellThumb.b{background:#c9e6d8}.cellTitle{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cellPrice{font-size:14px;font-weight:800}.cellBadge{font-size:11px;font-weight:700;color:#676c73}.cellBadge.reserved{color:#bd560c}.sendIcon{align-self:flex-end;width:32px;height:32px;border-radius:50%;border:0;background:#f1f2f4;color:#3c4147;display:flex;align-items:center;justify-content:center}.footer{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 24px;border-top:1px solid #eceef1;background:white}.summary{font-size:13px;font-weight:700;color:#676c73}.bundleSendIcon{width:40px;height:40px;border-radius:50%;border:0;background:#ff7a1a;color:white;display:flex;align-items:center;justify-content:center}
 </style>
 </head>
 <body><div class=&quot;phone&quot;>
   <div class=&quot;status&quot;><span>14:32</span><span>5G&amp;nbsp;&amp;nbsp;92%</span></div>
-  <div class=&quot;under&quot;>
-    <div class=&quot;bar&quot;><span class=&quot;thumb&quot;></span><div class=&quot;barInfo&quot;><span class=&quot;barStatus&quot;>판매중 ⌄</span><span class=&quot;barTitle&quot;>Honda Vision 2021 헬멧 세트 외 1</span></div><span class=&quot;barTotal&quot;>3.100.000 đ</span></div>
+  <div class=&quot;header&quot;>
+    <button class=&quot;closeBtn&quot; type=&quot;button&quot;>✕</button>
+    <div class=&quot;headerTitle&quot;>Minh Tuấn님과 한 번에 거래하는 물품이에요</div>
+    <button class=&quot;editBtn&quot; type=&quot;button&quot;>물품편집</button>
   </div>
-  <div class=&quot;shade&quot;></div>
-  <section class=&quot;sheet&quot;>
-    <div class=&quot;handle&quot;></div>
-    <div class=&quot;title&quot;>Minh Tuấn님과 한 번에 거래하는 물품이에요</div>
-    <div class=&quot;list&quot;>
-      <div class=&quot;row&quot;><span class=&quot;rowThumb a&quot;></span><div class=&quot;rowInfo&quot;><span class=&quot;rowTitle&quot;>Honda Vision 2021</span><span class=&quot;rowPrice&quot;>3.000.000 đ</span><span class=&quot;rowBadge&quot;>판매중</span></div><button class=&quot;sendBtn&quot; type=&quot;button&quot;>물품 정보 보내기</button></div>
-      <div class=&quot;row&quot;><span class=&quot;rowThumb b&quot;></span><div class=&quot;rowInfo&quot;><span class=&quot;rowTitle&quot;>오토바이 헬멧</span><span class=&quot;rowPrice&quot;>100.000 đ</span><span class=&quot;rowBadge reserved&quot;>예약중</span></div><button class=&quot;sendBtn&quot; type=&quot;button&quot;>물품 정보 보내기</button></div>
+  <div class=&quot;body&quot;>
+    <div class=&quot;grid&quot;>
+      <div class=&quot;cell&quot;>
+        <span class=&quot;cellThumb a&quot;></span>
+        <span class=&quot;cellTitle&quot;>Honda Vision 2021</span>
+        <span class=&quot;cellPrice&quot;>3.000.000 đ</span>
+        <span class=&quot;cellBadge&quot;>판매중</span>
+        <button class=&quot;sendIcon&quot; type=&quot;button&quot; aria-label=&quot;물품 정보 보내기&quot;>➤</button>
+      </div>
+      <div class=&quot;cell&quot;>
+        <span class=&quot;cellThumb b&quot;></span>
+        <span class=&quot;cellTitle&quot;>오토바이 헬멧</span>
+        <span class=&quot;cellPrice&quot;>100.000 đ</span>
+        <span class=&quot;cellBadge reserved&quot;>예약중</span>
+        <button class=&quot;sendIcon&quot; type=&quot;button&quot; aria-label=&quot;물품 정보 보내기&quot;>➤</button>
+      </div>
     </div>
-    <div class=&quot;footer&quot;><span class=&quot;summary&quot;>2개 · 총 3.100.000 đ</span><div class=&quot;footerActions&quot;><button class=&quot;editBtn&quot; type=&quot;button&quot;>물품편집</button><button class=&quot;bundleBtn&quot; type=&quot;button&quot;>묶음 정보 보내기</button></div></div>
-  </section>
+  </div>
+  <div class=&quot;footer&quot;>
+    <span class=&quot;summary&quot;>2개 · 총 3.100.000 đ</span>
+    <button class=&quot;bundleSendIcon&quot; type=&quot;button&quot; aria-label=&quot;묶음 정보 보내기&quot;>➤</button>
+  </div>
 </div></body></html>
 " width="390" height="844"></iframe></div></div>
 </section>

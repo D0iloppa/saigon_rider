@@ -8,7 +8,7 @@ import styles from './TradeSetBar.module.css';
 interface Props {
   tradeSet: TradeSet;
   isSeller: boolean;
-  /** 썸네일/제목/"외 N" 탭 — 목록 시트(F-DM-02 FR-6)를 연다(260928 회귀 복구). */
+  /** 썸네일/제목/"외 N" 탭 — 세트 목록 페이지(F-DM-02 FR-6, /dm/:conversationId/items)로 이동한다(260928 실기기 피드백). */
   onOpenList: () => void;
   /** 판매자만 탭 가능 — 상태 시트(F-DM-02 FR-7)를 연다. */
   onStatusTap: () => void;

@@ -1,0 +1,149 @@
+/* F-DM-02 FR-6 — 세트 목록 전체 페이지(260928 실기기 피드백, 당근 참조: 2열 그리드 + 헤더 [물품 편집]) */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+.headerBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--text);
+}
+
+.editBtn {
+  padding: 8px 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand-500);
+  background: none;
+  border: none;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 16px calc(24px + var(--bottom-safe));
+}
+
+.loadingText {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cellMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+
+.cellThumbWrap {
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.cellThumbWrap > * {
+  width: 100%;
+  height: 100%;
+}
+
+.cellThumb {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.cellTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellPrice {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cellBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.sendBtn {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+
+.sendBtn:disabled {
+  opacity: 0.5;
+}
+
+.footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px calc(12px + var(--bottom-safe));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.footerSummary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.bundleSendBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--brand-500);
+}
+
+.bundleSendBtn:disabled {
+  opacity: 0.5;
+}

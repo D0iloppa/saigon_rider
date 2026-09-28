@@ -459,15 +459,22 @@
   color: var(--text-3);
 }
 
-/* 묶음요청 카드(F-DM-02 260928) — 담긴 매물 제목 목록 */
+/* 묶음요청 카드(F-DM-02 260928, 실기기 피드백 — "- " 접두 세로 목록) — 담긴 매물 제목 목록 */
 .bundleItemList {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 0;
+  list-style: none;
   font-size: 13px;
   color: var(--text-2);
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.bundleItemList li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 라벨 행 (날짜/시간/장소) — 라벨 열은 로케일별 최장 라벨에 맞춰 자동 정렬 */

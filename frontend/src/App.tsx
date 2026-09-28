@@ -106,6 +106,7 @@ const DmGroupCreate = lazyWithRetry(() => import('@/pages/dm/DmGroupCreate'));
 const DmBoard = lazyWithRetry(() => import('@/pages/dm/DmBoard'));
 const DmBoardCompose = lazyWithRetry(() => import('@/pages/dm/DmBoardCompose'));
 const DmBoardPost = lazyWithRetry(() => import('@/pages/dm/DmBoardPost'));
+const TradeSetItems = lazyWithRetry(() => import('@/pages/dm/TradeSetItems'));
 
 // 커뮤니티 그룹 (260827 Phase2)
 const GroupList = lazyWithRetry(() => import('@/pages/community/GroupList'));
@@ -696,6 +697,7 @@ export default function App() {
           <Route path="/dm/:conversationId/board/new" element={<PrivateRoute><DmBoardCompose /></PrivateRoute>} />
           <Route path="/dm/:conversationId/board/:postId" element={<PrivateRoute><DmBoardPost /></PrivateRoute>} />
           <Route path="/dm/:conversationId/trade/:appointmentId" element={<PrivateRoute><TradeTransaction /></PrivateRoute>} />
+          <Route path="/dm/:conversationId/items" element={<PrivateRoute><TradeSetItems /></PrivateRoute>} />
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/community/groups" element={<PrivateRoute><GroupList /></PrivateRoute>} />
           <Route path="/community/groups/new" element={<PrivateRoute><GroupCreate /></PrivateRoute>} />

@@ -22,7 +22,6 @@ import { TradeSetBar } from '@/components/dm/TradeSetBar';
 import { TradeSetChips } from '@/components/dm/TradeSetChips';
 import { TradeSetPicker } from '@/components/dm/TradeSetPicker';
 import { TradeSetStatusSheet } from '@/components/dm/TradeSetStatusSheet';
-import { TradeSetListSheet } from '@/components/dm/TradeSetListSheet';
 import { tradeSetErrorMessage } from '@/components/dm/tradeSetErrors';
 import {
   fetchMessages,
@@ -53,8 +52,6 @@ import {
   fetchMarketplaceTransaction,
   fetchTradeSet,
   updateTradeSetStatus,
-  sendListingCard,
-  sendBundleCard,
   DM_REACTION_EMOJIS,
   DM_REPORT_REASONS,
   type DmReportReason,
@@ -145,7 +142,7 @@ export default function DmDetail() {
   // 길안내 버튼 제어용 — 스토어가 이미 끝낸 측위 결과를 읽기만 한다(새로 측정하지 않는다).
   const { available: routeAvailable, reason: routeGateReason, checking: routeChecking } = useServiceAvailability();
   const location = useLocation();
-  const locationState = location.state as { conv?: DmConversation; openReport?: boolean } | null;
+  const locationState = location.state as { conv?: DmConversation; openReport?: boolean; openTradeSetPicker?: boolean } | null;
   // B-4: 음성메시지 알림 탭 딥링크(/dm/:id?voice=1&mid=<messageId>) — 음성메시지는 이제 채팅
   // 이력에 영구 버블로 렌더되므로(202608 재개편) 여기서 자동재생을 강제하지 않는다. 대신
   // 이 대화방을 워키토키 캡슐의 대상으로 활성화해, 알림을 탭한 김에 바로 PTT 로 답할 수 있게 한다.
@@ -271,7 +268,14 @@ export default function DmDetail() {
   const [tradeSet, setTradeSet] = useState<TradeSet | null>(null);
   const [tradeSetPickerOpen, setTradeSetPickerOpen] = useState(false);
   const [tradeSetStatusOpen, setTradeSetStatusOpen] = useState(false);
-  const [tradeSetListOpen, setTradeSetListOpen] = useState(false);
+  // 세트 목록 페이지(/dm/:id/items) [물품 편집] 딥링크(260928 실기기 피드백) — 피커는 이 방에서만
+  // 열 수 있어 페이지가 state.openTradeSetPicker 를 실어 돌아온다. 소비 후 state 에서 제거.
+  useEffect(() => {
+    if (!locationState?.openTradeSetPicker) return;
+    setTradeSetPickerOpen(true);
+    navigate(location.pathname, { replace: true, state: { conv: locationState.conv } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationState?.openTradeSetPicker]);
   const refreshTradeSet = useCallback(() => {
     if (!conversationId) return;
     fetchTradeSet(conversationId).then(setTradeSet).catch(() => {});
@@ -705,23 +709,6 @@ export default function DmDetail() {
     } finally {
       setSending(false);
     }
-  };
-
-  // F-DM-02 FR-6(260928 회귀 복구) — 목록 시트 행 [물품 정보 보내기]/하단 [묶음 정보 보내기].
-  // 에러는 호출부(TradeSetListSheet)가 토스트로 처리하므로 여기서는 throw 만 한다.
-  const handleSendItemCard = async (listingId: string) => {
-    if (!conversationId) return;
-    const msg = await sendListingCard(conversationId, listingId);
-    applyIncoming([msg]);
-    // 보낸 카드가 대화에 보이도록 시트를 닫는다(실렌더 260928 — 시트가 방금 보낸 카드를 가렸다).
-    setTradeSetListOpen(false);
-  };
-
-  const handleSendBundleCard = async () => {
-    if (!conversationId) return;
-    const msg = await sendBundleCard(conversationId);
-    applyIncoming([msg]);
-    setTradeSetListOpen(false);
   };
 
   // 워키토키 헤더메뉴 "워키토키" 탭 — 이 대화방으로 참여 + 상대방에게 초대카드 전송(채널 존재를 모를 수 있으므로).
@@ -1740,7 +1727,7 @@ export default function DmDetail() {
           <TradeSetBar
             tradeSet={tradeSet}
             isSeller={myId === tradeSet.sellerId}
-            onOpenList={() => setTradeSetListOpen(true)}
+            onOpenList={() => navigate(`/dm/${conversationId}/items`)}
             onStatusTap={() => setTradeSetStatusOpen(true)}
           />
           <TradeSetChips
@@ -2372,10 +2359,10 @@ export default function DmDetail() {
             );
           }
           if (m.messageType === 'card' && m.meta?.subtype === 'bundle') {
-            // F-DM-02(260928) — 구매자가 세트에 여러 매물을 담으면 남는 묶음 요청 카드(readonly 스냅샷).
+            // F-DM-02(260928 실기기 피드백) — 구매자가 세트에 여러 매물을 담으면 남는 묶음 요청 카드(readonly 스냅샷).
+            // [자세히 보기]는 개별 매물이 아니라 세트 목록 페이지로 보낸다(어느 매물을 볼지 카드가 정할 수 없다).
             const titles: string[] = m.meta?.titles ?? [];
             const totalVnd = typeof m.meta?.totalVnd === 'number' ? m.meta.totalVnd : null;
-            const firstListingId: string | undefined = m.meta?.listingIds?.[0];
             return (
               <CardMessage
                 key={m.id}
@@ -2386,14 +2373,14 @@ export default function DmDetail() {
               >
                 <div className={cardStyles.cardSubtitle}>{t('dm.tradeSetBundleSubtitle')}</div>
                 <ul className={styles.bundleItemList}>
-                  {titles.map((title, i) => <li key={i}>{title}</li>)}
+                  {titles.map((title, i) => <li key={i}>{`- ${title}`}</li>)}
                 </ul>
                 {totalVnd != null && <div className={cardStyles.cardTitle}>{formatPriceVnd(totalVnd, t)}</div>}
                 <div className={cardStyles.cardButtonSlot}>
                   <button
                     type="button"
                     className={styles.walkieInviteJoinBtn}
-                    onClick={() => { if (firstListingId) navigate(`/market/${firstListingId}`); }}
+                    onClick={() => navigate(`/dm/${conversationId}/items`)}
                   >
                     {t('dm.cardViewDetails', { defaultValue: '자세히 보기' })}
                   </button>
@@ -2793,21 +2780,6 @@ export default function DmDetail() {
             refreshConv();
             setReviewOpen(true);
           }}
-        />
-      )}
-
-      {/* F-DM-02 FR-6 — 세트 목록 시트(세트 바 탭, 260928 회귀 복구). */}
-      {isDirect && tradeSet && conversationId && (
-        <TradeSetListSheet
-          open={tradeSetListOpen}
-          onClose={() => setTradeSetListOpen(false)}
-          tradeSet={tradeSet}
-          sellerNickname={myId === tradeSet.sellerId ? user?.nickname ?? '' : otherName}
-          isBuyer={myId !== tradeSet.sellerId}
-          onRowTap={(listingId) => { setTradeSetListOpen(false); navigate(`/market/${listingId}`); }}
-          onSendItemCard={handleSendItemCard}
-          onSendBundleCard={handleSendBundleCard}
-          onEditItems={() => { setTradeSetListOpen(false); setTradeSetPickerOpen(true); }}
         />
       )}
 

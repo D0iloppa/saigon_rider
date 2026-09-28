@@ -71,20 +71,30 @@ test('trade-set room UI: buyer builds a set via picker, seller reserves via stat
     await expect(page.getByText('외 1', { exact: false })).toBeVisible();
     await expect(page.getByText('묶음 구매 요청', { exact: false })).toBeVisible();
 
-    // F-DM-02 FR-6(260928 회귀 복구) — 세트 바(썸네일/제목) 탭 → 목록 시트에 A·B 둘 다 보인다.
+    // F-DM-02 FR-6(260928 실기기 피드백) — 세트 바(썸네일/제목) 탭 → 전체 페이지(/dm/:id/items)로
+    // 이동, 2열 그리드에 A·B 둘 다 보인다.
     await page.getByText(titleA, { exact: false }).first().click();
-    await expect(page.getByText(titleA, { exact: false }).last()).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/dm/${conversationId}/items$`));
+    await expect(page.getByText(titleA, { exact: false })).toBeVisible();
+    await expect(page.getByText(titleB, { exact: false })).toBeVisible();
+
+    // B 카드의 아이콘 전송 버튼(물품 정보 보내기) → 방으로 돌아가 B 제목의 물품 카드가 새로 생긴다.
+    // 그리드 순서 = 세트 항목 순서(A, B) — 두 번째 버튼이 B 카드다.
+    await page.getByRole('button', { name: '물품 정보 보내기' }).nth(1).click();
+    await expect(page).toHaveURL(new RegExp(`/dm/${conversationId}$`));
     await expect(page.getByText(titleB, { exact: false }).last()).toBeVisible();
 
-    // B 행의 [물품 정보 보내기] → B 제목의 물품 카드가 새로 생긴다.
-    // 시트 행 순서 = 세트 항목 순서(A, B) — 두 번째 [물품 정보 보내기] 가 B 행이다.
-    await page.getByRole('button', { name: '물품 정보 보내기' }).nth(1).click();
-    await expect(page.getByText('매물', { exact: true }).last()).toBeVisible();
-
-    // 다시 열어 [묶음 정보 보내기] → 묶음 카드가 새로 생긴다.
+    // 다시 열어 하단 고정 요약 바의 아이콘 전송(묶음 정보 보내기) → 방으로 돌아가 새 묶음 카드가
+    // 생기고, 그 텍스트에 "- " + titleA 가 들어있다.
     await page.getByText(titleA, { exact: false }).first().click();
+    await expect(page).toHaveURL(new RegExp(`/dm/${conversationId}/items$`));
     await page.getByRole('button', { name: '묶음 정보 보내기' }).click();
-    await expect(page.getByText('묶음 구매 요청', { exact: false }).last()).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/dm/${conversationId}$`));
+    await expect(page.getByText(`- ${titleA}`, { exact: false }).last()).toBeVisible();
+
+    // 새 묶음 카드의 [자세히 보기] → 세트 목록 페이지로 이동한다(개별 매물 상세가 아니다).
+    await page.getByRole('button', { name: '자세히 보기' }).last().click();
+    await expect(page).toHaveURL(new RegExp(`/dm/${conversationId}/items$`));
 
     // 판매자 화면 — 같은 방에서 상태 라벨 탭 → [예약중]
     const sellerCtx = await browser.newContext({ baseURL: BASE_URL });

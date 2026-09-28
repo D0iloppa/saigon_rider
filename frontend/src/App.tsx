@@ -59,6 +59,9 @@ const MarketDetail = lazyWithRetry(() => import('@/pages/market/MarketDetail'));
 const MarketWishlist = lazyWithRetry(() => import('@/pages/market/MarketWishlist'));
 const MarketKeywordAlerts = lazyWithRetry(() => import('@/pages/market/MarketKeywordAlerts'));
 const MarketSearch = lazyWithRetry(() => import('@/pages/market/MarketSearch'));
+const ListingOffers = lazyWithRetry(() => import('@/pages/market/ListingOffers'));
+const ListingChats = lazyWithRetry(() => import('@/pages/market/ListingChats'));
+const ListingReserve = lazyWithRetry(() => import('@/pages/market/ListingReserve'));
 const AdDetail = lazyWithRetry(() => import('@/pages/market/AdDetail'));
 
 // Biz (비즈니스 파트너, SGR-312 BP-2) — P2-1 우선순위 3: lazy (업체 관리)
@@ -621,6 +624,10 @@ export default function App() {
           <Route path="/market/ad/:id" element={<PrivateRoute><AdDetail /></PrivateRoute>} />
           <Route path="/market/new" element={<SellerComposeRoute><MarketCreate /></SellerComposeRoute>} />
           <Route path="/market/wishlist" element={<PrivateRoute><MarketWishlist /></PrivateRoute>} />
+          {/* F-S0-02 FR-5/FR-6(260928): 판매자 요청 목록·예약자/구매자 선택 */}
+          <Route path="/market/:id/offers" element={<PrivateRoute><ListingOffers /></PrivateRoute>} />
+          <Route path="/market/:id/chats" element={<PrivateRoute><ListingChats /></PrivateRoute>} />
+          <Route path="/market/:id/reserve" element={<PrivateRoute><ListingReserve /></PrivateRoute>} />
           <Route path="/market/keyword-alerts" element={<PrivateRoute><MarketKeywordAlerts /></PrivateRoute>} />
           <Route path="/market/:id/edit" element={<PrivateRoute><MarketEdit /></PrivateRoute>} />
           <Route path="/biz/intro" element={<PrivateRoute><BizIntro /></PrivateRoute>} />

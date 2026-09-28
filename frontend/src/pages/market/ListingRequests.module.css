@@ -1,0 +1,138 @@
+/* 판매자 요청 목록 2화면 공용 — 가격 제안 목록(ListingOffers) · 대화중인 채팅 목록(ListingChats) */
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 20px;
+}
+
+.rowSkeleton {
+  height: 64px;
+  border-radius: 12px;
+  margin-top: 12px;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.rowMain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rowName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rowAmount {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand-500);
+}
+
+.rowSub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rowStatus {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.rowActions {
+  display: flex;
+  gap: 8px;
+}
+
+.acceptBtn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.declineBtn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.acceptBtn:disabled, .declineBtn:disabled {
+  opacity: .5;
+}
+
+.chatRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.chatAvatar {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.chatBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chatTime {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.chatPreview {
+  font-size: 13px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badgeRow {
+  display: flex;
+  gap: 6px;
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+}

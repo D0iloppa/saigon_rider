@@ -183,6 +183,24 @@
   background: var(--text-3);
 }
 
+/* F-S0-02 FR-1 r6: 판매자 본문 상태 필 "판매중 ∨" */
+.statusPill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.statusPill:active {
+  opacity: .8;
+}
+
 /* Title + meta */
 .title {
   font-size: 20px;
@@ -597,6 +615,60 @@
   background: var(--brand-500);
   border-color: var(--brand-500);
   color: #fff;
+}
+
+/* F-S0-02 FR-5/FR-6: 판매자 하단 요청 진입점(가격 제안/대화중인 채팅) */
+.requestBar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--surface);
+}
+
+.requestBtn {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.requestBtn:active {
+  opacity: .8;
+}
+
+/* F-S2-01 FR-1 r6: 예약중(타인) 매물 — 채팅/가격제안 대신 노출 */
+.reservedNotice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.reservedNoticeText {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.notifyBtn {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-500);
+  padding: 4px;
+}
+
+.notifyBtn:disabled {
+  color: var(--text-3);
 }
 
 /* Skeletons */

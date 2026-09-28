@@ -174,6 +174,8 @@ export async function fetchConversations(): Promise<DmConversation[]> {
 export async function createConversation(
   otherUserId: string,
   context?: ConversationContext,
+  // 260928 d1: 예약중(타인) 매물 409 LISTING_RESERVED 를 호출부가 직접 안내하도록(중복 토스트 방지)
+  opts?: { rethrow?: boolean },
 ): Promise<DmConversation> {
   if (USE_MOCK) {
     return api.delay({
@@ -210,7 +212,7 @@ export async function createConversation(
       context_type: context?.type ?? null,
       context_id: context?.id ?? null,
     }),
-  });
+  }, 'bff', { rethrow: opts?.rethrow });
   return transformConversation(raw);
 }
 
@@ -631,11 +633,13 @@ export async function proposePriceOffer(
   conversationId: string,
   amount: number,
   listingId?: string | null,
+  // 260928 d1: 예약중(타인) 매물 409 LISTING_RESERVED 를 호출부가 직접 안내하도록(중복 토스트 방지)
+  opts?: { rethrow?: boolean },
 ): Promise<DmMessage> {
   const raw = await api.realFetch<any>('/market/price-offers', {
     method: 'POST',
     body: JSON.stringify({ conversation_id: conversationId, amount, listing_id: listingId ?? null }),
-  });
+  }, 'bff', { rethrow: opts?.rethrow });
   return transformMessage(raw);
 }
 

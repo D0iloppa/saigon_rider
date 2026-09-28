@@ -33,6 +33,9 @@ import {
   toggleLike,
   localizedName,
   submitDealResult,
+  fetchListingOffers,
+  fetchListingChats,
+  subscribeListingAvailability,
   type DealResult,
   type ListingCard,
   type ListingDetail,
@@ -45,9 +48,6 @@ import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { formatPriceVnd, formatResponseRate, relativeTime, statusLabelKey } from './marketFormat';
 import { noItemImage } from './noItemImage';
 import styles from './MarketDetail.module.css';
-
-// MKT-3: SOLD는 수동 전환 금지(서버 400) — 거래완료는 약속 complete 경로로만. 수동 셀렉터에서 제외(SOLD 뱃지 표시는 별도 유지).
-const STATUSES: ListingStatus[] = ['ON_SALE', 'RESERVED'];
 
 export default function MarketDetail() {
   const { id } = useParams<{ id: string }>();
@@ -72,6 +72,12 @@ export default function MarketDetail() {
   const [actionsExpanded, setActionsExpanded] = useState(false);
   // F-BZ-01 FR-1 제안 ③: 업체 매물이면 판매자 블록에 업체 아이덴티티(로고)를 쓴다
   const [bizProfile, setBizProfile] = useState<BusinessPublicProfile | null>(null);
+  // F-S0-02 FR-1 r6: "판매중 ∨" 상태 필 시트, 하단 바 가격제안/채팅 카운터
+  const [statusSheetOpen, setStatusSheetOpen] = useState(false);
+  const [offerCount, setOfferCount] = useState(0);
+  const [chatCount, setChatCount] = useState(0);
+  // F-S2-01 FR-1 r6: 예약중(타인) 매물에서 "취소되면 알림 받기" 신청 여부
+  const [notifySubscribed, setNotifySubscribed] = useState(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -94,6 +100,13 @@ export default function MarketDetail() {
   }, [detail?.businessProfileId]);
 
   const isSeller = !!detail && !!myId && detail.seller.id === myId;
+
+  // F-S0-02 FR-5/FR-6: 판매자 하단 바 카운터(가격 제안/대화중인 채팅) — 진행 중 매물에서만
+  useEffect(() => {
+    if (!isSeller || !detail || (detail.status !== 'ON_SALE' && detail.status !== 'RESERVED')) return;
+    fetchListingOffers(detail.id).then((list) => setOfferCount(list.length)).catch(() => {});
+    fetchListingChats(detail.id).then((list) => setChatCount(list.length)).catch(() => {});
+  }, [isSeller, detail?.id, detail?.status]);
 
   const handleToggleLike = async () => {
     if (!requireAuth()) return;
@@ -142,10 +155,15 @@ export default function MarketDetail() {
     if (!requireAuth()) return;
     if (!detail) return;
     try {
-      const conv = await createConversation(detail.seller.id, { type: 'listing', id: detail.id });
+      const conv = await createConversation(detail.seller.id, { type: 'listing', id: detail.id }, { rethrow: true });
       navigate(`/dm/${conv.id}`);
-    } catch {
-      toast.error(t('market.chatError', { defaultValue: '채팅을 시작할 수 없습니다' }));
+    } catch (err) {
+      // d1(260928 §3.6 #14) — 클릭 사이 다른 사람이 먼저 예약해간 경합
+      if (extractErrorCode(err) === 'LISTING_RESERVED') {
+        toast.error(t('market.reservedForOthers', { defaultValue: '예약중이에요 · 취소되면 알려드려요' }));
+      } else {
+        toast.error(t('market.chatError', { defaultValue: '채팅을 시작할 수 없습니다' }));
+      }
     }
   };
 
@@ -155,11 +173,15 @@ export default function MarketDetail() {
     if (!detail || offerSending) return;
     setOfferSending(true);
     try {
-      const conv = await createConversation(detail.seller.id, { type: 'listing', id: detail.id });
-      await proposePriceOffer(conv.id, amount, detail.id);
+      const conv = await createConversation(detail.seller.id, { type: 'listing', id: detail.id }, { rethrow: true });
+      await proposePriceOffer(conv.id, amount, detail.id, { rethrow: true });
       navigate(`/dm/${conv.id}`);
-    } catch {
-      toast.error(t('market.offerError', { defaultValue: '가격제안을 보낼 수 없습니다' }));
+    } catch (err) {
+      if (extractErrorCode(err) === 'LISTING_RESERVED') {
+        toast.error(t('market.reservedForOthers', { defaultValue: '예약중이에요 · 취소되면 알려드려요' }));
+      } else {
+        toast.error(t('market.offerError', { defaultValue: '가격제안을 보낼 수 없습니다' }));
+      }
       setOfferSending(false);
     }
   };
@@ -185,6 +207,19 @@ export default function MarketDetail() {
       setDetail({ ...detail, seller: { ...detail.seller, isFollowing: !wasFollowing } });
     } catch {
       toast.error(t('market.followError', { defaultValue: '팔로우 처리 실패' }));
+    }
+  };
+
+  // F-S2-01 FR-1 r6: 예약중(타인) 매물 — [취소되면 알림 받기] opt-in (§3.6 #14)
+  const handleNotifySubscribe = async () => {
+    if (!requireAuth()) return;
+    if (!detail || notifySubscribed) return;
+    try {
+      await subscribeListingAvailability(detail.id);
+      setNotifySubscribed(true);
+      toast.success(t('market.notifySubscribedToast', { defaultValue: '취소되면 알려드릴게요' }));
+    } catch {
+      toast.error(t('market.notifyError', { defaultValue: '처리에 실패했어요' }));
     }
   };
 
@@ -419,11 +454,21 @@ export default function MarketDetail() {
                         : t('market.follow', { defaultValue: '팔로우' })}
                     </button>
                   )}
-                  {detail.status !== 'ON_SALE' && (
+                  {/* F-S0-02 FR-1 r6: 판매중/예약중은 판매자가 직접 바꾸는 상태라 본문에 인터랙티브 필로 */}
+                  {isSeller && (detail.status === 'ON_SALE' || detail.status === 'RESERVED') ? (
+                    <button
+                      className={styles.statusPill}
+                      type="button"
+                      onClick={() => setStatusSheetOpen(true)}
+                    >
+                      {t(statusLabelKey(detail.status))}
+                      <ChevronDown size={14} strokeWidth={2.6} />
+                    </button>
+                  ) : detail.status !== 'ON_SALE' ? (
                     <span className={`${styles.statusBadge} ${detail.status === 'SOLD' ? styles.statusSold : ''}`}>
                       {t(statusLabelKey(detail.status))}
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <div className={styles.trustBadges}>
                   <TrustTierChip tier={detail.seller.trustTier} />
@@ -639,16 +684,16 @@ export default function MarketDetail() {
                   </button>
                 </>
               )}
-              <div className={styles.statusBar}>
-                {STATUSES.map((s) => (
-                  <button
-                    key={s}
-                    className={`${styles.statusOpt} ${detail.status === s ? styles.statusOptActive : ''}`}
-                    onClick={() => handleStatus(s)}
-                  >
-                    {t(statusLabelKey(s))}
+              {/* F-S0-02 FR-1 r6: 상태 전환은 위 본문 상태 필로 이동 — 여기는 요청 진입점 카운터 */}
+              <div className={styles.requestBar}>
+                {detail.isNegotiable && (
+                  <button className={styles.requestBtn} type="button" onClick={() => navigate(`/market/${detail.id}/offers`)}>
+                    {t('market.offersCount', { count: offerCount, defaultValue: `가격 제안 ${offerCount}` })}
                   </button>
-                ))}
+                )}
+                <button className={styles.requestBtn} type="button" onClick={() => navigate(`/market/${detail.id}/chats`)}>
+                  {t('market.chatsCount', { count: chatCount, defaultValue: `대화중인 채팅 ${chatCount}` })}
+                </button>
               </div>
               {/* 제안 ⓐ: 매물 철회는 종료·비가역 — 접힘 액션 열에서 분리해 열 최하단에 위험 톤으로 배치 */}
               <button className={styles.withdrawBtn} type="button" onClick={handleWithdrawPick}>
@@ -674,17 +719,32 @@ export default function MarketDetail() {
                   </Button>
                 </div>
               )}
-              <div className={styles.chatBtn}>
-                {detail.status === 'ON_SALE' || detail.status === 'RESERVED' ? (
-                  <Button variant="primary" onClick={handleChat}>
-                    {t('market.chat', { defaultValue: '채팅하기' })}
-                  </Button>
-                ) : (
-                  <Button variant="secondary" disabled>
-                    {t(statusLabelKey(detail.status))}
-                  </Button>
-                )}
-              </div>
+              {/* F-S2-01 FR-1 r6(d1): 예약중 매물 — 상세에 예약자 전용 판별 데이터가 없어(단순화)
+                  타인 매물로 간주해 채팅·가격제안을 막는다. 취소되면 opt-in 알림만 남긴다. */}
+              {detail.status === 'RESERVED' ? (
+                <div className={styles.reservedNotice}>
+                  <span className={styles.reservedNoticeText}>
+                    {t('market.reservedForOthers', { defaultValue: '예약중이에요 · 취소되면 알려드려요' })}
+                  </span>
+                  <button className={styles.notifyBtn} type="button" disabled={notifySubscribed} onClick={handleNotifySubscribe}>
+                    {notifySubscribed
+                      ? t('market.notifySubscribed', { defaultValue: '알림 신청 완료' })
+                      : t('market.notifyWhenAvailable', { defaultValue: '취소되면 알림 받기' })}
+                  </button>
+                </div>
+              ) : (
+                <div className={styles.chatBtn}>
+                  {detail.status === 'ON_SALE' ? (
+                    <Button variant="primary" onClick={handleChat}>
+                      {t('market.chat', { defaultValue: '채팅하기' })}
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" disabled>
+                      {t(statusLabelKey(detail.status))}
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -717,6 +777,36 @@ export default function MarketDetail() {
               <div className={styles.priceSubmit}>
                 <Button onClick={handleUpdatePrice}>{t('common.save', { defaultValue: '저장' })}</Button>
               </div>
+            </div>
+          </BottomSheet>
+
+          {/* 상태 변경 시트 (판매자, F-S0-02 FR-1 r6) */}
+          <BottomSheet open={statusSheetOpen} onClose={() => setStatusSheetOpen(false)}>
+            <div className={styles.moreSheet}>
+              <button
+                className={styles.moreItem}
+                type="button"
+                onClick={() => { setStatusSheetOpen(false); void handleStatus('ON_SALE'); }}
+              >
+                {t('market.statusOnSale', { defaultValue: '판매중' })}
+              </button>
+              <button
+                className={styles.moreItem}
+                type="button"
+                onClick={() => { setStatusSheetOpen(false); navigate(`/market/${detail.id}/reserve`); }}
+              >
+                {t('market.statusReserved', { defaultValue: '예약중' })}
+              </button>
+              <button
+                className={styles.moreItem}
+                type="button"
+                onClick={() => { setStatusSheetOpen(false); navigate(`/market/${detail.id}/reserve?mode=complete`); }}
+              >
+                {t('market.statusSold', { defaultValue: '거래완료' })}
+              </button>
+              <button className={styles.moreItem} type="button" onClick={() => setStatusSheetOpen(false)}>
+                {t('common.close', { defaultValue: '닫기' })}
+              </button>
             </div>
           </BottomSheet>
 

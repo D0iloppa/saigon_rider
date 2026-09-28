@@ -334,12 +334,18 @@ export interface DmAppointmentMeta {
   /** kind === 'listing_divider' 일 때 구분자에 표시할 매물 제목. */
   listingTitle?: string;
   /** message_type === 'card' 일 때 카드 종류 — 'item'(매물) | 'walkie'(워키토키 초대, 렌더 통합용). */
-  subtype?: 'item' | 'walkie';
+  subtype?: 'item' | 'walkie' | 'bundle';
   /** subtype === 'item' 일 때 매물 id/제목/가격/썸네일 스냅샷(서버가 전송 시점에 재조회해 채움). */
   listingId?: string;
   title?: string;
   priceVnd?: number;
   thumbnailUrl?: string | null;
+  /** subtype === 'bundle' 일 때 묶음 스냅샷(F-DM-02, 260928). */
+  listingIds?: string[];
+  titles?: string[];
+  totalVnd?: number;
+  /** meta.kind === 'reserve_prompt' 일 때 상대 닉네임. */
+  counterpartNickname?: string | null;
 }
 
 export type AppointmentStatus = 'PROPOSED' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';

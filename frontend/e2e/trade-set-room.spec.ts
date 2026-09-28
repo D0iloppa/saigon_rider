@@ -86,7 +86,8 @@ test('trade-set room UI: buyer builds a set via picker, seller reserves via stat
 
     // 다시 열어 하단 고정 요약 바의 아이콘 전송(묶음 정보 보내기) → 방으로 돌아가 새 묶음 카드가
     // 생기고, 그 텍스트에 "- " + titleA 가 들어있다.
-    await page.getByText(titleA, { exact: false }).first().click();
+    // 세트 바 버튼("{titleA} 외 1")을 정확히 누른다 — 방에는 "- {titleA}" 가 든 묶음 카드도 있다.
+    await page.getByRole('button', { name: new RegExp(`${titleA}.*외 1`) }).first().click();
     await expect(page).toHaveURL(new RegExp(`/dm/${conversationId}/items$`));
     await page.getByRole('button', { name: '묶음 정보 보내기' }).click();
     await expect(page).toHaveURL(new RegExp(`/dm/${conversationId}$`));

@@ -24,7 +24,7 @@ export const CARD_TYPES: Record<CardMessageType, { alignBySender: boolean }> = {
   walkie_invite: { alignBySender: true },
   location_share_invite: { alignBySender: true },
   location_pin: { alignBySender: true },
-  bundle: { alignBySender: false },
+  bundle: { alignBySender: true },
   price_offer: { alignBySender: false },
   appointment: { alignBySender: false },
   payment: { alignBySender: false },

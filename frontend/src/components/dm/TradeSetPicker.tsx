@@ -44,7 +44,7 @@ export function TradeSetPicker({ open, onClose, conversationId, sellerId, seller
     setCategoryFilter(null);
     setLoading(true);
     Promise.all([
-      fetchListings({ sellerId, hideSold: true, size: 100 }),
+      fetchListings({ sellerId, hideSold: true, size: 50 }),
       fetchCategories(),
     ])
       .then(([page, cats]) => {

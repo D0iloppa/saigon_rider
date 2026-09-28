@@ -560,6 +560,34 @@ async def _handle_appointment_cancelled(payload: dict, *, source_event_id: str) 
         log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
 
 
+async def _handle_listing_available(payload: dict, *, source_event_id: str) -> None:
+    """d1(260928 §3.6 #14) — 예약중이라 [채팅하기]·[가격제안]이 막혀 [취소되면 알림 받기]를
+    누른 사용자에게, 그 매물이 다시 판매중이 되면 알린다."""
+    recipient_id = uuid.UUID(payload["recipient_id"])
+    listing_id = payload["listing_id"]
+    link = f"market&id={listing_id}"
+
+    async with AsyncSessionLocal() as db:
+        lang = (await langs_for_users(db, {recipient_id}))[recipient_id]
+        title = t(lang, "listing_available.title")
+        body = t(lang, "listing_available.body", title=payload.get("title") or "")
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=recipient_id,
+            notification_type="LISTING_AVAILABLE",
+            title=title,
+            body=body,
+            link=link,
+        )
+        await db.commit()
+
+    if inserted:
+        await _try_push(str(recipient_id), title, body, link)
+    else:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+
+
 async def _handle_completion_request(event_type: str, payload: dict, *, source_event_id: str) -> None:
     """S-16: 거래 완료 요청·거절 통지. 딥링크는 해당 대화(약속 카드가 그 안에 있다).
 
@@ -1041,6 +1069,7 @@ HANDLERS = {
     "feed.group_post_created": _handle_feed_group_post,
     "market.listing_created": _handle_listing_created,
     "market.price_drop": _handle_price_drop,
+    "market.listing_available": _handle_listing_available,
     "market.appointment_cancelled": _handle_appointment_cancelled,
     "market.completion_requested": _handle_completion_requested,
     "market.completion_declined": _handle_completion_declined,

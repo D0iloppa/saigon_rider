@@ -59,6 +59,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "en": "Your meetup partner has arrived at the meeting place.",
         "vi": "Người hẹn gặp đã đến điểm hẹn.",
     },
+    "listing_available.title": {
+        "ko": "다시 판매중이에요",
+        "en": "Back on sale",
+        "vi": "Đã bán lại",
+    },
+    "listing_available.body": {
+        "ko": "찜한 매물이 다시 판매중이에요 · {title}",
+        "en": "A listing you're watching is back on sale · {title}",
+        "vi": "Tin đăng bạn theo dõi đã bán lại · {title}",
+    },
     "appointment_cancelled.title": {
         "ko": "약속이 취소되었어요",
         "en": "Meetup cancelled",

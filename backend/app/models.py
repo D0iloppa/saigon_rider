@@ -1605,6 +1605,24 @@ class DmConversation(Base):
     notice_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class DmConversationListing(Base):
+    """대화방-매물 다:다 연결 (240_dm_conversation_listings.sql).
+
+    dm_conversations.context_id 는 "가장 최근 문의 매물" 포인터로 남고, 이 테이블이 그
+    방에 얽힌 매물 전체(문의/카드전송/약속제안 시점)를 보관한다."""
+
+    __tablename__ = "dm_conversation_listings"
+
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), primary_key=True
+    )
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), primary_key=True
+    )
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="inquiry")
+
+
 class DmConversationMember(Base):
     __tablename__ = "dm_conversation_members"
 

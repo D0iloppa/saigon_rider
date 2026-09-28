@@ -21,6 +21,7 @@ from ..models import (
     BusinessProfile,
     DealResultPingLog,
     DmConversation,
+    DmConversationListing,
     DmMessage,
     ListingPriceLog,
     MarketplaceAd,
@@ -1882,9 +1883,31 @@ async def propose_appointment(
     if conv.context_type != "listing" or conv.context_id is None:
         raise HTTPException(status_code=400, detail="Conversation is not linked to a listing")
 
-    listing = await db.get(MarketplaceListing, conv.context_id)
+    # F-DM-02(260928) — 방에 여러 매물이 얽힐 수 있어 프론트가 선택한 대표 매물을 받는다.
+    # 생략 시 conv.context_id(최근 문의 매물) 로 폴백해 하위호환을 유지한다.
+    listing_id = body.listing_id or conv.context_id
+    if listing_id != conv.context_id:
+        linked = (
+            await db.execute(
+                select(DmConversationListing.listing_id).where(
+                    DmConversationListing.conversation_id == conv.id,
+                    DmConversationListing.listing_id == listing_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if linked is None:
+            raise HTTPException(status_code=400, detail="Listing is not linked to this conversation")
+
+    listing = await db.get(MarketplaceListing, listing_id)
     if listing is None or listing.seller_id not in (conv.participant_1, conv.participant_2):
         raise HTTPException(status_code=403, detail="Invalid conversation context")
+    if listing.status != "ON_SALE":
+        raise HTTPException(status_code=409, detail="Listing is no longer available")
+    await db.execute(
+        pg_insert(DmConversationListing)
+        .values(conversation_id=conv.id, listing_id=listing_id, source="appointment")
+        .on_conflict_do_nothing(index_elements=["conversation_id", "listing_id"])
+    )
 
     # 구매자 게이팅 — 판매자의 거래진행 액션(가격제안 수락 or 판매자 약속 제안) 전에는 제안 불가
     if not await _appointment_unlocked(db, conv, session_uid):
@@ -1902,7 +1925,7 @@ async def propose_appointment(
     )
 
     appt = MarketplaceAppointment(
-        listing_id=conv.context_id,
+        listing_id=listing_id,
         conversation_id=conv.id,
         proposer_id=session_uid,
         when_at=body.when_at,

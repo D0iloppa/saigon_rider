@@ -1463,6 +1463,20 @@ class TransactionCancelRequestOut(BaseModel):
     created_at: datetime
 
 
+class DmConversationListingOut(BaseModel):
+    """F-DM-02(260928) — 방 상단 매물바 아코디언 1행."""
+
+    id: UUID
+    title: str
+    price_vnd: int
+    thumbnail_url: str | None = None
+    status: str
+    # 'IN_PROGRESS'(이 대화에서 ACCEPTED 약속 존재) | 'INQUIRY'(그 외, ON_SALE 또는 타인이 예약중)
+    stage: str
+    reserved_by_other: bool = False
+    linked_at: datetime
+
+
 class AppointmentProposeRequest(BaseModel):
     conversation_id: UUID
     # naive datetime 은 서버 OS 타임존에 따라 해석이 달라지므로 tz-aware 만 허용 (DM-1)
@@ -1470,6 +1484,9 @@ class AppointmentProposeRequest(BaseModel):
     place_name: str | None = None
     place_lat: float | None = Field(default=None, ge=-90, le=90)
     place_lng: float | None = Field(default=None, ge=-180, le=180)
+    # F-DM-02(260928) — 방에 여러 매물이 얽힐 수 있어 프론트가 선택한 대표 매물을 명시할 수
+    # 있다. 생략 시 conv.context_id(최근 문의 매물) 로 폴백해 하위호환을 유지한다.
+    listing_id: UUID | None = None
 
     @model_validator(mode="after")
     def validate_place_coordinate_pair(self):

@@ -16,6 +16,7 @@ from ..models import (
     Content,
     DmConversation,
     DmConversationBan,
+    DmConversationListing,
     DmConversationMember,
     DmMessage,
     DmMessageReaction,
@@ -33,6 +34,7 @@ from ..schemas import (
     DmBanRequest,
     DmConversationActiveTradeOut,
     DmConversationCreateRequest,
+    DmConversationListingOut,
     DmConversationNoticeRequest,
     DmConversationOut,
     DmConversationPatchRequest,
@@ -99,6 +101,19 @@ async def _direct_block_state(db: AsyncSession, viewer_id: uuid.UUID, other_id: 
         )
     ).all()
     return bool(rows), any(blocker_id == viewer_id for blocker_id, _blocked_id in rows)
+
+
+async def _link_conversation_listing(
+    db: AsyncSession, conversation_id: uuid.UUID, listing_id: uuid.UUID, source: str
+) -> None:
+    """F-DM-02(260928) — 대화-매물 연결 upsert. 기존 연결이 있으면 source 는 유지한다
+    (최초 연결 출처가 더 의미 있다 — 문의로 시작한 걸 카드전송이 덮어쓰지 않게)."""
+    stmt = (
+        pg_insert(DmConversationListing)
+        .values(conversation_id=conversation_id, listing_id=listing_id, source=source)
+        .on_conflict_do_nothing(index_elements=["conversation_id", "listing_id"])
+    )
+    await db.execute(stmt)
 
 
 def _resolve_dm_image(msg: DmMessage) -> str | None:
@@ -593,6 +608,7 @@ async def create_conversation(
         if body.context_type == "listing" and conv.context_id != body.context_id:
             conv.context_type = body.context_type
             conv.context_id = body.context_id
+            await _link_conversation_listing(db, conv.id, body.context_id, source="inquiry")
             await db.commit()
             await db.refresh(conv)
     else:
@@ -600,6 +616,9 @@ async def create_conversation(
             participant_1=p1, participant_2=p2, context_type=body.context_type, context_id=body.context_id
         )
         db.add(conv)
+        if body.context_type == "listing":
+            await db.flush()
+            await _link_conversation_listing(db, conv.id, body.context_id, source="inquiry")
         try:
             await db.commit()
         except IntegrityError:
@@ -643,6 +662,70 @@ async def create_conversation(
         context_listing=await _listing_context(db, conv.context_id) if conv.context_type == "listing" else None,
         appointment_unlocked=await _appointment_unlocked(db, conv, _session_uid),
     )
+
+
+@router.get(
+    "/conversations/{conv_id}/listings",
+    response_model=list[DmConversationListingOut],
+    summary="대화방에 얽힌 매물 목록 (F-DM-02)",
+)
+async def get_conversation_listings(
+    conv_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """상단 매물바 아코디언용. 거래중(이 대화에서 ACCEPTED 약속 존재) 먼저, 그다음 문의중
+    (linked_at desc). SOLD·숨김/삭제 매물과, 이 대화에서 COMPLETED 로 끝난 매물은 뺀다."""
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    await _require_conv_access(db, conv, _session_uid)
+
+    rows = (
+        await db.execute(
+            select(DmConversationListing, MarketplaceListing)
+            .join(MarketplaceListing, MarketplaceListing.id == DmConversationListing.listing_id)
+            .where(
+                DmConversationListing.conversation_id == conv_id,
+                MarketplaceListing.status.notin_(("SOLD", "HIDDEN", "REMOVED")),
+            )
+        )
+    ).all()
+    if not rows:
+        return []
+
+    listing_ids = [listing.id for _, listing in rows]
+    appts = (
+        await db.execute(
+            select(MarketplaceAppointment.listing_id, MarketplaceAppointment.status).where(
+                MarketplaceAppointment.conversation_id == conv_id,
+                MarketplaceAppointment.listing_id.in_(listing_ids),
+            )
+        )
+    ).all()
+    accepted_listing_ids = {lid for lid, status in appts if status == "ACCEPTED"}
+    completed_listing_ids = {lid for lid, status in appts if status == "COMPLETED"}
+
+    items: list[DmConversationListingOut] = []
+    for link, listing in rows:
+        if listing.id in completed_listing_ids:
+            continue
+        in_progress = listing.id in accepted_listing_ids
+        reserved_by_other = listing.status == "RESERVED" and not in_progress
+        items.append(
+            DmConversationListingOut(
+                id=listing.id,
+                title=listing.title,
+                price_vnd=listing.price_vnd,
+                thumbnail_url=_market_thumbnail_url(listing),
+                status=listing.status,
+                stage="IN_PROGRESS" if in_progress else "INQUIRY",
+                reserved_by_other=reserved_by_other,
+                linked_at=link.linked_at,
+            )
+        )
+    items.sort(key=lambda it: (it.stage != "IN_PROGRESS", -it.linked_at.timestamp()))
+    return items
 
 
 @router.get("/conversations/{conv_id}/messages", response_model=DmMessagePage, summary="메시지 목록")
@@ -813,8 +896,38 @@ async def send_message(
     if body.message_type in ("appointment", "price_offer", "payment_qr"):
         raise HTTPException(status_code=400, detail="Use the dedicated endpoint for this message type")
 
-    if body.content is None and body.image_content_id is None and body.audio_content_id is None:
+    if (
+        body.content is None
+        and body.image_content_id is None
+        and body.audio_content_id is None
+        and body.message_type != "card"
+    ):
         raise HTTPException(status_code=400, detail="content, image_content_id or audio_content_id is required")
+
+    # F-DM-02(260928) — 알림톡풍 카드 메시지. subtype='item' 만 지원(워키토키 초대는 walkie_invite
+    # 로 계속 생성됨 — 렌더 레이어만 CardBubble 로 공유). meta 는 클라이언트 값을 신뢰하지 않고
+    # 서버가 매물에서 다시 조회해 스냅샷을 만든다.
+    card_listing: MarketplaceListing | None = None
+    if body.message_type == "card":
+        if not body.meta or body.meta.get("subtype") != "item" or not body.meta.get("listingId"):
+            raise HTTPException(status_code=400, detail="Unsupported card message")
+        try:
+            card_listing_id = uuid.UUID(str(body.meta["listingId"]))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid listingId") from None
+        card_listing = await db.get(MarketplaceListing, card_listing_id)
+        if card_listing is None:
+            raise HTTPException(status_code=404, detail="Listing not found")
+        await _link_conversation_listing(db, conv_id, card_listing.id, source="card")
+        # 메타 키는 appointmentId/priceOfferId 와 같은 기존 관례(camelCase) 를 따른다 —
+        # 이 JSONB 는 프론트가 그대로 소비하는 뷰 전용 스냅샷이다.
+        body.meta = {
+            "subtype": "item",
+            "listingId": str(card_listing.id),
+            "title": card_listing.title,
+            "priceVnd": card_listing.price_vnd,
+            "thumbnailUrl": _market_thumbnail_url(card_listing),
+        }
 
     # payment_qr 는 전용 참가자 인증 경로로만 제공하는 private Content 다. 일반 DM 에
     # private Content 를 붙이면 imgproxy URL 직렬화로 우회될 수 있으므로 차단한다.
@@ -904,6 +1017,8 @@ async def send_message(
         preview = body.content[:50]
     elif body.audio_content_id is not None:
         preview = "음성 메시지를 보냈습니다"
+    elif message_type == "card":
+        preview = f"[매물] {card_listing.title}" if card_listing else "매물 카드를 보냈습니다"
     elif message_type == "walkie_invite":
         preview = "워키토키 채널을 열었어요"
     elif message_type == "location_share_invite":

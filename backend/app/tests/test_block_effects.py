@@ -1,10 +1,14 @@
 import unittest
 import uuid
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from fastapi import HTTPException
+
 from app.models import SupportTicket
-from app.routers import market
+from app.routers import dm, market
+from app.schemas import DmMessageCreateRequest
 
 
 class BlockEffectsTests(unittest.IsolatedAsyncioTestCase):
@@ -41,6 +45,7 @@ class BlockEffectsTests(unittest.IsolatedAsyncioTestCase):
         cancel_request_result.scalar_one_or_none.return_value = pending_cancel_request
 
         db = AsyncMock()
+        db.add = MagicMock()
         db.get.side_effect = [None, listing]
         db.execute.side_effect = [
             conv_id_result,
@@ -111,6 +116,7 @@ class BlockEffectsTests(unittest.IsolatedAsyncioTestCase):
         appts_result.scalars.return_value.all.return_value = [appt]
 
         db = AsyncMock()
+        db.add = MagicMock()
         db.get.side_effect = [None, listing]
         db.execute.side_effect = [conv_id_result, follow_delete_result, appts_result]
 
@@ -124,3 +130,87 @@ class BlockEffectsTests(unittest.IsolatedAsyncioTestCase):
         enqueue.assert_not_called()
         added_tickets = [c.args[0] for c in db.add.call_args_list if isinstance(c.args[0], SupportTicket)]
         self.assertEqual(len(added_tickets), 0)
+
+
+class BlockedDirectConversationReadContractTests(unittest.IsolatedAsyncioTestCase):
+    """차단 후 기존 방은 읽을 수 있고, 차단 주체는 본인에게만 표시한다."""
+
+    async def test_detail_is_retained_as_read_only_for_blocker(self):
+        me, other, conv_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        conv = SimpleNamespace(
+            id=conv_id,
+            conversation_type="direct",
+            participant_1=me,
+            participant_2=other,
+            last_message_at=datetime.now(UTC),
+            context_type=None,
+            context_id=None,
+        )
+        other_user = SimpleNamespace(nickname="상대", avatar_content=None, avatar_url=None)
+        blocks = MagicMock()
+        blocks.all.return_value = [(me, other)]
+        db = MagicMock()
+        db.get = AsyncMock(side_effect=[conv, other_user])
+        db.execute = AsyncMock(return_value=blocks)
+
+        with (
+            patch.object(dm, "_appointment_unlocked", AsyncMock(return_value=False)),
+            patch.object(dm, "resolve_avatar_url", return_value=None),
+        ):
+            result = await dm.get_conversation(conv_id, db=db, _session_uid=me)
+
+        self.assertTrue(result.messaging_disabled)
+        self.assertTrue(result.blocked_by_me)
+        self.assertEqual(result.other_user_id, other)
+
+    async def test_detail_does_not_reveal_that_peer_was_the_blocker(self):
+        me, other, conv_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        conv = SimpleNamespace(
+            id=conv_id,
+            conversation_type="direct",
+            participant_1=me,
+            participant_2=other,
+            last_message_at=datetime.now(UTC),
+            context_type=None,
+            context_id=None,
+        )
+        other_user = SimpleNamespace(nickname="상대", avatar_content=None, avatar_url=None)
+        blocks = MagicMock()
+        blocks.all.return_value = [(other, me)]
+        db = MagicMock()
+        db.get = AsyncMock(side_effect=[conv, other_user])
+        db.execute = AsyncMock(return_value=blocks)
+
+        with (
+            patch.object(dm, "_appointment_unlocked", AsyncMock(return_value=False)),
+            patch.object(dm, "resolve_avatar_url", return_value=None),
+        ):
+            result = await dm.get_conversation(conv_id, db=db, _session_uid=me)
+
+        self.assertTrue(result.messaging_disabled)
+        self.assertFalse(result.blocked_by_me)
+
+    async def test_new_message_remains_forbidden_after_block(self):
+        me, other, conv_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        conv = SimpleNamespace(
+            id=conv_id,
+            conversation_type="direct",
+            participant_1=me,
+            participant_2=other,
+        )
+        db = MagicMock()
+        db.get = AsyncMock(return_value=conv)
+        body = DmMessageCreateRequest(content="blocked message")
+
+        with (
+            patch.object(
+                dm,
+                "require_unblocked",
+                AsyncMock(side_effect=HTTPException(status_code=403, detail="Conversation blocked")),
+            ),
+            self.assertRaises(HTTPException) as raised,
+        ):
+            await dm.send_message(conv_id, body, db=db, _session_uid=me)
+
+        self.assertEqual(raised.exception.status_code, 403)
+        db.add.assert_not_called()

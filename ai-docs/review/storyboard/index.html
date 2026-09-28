@@ -192,7 +192,7 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 매물 상세 하단 바 [채팅하기] 위에 캡슐이 내려와 있어 못 누름 → 끌어야 함. 무전기와 위치공유가 동시에 켜지면 하나가 하나를 가림. 운전 중 캡슐을 찾으려고 화면을 훑음.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>WalkieTalkieFloatingButton.module.css:3-9</code>, <code>LiveLocationFloatingButton.tsx:44-90</code>, <code>App.tsx:574-576</code>.</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -1274,7 +1274,7 @@ body {
             <p class=&quot;listingTitle&quot;>순정 머플러 + 브레이크 패드 세트</p>
             <p class=&quot;listingMeta&quot;>Bình Thạnh · 오토바이 2분 · 어제</p>
             <span class=&quot;listingPrice&quot;><span class=&quot;num&quot;>320.000 đ</span></span>
-            
+
           </div>
         </article></div>
       <button class=&quot;writeFab&quot; type=&quot;button&quot; aria-label=&quot;글쓰기&quot;><svg width=&quot;26&quot; height=&quot;26&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M5 12h14&quot;/><path d=&quot;M12 5v14&quot;/></svg></button>
@@ -1297,1055 +1297,34 @@ body {
 " width="390" height="844"></iframe></div></div>
 </section>
 <section class="scene" id="F-N-01__FR-2">
-<h3 class="scene-id">F-N-01 FR-2 <span class="scene-title">확정: 하단 고정 "진행 중 바"</span></h3>
-<div class="field field-prose"><div class="field-label">조건</div> 무전기 또는 위치공유 채널 활성. 둘 다면 한 바에 두 칸.</div>
-<div class="field field-prose"><div class="field-label">와이어</div> <code>K</code> 바로 위(채팅방: 입력창 위 / 그 외 화면: 탭바 위)에 높이 52px 고정 바 1줄: <code>[● 무전기 아이콘 · 채널명 · (탭=말하기) ] [📍 위치공유 · 접속 3명 · (탭=지도) ] [닫기]</code>. 흰 표면·브랜드 연한색 PTT·상단 구분선의 이 레이아웃이 구현 기준이다. 드래그 없음. 화면 전환해도 같은 자리. 다른 화면의 주행동을 가리지 않도록 본문 하단 여백을 바 높이만큼 확보. <strong><code>접속 n명</code>은 heartbeat/presence가 확인한 현재 접속자 수만 뜻한다. 채널 전체 멤버 수를 이 자리에 쓰지 않으며, 아직 조회하지 못했으면 <code>접속 확인 중</code>으로 표시한다.</strong></div>
-<div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>K(고정 바)</td><td>무전기 칸: 상태 점 + 채널명 + 말하기 버튼(누르는 동안 녹음 = PTT)</td><td>보조</td><td>진행·즉시</td><td>누르고 있는 동안 녹음, 떼면 전송</td><td>손이 바쁜 사용자에게 <strong>항상 같은 자리</strong>가 "한 손 즉시"의 진짜 조건. iOS 통화 바·내비 바와 같은 관행(B0-2)</td></tr><tr><td>K(고정 바)</td><td>위치공유 칸: 아이콘 + <strong>접속 n명</strong></td><td>보조</td><td>진행</td><td>위치공유 모달</td><td><code>접속</code>은 현재 채널에 살아 있는 인원이라는 뜻으로만 표기한다. 총 멤버십을 활동 인원처럼 보이게 하지 않으면서 같은 성격(진행 중 세션)끼리 한 묶음(P-1). 겹침 문제 소멸</td></tr><tr><td>K(고정 바)</td><td>닫기(각 칸 롱프레스 또는 우측 X → 확인 1회)</td><td>파괴적(세션 종료)</td><td>종료</td><td>"무전기 채널에서 나갈까요?" → 나감</td><td>종료는 항상 보이되 확인을 거친다. 더블탭 뒤에 숨기지 않는다</td></tr><tr><td>K(고정 바)</td><td>바 본체 탭(빈 곳)</td><td>이동</td><td>이동</td><td>그 채널의 대화방으로</td><td>롱프레스 메뉴 "대화방으로 이동"의 승격. 가장 잦은 후속 행동</td></tr><tr><td>—</td><td>채널 변경 / 초대장 다시 보내기</td><td>숨김</td><td>진행</td><td>바 롱프레스 메뉴</td><td>빈도 낮음. 숨김 자리 유지</td></tr></tbody></table></div>
-<div class="field field-prose"><div class="field-label">주행동</div> 이 바가 있는 화면의 주행동은 그대로(가리지 않으므로).</div>
-<div class="field field-prose"><div class="field-label">제안 요약</div> 캡슐·버블 → 고정 바 1개. 드래그 제거. 더블탭 제거. 닫기 상시 노출+확인. 채팅방에서는 입력창 위, 나머지는 탭바 위. 흰 표면 바의 위 와이어·요소 표가 <strong>구현 구속력 있는 기준</strong>이며, 다른 위치(상단 배너)는 이 프레임의 대안이 아니다.</div>
-<div class="field field-prose"><div class="field-label">레이어 규칙(코드 반영 완료, 260922)</div> 이 바(전역 fixed <code>ActiveSessionBar</code>)와 화면별 바텀시트/모달/페이지 자체 하단 CTA 바가 동시에 뜰 수 있는 화면에서, 어느 것이 위에 오는가를 아래 3규칙으로 정의한다.<br>  1. <strong>시트류가 열려 있으면 전역 세션바를 완전히 숨긴다.</strong> <code>useSheetPresenceStore</code>(전역 열림 카운터, increment/decrement)를 <code>BottomSheet</code>가 열릴 때마다 increment, 닫힐 때 decrement 한다(<code>frontend/src/store/useSheetPresenceStore.ts:11-15</code>). <code>ActiveSessionBar</code>는 이 카운터를 구독해 <code>sheetOpen = openCount &gt; 0</code>이면 <code>suppressed = true</code>로 렌더 자체를 생략한다(DM 상세 라우트 억제와 OR 결합) — <code>frontend/src/components/shell/ActiveSessionBar.tsx:698,703</code>. 시트 내용 위에 세션바가 끼어 보이는 문제(예: 프로필 더보기 시트 겹침)의 해결.<br>  2. <strong>탭바가 없는 화면(<code>HIDE_TABBAR_PATHS</code>)에서는 세션바가 화면 최하단(<code>bottom:0</code> + safe-area)에 그대로 앉는다.</strong> 탭바가 있는 화면에서는 여전히 탭바(<code>var(--tabbar-height)</code>) 위로 올라앉는다(<code>data-above-tabbar</code>). 어느 경우든 화면 자체가 소유한 고정 하단 CTA 바(<code>/biz/</code>, <code>/market/ad/</code>)나 in-flow 하단 액션 바(<code>/market/:id</code>, 채팅 게시판 글 상세 등)는 <strong>세션바가 화면 최하단 고정 요소의 자리를 내주지 않는 대신</strong>, <code>--session-bar-height</code>(세션바 실측 렌더 높이, 숨김 시 <code>0px</code>) 를 자기 <code>bottom</code>/<code>padding-bottom</code> 에 더해 스스로 위로 비킨다 — 업체 상세(<code>/biz/</code>) CTA바 가림 버그 및 중고거래 상세(<code>/market/:id</code>) 액션바 가림 버그의 해결.<br>  3. <code>BottomSheet</code>를 안 쓰는 시트류(예: <code>DraggableSheet</code>)는 위 1의 억제 카운터에 잡히지 않는다 — 알려진 한계(아래 실패 시나리오 참조).<br>  4. <strong>(r4, 260924)</strong> 위 2의 메커니즘은 화면별 하드코드 높이 allowlist(<code>PAGE_BOTTOM_BAR_HEIGHTS</code>, <code>[data-above-tabbar]</code>의 <code>56px</code>)를 걷어내고 <code>--session-bar-height</code> 전역 인셋 변수 하나로 통일한 결과다. <code>ActiveSessionBar</code>가 <code>ResizeObserver</code>로 자신의 실제 렌더 높이(safe-area 패딩 포함)를 <code>:root</code>에 게시하고, 숨김/언마운트 시 <code>0px</code>로 되돌린다. 신규 화면 규칙: <strong>화면 하단에 고정(<code>position:fixed</code>) 또는 사실상 고정(flex column 끝의 in-flow 액션 바)된 요소를 추가할 때는 반드시 <code>var(--session-bar-height, 0px)</code>를 자신의 <code>bottom</code>(fixed) 또는 <code>padding-bottom</code>(in-flow root)에 더한다</strong> — 기본값이 <code>0px</code>라 세션바가 없을 때는 무해하다. 적용 예: <code>BizPublic.module.css</code>/<code>AdDetail.module.css</code> <code>.ctaBar</code>(<code>bottom</code>), <code>MarketDetail.module.css</code>/<code>DmBoardPost.module.css</code> <code>.root</code>(<code>padding-bottom</code>), 나머지 스크롤 전용 페이지(<code>DmBoard</code>, <code>TradeTransaction</code>, <code>FeedDetail</code>, <code>FeedCreate</code>/<code>FeedEdit</code>, <code>QuestCheckPage</code>, <code>NeighborhoodProfile</code>(공용 <code>system.module.css</code> <code>.scroll</code>), <code>MapFavorites</code>, <code>NeighborhoodCategories</code>)는 스크롤 컨테이너 <code>padding-bottom</code>에 가산.</div>
-<div class="field field-prose"><div class="field-label">상태 점·상태문의 의미론은 이 프레임에서 정의하지 않는다</div> — 위 요소 표의 "상태 점"이 어떤 색으로 무엇을 뜻하는지, 1:1에서 <code>접속 n명</code> 대신 무엇을 쓰는지는 <strong>F-S3-03 FR-6</strong>이 다룬다(실기기 피드백 260922). 이 프레임의 확정 사항(고정 바 위치·구성·레이어)은 그대로다.</div>
-<div class="field field-prose"><div class="field-label">잃는 것(정직하게)</div> 펼침(peek) 시 보이던 파형·"○○님이 말하는 중" 표시 면적이 줄어듦 → 바 안에 한 줄 텍스트로 축약. 채팅방에서 입력창 위 한 줄만큼 메시지 영역이 줄어듦(활성일 때만).</div>
-<div class="field field-prose"><div class="field-label">실패 시나리오(제안 적용 시)</div> 없음이 목표. 남는 위험: 바가 두 칸일 때 좁은 화면에서 라벨 잘림 → 아이콘+숫자만. <strong><code>DraggableSheet</code> 등 <code>BottomSheet</code>가 아닌 시트류는 <code>useSheetPresenceStore</code> 억제 대상이 아니다</strong> — 그런 시트가 새로 추가되거나 기존 시트가 이 컴포넌트를 안 쓰면 규칙 1이 적용되지 않아 오늘 고친 것과 같은 겹침 버그가 재발할 수 있다. 새 시트 컴포넌트를 만들 때는 <code>BottomSheet</code> 재사용 또는 동일한 increment/decrement 연동이 필요.</div>
-<div class="field field-prose"><div class="field-label">근거</div> V2·V3, B0-2 OS 관행, 앱 내 패턴 "상단 고정 진행 배너"의 하단판. 레이어 규칙(r1~r4, <strong>폐기됨 — 아래 r5 참조</strong>): <code>frontend/src/store/useSheetPresenceStore.ts:11-15</code>(삭제됨), <code>frontend/src/components/ui/BottomSheet.tsx:59-60</code>(삭제됨), <code>frontend/src/components/shell/ActiveSessionBar.tsx:671-712</code>.</div>
-<div class="field field-prose"><div class="field-label">판정(r1)</div> 코드 반영 완료(260922) — 사실 서술 확정.</div>
-<div class="field field-prose"><div class="field-label">판정(r5, 260924) 대표 번복</div> — 위 와이어·레이어 규칙(1~4)이 전제한 "화면 하단 전역 고정 바"를 폐기한다. <strong>세션 바는 그 세션이 속한 DM 방 안(입력창 위 in-flow)에서만 보이고, 그 외 모든 화면(채팅방 밖·매물 상세·홈 등)에서는 숨긴다.</strong> 단, 채팅방을 나가도 <strong>세션 자체(채널 join·하트비트·수신 음성 자동재생, 실시간위치 SSE)는 끊기지 않는다</strong> — <code>App.tsx</code>에 항상 마운트하는 <code>SessionCellsProvider</code>(신설)가 화면과 무관하게 세션 로직을 유지하고, 보이는 바(<code>ActiveSessionBar</code>, <code>conversationId</code> prop)만 <code>DmDetail.tsx</code>가 자기 방의 세션일 때 렌더한다. 다른 대화방에 들어가도(그 방의 세션이 아니면) 바는 뜨지 않는다. r4의 <code>--session-bar-height</code> 전역 인셋 변수·<code>useSheetPresenceStore</code>(시트 열림 시 전역 바 억제)·<code>PAGE_BOTTOM_BAR_HEIGHTS</code>/<code>[data-above-tabbar]</code>(탭바 위 고정 좌표)는 전역 고정 바와 함께 고아가 되어 전부 제거·원복했다. 남는 실패 시나리오: 바가 두 칸(무전기+위치공유)일 때 좁은 화면에서 라벨 잘림(기존 위험 유지).<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<h3 class="scene-id">F-N-01 FR-2 <span class="scene-title">진행 중 세션 바 — 현재 유효 결정: 해당 DM 방 안 전용</span></h3>
+<div class="field field-prose"><div class="field-label">현재 유효 판정(r5, 260924 대표 번복)</div> 세션 바는 <strong>그 세션이 속한 DM 방 안에서만</strong>, 입력창 바로 위 in-flow 영역에 보인다. 홈·마켓·다른 DM 방을 포함한 그 밖의 화면에는 렌더하지 않는다.</div>
+<div class="field field-prose"><div class="field-label">현재 구현(260927)</div> <code>App.tsx</code>의 <code>SessionCellsProvider</code>가 방 밖에서도 채널 join·하트비트·수신 음성 자동재생·실시간위치 SSE를 유지한다. <code>DmDetail.tsx</code>는 현재 방의 <code>conversationId</code>가 활성 세션과 일치할 때만 <code>ActiveSessionBar</code>를 렌더한다. 따라서 <strong>보이는 바의 범위와 세션 런타임의 범위는 다르다.</strong></div>
+<div class="field field-prose"><div class="field-label">조건</div> 현재 열어 둔 DM 방에 무전기 또는 위치공유 세션이 활성. 둘 다 활성이라면 한 줄 안에 두 칸으로 묶는다.</div>
+<div class="field field-prose"><div class="field-label">와이어</div> <code>K</code> 메시지 입력창 바로 위 in-flow 바: <code>[● 무전기 · 상태/채널 · PTT] [📍 위치공유 · 참여 상태] [×]</code>. 드래그·전역 fixed·탭바 위 표시는 없다.</div>
+<div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>K(DM 입력창 위)</td><td>무전기 칸: 상태 점 + 상태/채널 + PTT</td><td>보조</td><td>진행·즉시</td><td>누르는 동안 녹음, 떼면 전송</td><td>현재 대화의 진행 도구를 현재 대화 안에 둔다</td></tr><tr><td>K(DM 입력창 위)</td><td>위치공유 칸: 아이콘 + 참여 상태</td><td>보조</td><td>진행</td><td>위치공유 모달</td><td>같은 대화의 진행 세션을 한 자리에서 확인한다</td></tr><tr><td>K(DM 입력창 위)</td><td>닫기(×)</td><td>파괴적(세션 종료)</td><td>종료</td><td>확인 1회 뒤 나가기</td><td>세션 종료는 상시 보이고 명시 확인을 거친다</td></tr><tr><td>—</td><td>방 밖 세션 런타임</td><td>표시 없음</td><td>백그라운드 유지</td><td>없음</td><td>r5는 화면 표시만 제한하며 세션 연결 자체를 끊지 않는다</td></tr></tbody></table></div>
+<div class="field field-prose"><div class="field-label">주행동</div> 이 바가 아니라 DM 입력창의 메시지 전송. 세션 바는 진행 중 도구다.</div>
+<div class="field field-prose"><div class="field-label">검증</div> 활성 세션의 DM 방에서는 입력창 위에 바가 보이고, 홈·마켓·다른 DM 방에서는 보이지 않는다. 방을 나갔다 돌아와도 세션이 유지되며 같은 방에서 바가 복원된다.</div>
+<div class="field field-prose"><div class="field-label">근거</div> <code>frontend/src/components/shell/ActiveSessionBar.tsx</code>, <code>frontend/src/pages/dm/DmDetail.tsx</code>, <code>frontend/src/App.tsx</code>의 <code>SessionCellsProvider</code>.</div>
+<div class="field field-prose"><div class="field-label">대표 지시 이력(r1~r4, 현재 지시 아님)</div> 앱 전역 fixed 바, 탭바 위 배치, <code>--session-bar-height</code>, <code>useSheetPresenceStore</code>, <code>PAGE_BOTTOM_BAR_HEIGHTS</code> 기반 레이어 규칙은 r5에서 전부 철회·삭제됐다. 화면 샘플도 r5 기준 DM 전용으로 갱신한다.<br>---</div>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!doctype html>
 <html lang=&quot;ko&quot;>
 <head>
-<meta charset=&quot;utf-8&quot;>
-<meta name=&quot;viewport&quot; content=&quot;width=390, initial-scale=1&quot;>
-<title>진행 중 세션 고정 바(제안)</title>
+<meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;>
+<title>DM 방 안 전용 진행 중 세션 바</title>
 <style>
-/* ═══════════════════════════════════════════════════════════════════════
- * 사이공라이더 스토리보드 화면 샘플 — 공용 스킨 (v1 · 2026-09-20)
- *
- * 목적: ai-docs/review/260919_service_flow_review_kit.md 의 프레임을
- *       &quot;실제 앱처럼 보이는&quot; 정적 HTML 로 그리기 위한 단일 스킨.
- *
- * ⚠️ 이 파일은 원본 보관·후속 워커 참조용이다. 각 <sceneId>.html 은
- *    iframe srcdoc 으로 임베드되므로 이 CSS 를 <style> 안에 복사해 넣는다.
- *    (외부 리소스 참조 0건 규칙)
- *
- * 값 출처 — 전부 실제 소스에서 추출했다. 지어낸 값 없음:
- *   · 색·라운드·그림자·레이아웃 토큰 ... frontend/src/styles/tokens.css
- *   · .num / .micro 타이포        ... frontend/src/styles/globals.css:76,117
- *   · 표면 문법(카드·행·칩·배지)  ... frontend/src/styles/system.module.css
- *   · 헤더                        ... frontend/src/components/layout/TopBar.module.css
- *                                     frontend/src/pages/market/MarketMain.module.css:12-56
- *   · 목록 행·가격                ... frontend/src/pages/market/ListingCard.module.css
- *   · 상세 하단 바·판매자 블록    ... frontend/src/pages/market/MarketDetail.module.css
- *   · 말풍선·컨텍스트카드·약속카드... frontend/src/pages/dm/DmDetail.module.css
- *   · 입력창·첨부 메뉴            ... frontend/src/components/ui/MessageComposer.module.css
- *   · 바텀시트                    ... frontend/src/components/ui/BottomSheet.module.css
- *   · 버튼 4종                    ... frontend/src/components/ui/Button.module.css
- *   · 탭바                        ... frontend/src/components/layout/TabBar.module.css
- *   · 타임라인                    ... frontend/src/pages/dm/TradeTransaction.module.css
- *
- * 규칙(ai-docs/context/design-system.md) 준수 사항:
- *   §1 수치는 .num(Space Grotesk, tabular-nums, 700 이하) · JetBrains Mono 0건
- *   §2 아이콘은 lucide 형태 인라인 SVG(strokeWidth 2) — 아이콘 슬롯에 이모지 금지
- *   §3 하드코딩 hex 금지 → 전부 토큰 var() (토큰 정의부만 원본 hex)
- *   §6 blur 없음 · 그림자 1겹 · 상시 애니메이션 없음 · 눌림은 배경 한 겹
- * ═══════════════════════════════════════════════════════════════════════ */
-
-/* ── 1. 토큰 (tokens.css 발췌) ───────────────────────────────────── */
-:root {
-  /* Brand — Saigon Heat */
-  --brand-50:  #FFF1E8;
-  --brand-100: #FFDDC4;
-  --brand-200: #FFBB8A;
-  --brand-300: #FF9966;
-  --brand-500: #FF5A1F;
-  --brand-600: #ED4310;
-  --brand-700: #B82C08;
-
-  /* Surfaces */
-  --bg:        #F7F5F0;
-  --surface:   #FFFFFF;
-  --surface-2: #FAF7F2;
-  --line:      #E8E3DA;
-  --text:      #0B0D14;
-  --text-2:    #4A4F62;
-  --text-3:    #8A8E9E;
-
-  /* Status */
-  --success: #16A34A;
-  --warn:    #F59E0B;
-  --danger:  #EF3B3B;
-
-  /* verified 전용 블루 (design-system §3 — 그 외 파랑 액센트 금지) */
-  --verified: #3B82F6;
-  /* 재화·별점 전용 골드 (design-system §3) */
-  --gold:      #FFB800;
-  --gold-text: #B45309;
-
-  /* Elevation */
-  --shadow-card: 0 1px 2px rgba(11,13,20,.04);
-  --shadow-pop:  0 8px 24px rgba(255,90,31,.20);
-
-  /* Radii */
-  --r-sm: 10px;
-  --r-md: 16px;
-  --r-lg: 24px;
-  --r-xl: 32px;
-  --r-pill: 999px;
-
-  /* Layout */
-  --tabbar-height: 72px;
-  --bottom-safe: 0px;
-  /* [data-platform=&quot;ios&quot;] → env(safe-area-inset-top, 44px). 샘플은 iOS 기준 44px */
-  --status-bar-height: 44px;
-}
-
-/* ── 2. 폰 셸 (390 × 844) ───────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; }
-
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 390px;
-  height: 844px;
-  overflow: hidden;
-}
-
-body {
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 15px;
-  line-height: 1.4;
-  color: var(--text);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* 앱 셸 — AppShell 과 같은 세로 flex */
-.app {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 390px;
-  height: 844px;
-  overflow: hidden;
-  background: var(--bg);
-}
-
-.page   { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--bg); }
-.scroll { flex: 1; min-height: 0; overflow: hidden; }
-
-/* ── 3. 타이포 유틸 (globals.css:76,117) ────────────────────────── */
-.num {
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  /* Space Grotesk 로드 최대 굵기 700 — 800 이상 금지 (design-system §1) */
-}
-.micro {
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-/* ── 4. 상태바 (--status-bar-height 44px 을 차지하는 시스템 영역) ── */
-.statusbar {
-  flex-shrink: 0;
-  height: var(--status-bar-height);
-  padding: 0 24px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding-bottom: 6px;
-  background: var(--surface);
-  color: var(--text);
-}
-.statusbar--onBg { background: var(--bg); }
-.statusbarTime { font-size: 15px; font-weight: 700; }
-.statusbarIcons { display: flex; align-items: center; gap: 5px; }
-
-/* ── 5. 헤더 ─────────────────────────────────────────────────────
- * 패턴 1: 서브페이지 TopBar (TopBar.module.css)
- * 패턴 2: 루트 탭 헤더 (MarketMain.module.css .header/.title/.tagline)
- * ------------------------------------------------------------- */
-.topbar {
-  flex-shrink: 0;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-}
-.topbarContent {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  min-height: 56px;
-}
-.topbarSide  { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; min-width: 44px; }
-.topbarRight { justify-content: flex-end; }
-.topbarTitle {
-  flex: 1;
-  text-align: center;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* 40×40 아이콘 액션 — TopBar .iconBtn / DmDetail .headerMoreBtn / MarketMain .wishlistBtn 공통 */
-.iconBtn {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text);
-  background: none;
-  border: 0;
-  flex-shrink: 0;
-  position: relative;
-}
-.iconBtn--quiet { color: var(--text-2); }
-
-/* 루트 탭 헤더 */
-.rootHeader { flex-shrink: 0; padding: 10px 20px 0; }
-.rootHeaderRow { display: flex; align-items: center; justify-content: space-between; }
-.eyebrow {
-  display: block;
-  margin-bottom: 2px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--brand-600);
-}
-.rootTitle {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.rootTitleCaret { display: inline-flex; align-items: center; color: var(--text-3); padding-top: 3px; }
-.rootHeaderActions { display: flex; align-items: center; gap: 2px; }
-
-/* ── 6. 컨텍스트 영역 (헤더 아래 고정) ──────────────────────────── */
-/* DmDetail .contextCard — 매물 문맥 카드 */
-.contextCard {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  text-align: left;
-  padding: 10px 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-}
-.contextThumb {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-.contextInfo { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.contextTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.contextPrice { font-size: 14px; font-weight: 700; color: var(--text); }
-
-/* DmDetail .tradeStatusBanner — 거래 진행 배너 */
-.tradeBanner {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--line);
-}
-.tradeBannerMain { flex: 1; min-width: 0; font-size: 13px; color: var(--text); }
-.tradeBannerLink { flex: none; font-size: 12px; font-weight: 600; color: var(--brand-500); }
-
-/* ── 7. 칩 ───────────────────────────────────────────────────────
- * MarketMain .sortChip(채움) / .listChipsRow / NeighborhoodMapList 카테고리 칩
- * ------------------------------------------------------------- */
-.filterRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-right: -20px;
-  padding: 12px 0 10px;
-}
-.sortChip {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 3px;
-  padding: 6px 11px;
-  border: 0;
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.chipDivider { flex: 0 0 auto; align-self: center; width: 1px; height: 16px; background: var(--line); }
-.chipRail {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  gap: 8px;
-  padding-right: 20px;
-  overflow: hidden;
-}
-.catChip {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border-radius: var(--r-pill);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-2);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  white-space: nowrap;
-}
-.catChipActive { background: var(--text); border-color: var(--text); color: var(--surface); }
-
-/* system.module.css .chipBtn — 컨텍스트바/카드 위 알약 버튼 */
-.chipBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 34px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  color: var(--text-2);
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.chipBtnActive { border-color: var(--brand-200); background: var(--brand-50); color: var(--brand-700); }
-
-/* system.module.css .actionChip — 카드 하단 액션 */
-.actionChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 32px;
-  padding: 0 13px;
-  border-radius: var(--r-pill);
-  font-size: 12.5px;
-  font-weight: 700;
-  border: none;
-}
-.actionPrimary { background: var(--brand-50); color: var(--brand-700); }
-.actionNeutral { background: var(--surface-2); border: 1px solid var(--line); color: var(--text-2); }
-
-/* ── 8. 배지 (system.module.css .miniBadge) ─────────────────────── */
-.miniBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 7px;
-  border-radius: 6px;
-  font-size: 10.5px;
-  font-weight: 700;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.badgeGold   { background: rgba(245,158,11,.13); color: var(--gold-text); }
-.badgeDanger { background: rgba(239,59,59,.10);  color: var(--danger); }
-.badgeSafe   { background: rgba(22,163,74,.10);  color: var(--success); }
-/* MarketDetail .statusBadge — 판매 상태(채움) */
-.statusBadge {
-  flex-shrink: 0;
-  padding: 4px 10px;
-  border-radius: 10px;
-  background: var(--brand-500);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-}
-/* MarketDetail .trustChip — 판매자 신뢰 표시 */
-.trustChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-3);
-  background: var(--surface-2);
-  border-radius: 6px;
-  padding: 3px 8px;
-  white-space: nowrap;
-}
-.trustChipVerified { color: var(--verified); }
-
-/* ── 9. 카드 · 목록 행 ──────────────────────────────────────────── */
-/* system.module.css .card */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-/* TradeTransaction .summary/.qrSection/.timelineSection — 큰 라운드 섹션 카드 */
-.sectionCard {
-  margin-bottom: 14px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-xl);
-  background: var(--surface);
-}
-.sectionCardTitle { margin: 0; font-size: 17px; font-weight: 700; color: var(--text); }
-.sectionCardDesc  { margin: 5px 0 0; color: var(--text-3); font-size: 13px; line-height: 1.45; }
-
-/* ListingCard — 플랫 리스트 행 (당근식 헤어라인) */
-.listingRow {
-  display: flex;
-  gap: 14px;
-  align-items: stretch;
-  width: 100%;
-  text-align: left;
-  border-bottom: 1px solid var(--line);
-  padding: 12px 0;
-}
-.listingThumb {
-  position: relative;
-  flex-shrink: 0;
-  width: 128px;
-  height: 128px;
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px rgba(11,13,20,.04);
-}
-.listingStatusTag {
-  position: absolute;
-  left: 4px;
-  bottom: 4px;
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: rgba(0,0,0,.68);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-}
-.listingBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 2px 0; }
-.listingTitle {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 400;   /* 제목은 보통 굵기 — 굵은 가격과 위계 대비 */
-  line-height: 1.4;
-  color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.listingMeta  { margin: 0; font-size: 13px; color: var(--text-3); }
-.listingPrice {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--text);
-}
-.dropBadge {
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: var(--brand-50);
-  color: var(--brand-600);
-  font-size: 10px;
-  font-weight: 700;
-}
-.listingLikes {
-  margin-top: auto;
-  align-self: flex-end;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--text-3);
-}
-.listingLikeItem { display: inline-flex; align-items: center; gap: 3px; }
-
-/* system.module.css .row 계열 — 카드 내부 행 */
-.row { display: flex; flex-direction: column; gap: 6px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
-.row:last-child { border-bottom: none; }
-.rowTop   { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.rowTitle { font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--text); min-width: 0; }
-.rowMeta  { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; font-size: 12.5px; color: var(--text-3); line-height: 1.4; }
-.metaDot  { color: var(--line); }
-
-/* system.module.css .sectionHead/.sectionLabel */
-.sectionHead  { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 20px 20px 8px; }
-.sectionLabel {
-  font-family: 'Space Grotesk', 'Pretendard', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.sectionAside { font-size: 12px; font-weight: 600; color: var(--text-3); }
-
-/* ── 10. 버튼 4종 (Button.module.css) ───────────────────────────── */
-.btn {
-  font-family: inherit;
-  font-weight: 700;
-  border-radius: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 0;
-  white-space: nowrap;
-}
-.btn--sm { height: 40px; padding: 0 16px; font-size: 13px; border-radius: 14px; }
-.btn--md { height: 48px; padding: 0 20px; font-size: 14px; border-radius: 16px; }
-.btn--lg { height: 56px; padding: 0 24px; font-size: 15px; }
-.btn--full { width: 100%; }
-/* 채움 — 화면당 주 액션 1개 (design-system §3·§6: --shadow-pop 은 여기 1곳만) */
-.btn--primary {
-  background: var(--brand-500);
-  color: #fff;
-  box-shadow: var(--shadow-pop), inset 0 1px 0 rgba(255,255,255,.3);
-  text-shadow: 0 1px 2px rgba(0,0,0,.15);
-}
-/* 외곽선 */
-.btn--secondary { background: var(--surface); color: var(--brand-600); border: 1.5px solid var(--brand-500); }
-/* 텍스트(ghost) */
-.btn--ghost { background: var(--surface-2); color: var(--text); }
-/* 위험 */
-.btn--danger { background: var(--surface); color: var(--danger); border: 1.5px solid var(--danger); }
-.btn[data-disabled] { opacity: .4; }
-
-/* ── 11. 입력창 · 컴포저 (MessageComposer.module.css) ───────────── */
-.composer {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  border-top: 1px solid var(--line);
-  padding-bottom: var(--bottom-safe);
-}
-.inputBar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; }
-.input {
-  flex: 1;
-  min-width: 0;
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 20px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--text-3);
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-}
-.inputFilled { color: var(--text); }
-.plusBtn {
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px;
-  color: var(--brand-500);
-  background: none; border: 0;
-}
-.plusBtnOpen { transform: rotate(45deg); }
-.sendBtn {
-  flex-shrink: 0;
-  width: 40px; height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: var(--surface);
-  color: var(--text-3);
-  display: flex; align-items: center; justify-content: center;
-}
-.sendBtnActive { background: var(--brand-500); color: #fff; }
-
-/* '+' 컨텍스트 패널 (키보드 자리) */
-.composerPanel { background: var(--bg); }
-.menuGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 4px; padding: 20px 12px; }
-.menuItem { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.menuIcon {
-  display: flex; align-items: center; justify-content: center;
-  width: 56px; height: 56px;
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--brand-500);
-}
-.menuLabel { font-size: 12px; color: var(--text-2); }
-
-/* ── 12. 말풍선 (DmDetail.module.css) ───────────────────────────── */
-.messages {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;  /* 실제 방은 최신 메시지가 하단에 붙은 채 열린다 */
-  gap: 8px;
-}
-.dateSeparator {
-  align-self: center;
-  margin: 8px 0 4px;
-  padding: 5px 10px;
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
-  color: var(--text-3);
-  font-size: 11px;
-  line-height: 1.2;
-}
-.messageLine { display: flex; align-items: flex-end; gap: 5px; max-width: 92%; }
-.messageLineMine   { align-self: flex-end;   justify-content: flex-end; }
-.messageLineTheirs { align-self: flex-start; }
-.bubble {
-  max-width: 260px;
-  padding: 10px 14px;
-  border-radius: var(--r-md);
-  word-break: break-word;
-  font-size: 15px;
-  line-height: 1.4;
-}
-.bubbleMine   { background: var(--brand-500); color: #fff; border-bottom-right-radius: 4px; }
-.bubbleTheirs { background: var(--surface);   color: var(--text); border-bottom-left-radius: 4px; }
-.messageMeta {
-  flex: 0 0 auto;
-  margin-bottom: 2px;
-  color: var(--text-3);
-  font-size: 10px;
-  line-height: 1.25;
-  white-space: nowrap;
-}
-.messageAvatar {
-  width: 36px; height: 36px;
-  flex: 0 0 36px;
-  border-radius: 50%;
-  overflow: hidden;
-  align-self: flex-end;
-}
-
-/* 대화 내 액션 카드 (DmDetail .apptCard) */
-.apptCard {
-  align-self: center;
-  width: min(92%, 380px);
-  margin: 6px auto;
-  padding: 12px 14px;
-  border-radius: var(--r-md);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-card);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  text-align: left;
-}
-.apptHeader { display: flex; align-items: center; justify-content: space-between; }
-.apptTitle  { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: var(--text-2); }
-.apptStatusPill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: var(--r-pill); background: rgba(255,111,60,.14); color: var(--brand-500); }
-.apptStatusAccepted { background: #E7F6EC; color: var(--success); }
-.apptInfo    { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; font-size: 14px; line-height: 1.35; }
-.apptRowLabel{ white-space: nowrap; color: var(--text-3); font-weight: 600; }
-.apptRowVal  { min-width: 0; color: var(--text); font-weight: 700; }
-.apptActions { display: flex; gap: 8px; }
-
-/* ── 13. 바텀시트 (BottomSheet.module.css) ──────────────────────── */
-.sheetBackdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(11,13,20,.55);
-  z-index: 50;
-  display: flex;
-  align-items: flex-end;
-}
-.sheet {
-  position: relative;
-  width: 100%;
-  background: var(--surface);
-  border-radius: 28px 28px 0 0;
-  padding: 12px 20px 20px;
-  box-shadow: 0 -20px 60px rgba(0,0,0,.3);
-  display: flex;
-  flex-direction: column;
-}
-.grabber {
-  width: 40px;
-  height: 4px;
-  background: var(--line);
-  border-radius: var(--r-pill);
-  margin: 0 auto 16px;
-}
-.sheetTitle { font-size: 16px; font-weight: 700; color: var(--text); padding: 4px 6px 10px; }
-.sheetCloseBtn {
-  position: absolute;
-  top: 12px; right: 16px;
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--surface-2);
-  color: var(--text-2);
-  border: 0;
-}
-/* 시트 안 메뉴 행 (MarketDetail .moreItem / DmDetail .reportItem) */
-.sheetItem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 6px;
-  text-align: left;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-  border-bottom: 1px solid var(--line);
-  background: none;
-  border-left: 0; border-right: 0; border-top: 0;
-  width: 100%;
-}
-.sheetItem:last-child { border-bottom: none; }
-.sheetItemDanger { color: var(--danger); }
-
-/* ── 14. 하단 액션 바 (MarketDetail .actionBar) ─────────────────── */
-.actionBar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 20px calc(12px + var(--bottom-safe));
-  border-top: 1px solid var(--line);
-  background: var(--surface);
-}
-.likeBtn {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-3);
-  padding: 4px;
-  background: none;
-  border: 0;
-}
-
-/* ── 15. 진행 중 세션 고정 바 (F-N-01 FR-2 제안 — 앱 내 '상단 고정 진행
- *        배너'의 하단판. 드래그 없음 · 항상 같은 자리) ─────────────── */
-.sessionBar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: stretch;
-  height: 52px;
-  background: var(--surface);
-  border-top: 1px solid var(--line);
-  box-shadow: 0 -1px 2px rgba(11,13,20,.04);
-}
-.sessionSlot {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-}
-.sessionSlot + .sessionSlot { border-left: 1px solid var(--line); }
-.sessionDot {
-  flex-shrink: 0;
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--brand-500);
-}
-.sessionIcon { flex-shrink: 0; color: var(--brand-500); display: flex; }
-.sessionLabel {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sessionSub { font-size: 12px; font-weight: 600; color: var(--text-3); }
-/* PTT — 누르는 동안 녹음 */
-.pttBtn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: var(--r-pill);
-  background: var(--brand-50);
-  color: var(--brand-700);
-  font-size: 12.5px;
-  font-weight: 700;
-  border: 0;
-}
-.sessionClose {
-  flex: 0 0 44px;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--text-3);
-  background: none; border: 0;
-  border-left: 1px solid var(--line);
-}
-
-/* ── 16. FAB · 플로팅 필 (MarketMain .writeFab / .mapPill) ──────── */
-.writeFab {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  z-index: 20;
-  display: flex; align-items: center; justify-content: center;
-  width: 52px; height: 52px;
-  border-radius: 50%;
-  background: var(--brand-500);
-  color: #fff;
-  border: 0;
-  box-shadow: var(--shadow-pop);
-}
-.mapPill {
-  position: absolute;
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 7px;
-  padding: 0 19px;
-  border-radius: var(--r-pill);
-  background: var(--text);
-  color: var(--surface);
-  font-size: 14px;
-  font-weight: 700;
-  border: 0;
-  box-shadow: 0 6px 18px rgba(11,13,20,.30);
-}
-
-/* ── 17. 탭바 (TabBar.module.css) ───────────────────────────────── */
-.tabbar {
-  position: relative;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  background: var(--surface);
-  border-top: 1px solid var(--line);
-  padding: 12px 4px calc(12px + var(--bottom-safe));
-  flex-shrink: 0;
-  box-shadow: 0 -10px 30px rgba(0,0,0,.04);
-}
-.tab {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 4px 0;
-  color: var(--text-3);
-  position: relative;
-}
-.tabIconWrap { position: relative; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
-.tabLabel { font-size: 10px; font-weight: 600; white-space: nowrap; }
-.tabActive { color: var(--brand-500); }
-.tabActive::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 50%;
-  transform: translateX(-50%);
-  width: 28px; height: 3px;
-  border-radius: var(--r-pill);
-  background: var(--brand-500);
-}
-.navBadge {
-  position: absolute;
-  top: -4px; left: 13px;
-  min-width: 16px; height: 16px;
-  padding: 0 4px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 8px;
-  background: #F5333F;
-  border: 1.5px solid var(--surface);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-/* ── 18. 타임라인 (TradeTransaction.module.css) ─────────────────── */
-.timeline { display: flex; flex-direction: column; gap: 0; margin: 16px 0 0; padding: 0; list-style: none; }
-.step {
-  position: relative;
-  display: flex;
-  gap: 12px;
-  min-height: 52px;
-  color: var(--text-2);
-}
-.step:not(:last-child)::before {
-  position: absolute;
-  top: 22px; bottom: 0; left: 10px;
-  width: 2px;
-  background: var(--line);
-  content: '';
-}
-.stepMark {
-  z-index: 1;
-  display: grid;
-  flex: 0 0 auto;
-  width: 22px; height: 22px;
-  place-items: center;
-  border: 2px solid var(--line);
-  border-radius: 50%;
-  background: var(--surface);
-}
-.stepDone { color: var(--text); }
-.stepDone .stepMark { border-color: var(--brand-500); background: var(--brand-500); color: #fff; }
-.stepCurrent { color: var(--text); }
-.stepCurrent .stepMark { border-color: var(--brand-500); }
-.stepTitle  { font-size: 14px; font-weight: 700; }
-.stepDesc   { margin: 5px 0 0; color: var(--text-3); font-size: 13px; line-height: 1.45; }
-.stepStatus { display: inline-block; margin-top: 4px; color: var(--text-3); font-size: 12px; }
-.stepCurrent .stepStatus { color: var(--brand-600); font-weight: 600; }
-
-/* FAQ (TradeTransaction .faqItem) */
-.faqItem { border-bottom: 1px solid var(--line); }
-.faqItem:last-child { border-bottom: none; }
-.faqQuestion {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 14px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  background: none; border: 0;
-  text-align: left;
-}
-.boundaryNote { margin: 12px 4px 0; text-align: center; color: var(--text-3); font-size: 13px; line-height: 1.45; }
-
-/* ── 19. 사진 플레이스홀더 (외부 이미지 0건 — 단색/그라데이션 블록) ──
- * 실제 앱은 <AppImage>(imgproxy) 로 사진을 렌더한다. 샘플에서는 같은
- * 자리·같은 비율의 색면으로 대체한다. */
-.ph { display: block; background: var(--surface-2); }
-.ph--moto  { background: linear-gradient(145deg, #7C8698 0%, #4C5566 55%, #2E3440 100%); }
-.ph--helmet{ background: linear-gradient(145deg, #E4C79B 0%, #C29B62 60%, #8E6A3A 100%); }
-.ph--parts { background: linear-gradient(145deg, #A9B4A0 0%, #75836B 60%, #4B5744 100%); }
-.ph--gear  { background: linear-gradient(145deg, #B8A2C4 0%, #8A7398 60%, #5B4A66 100%); }
-.ph--avatar{ background: linear-gradient(145deg, var(--brand-200), var(--brand-600)); }
-.ph--avatar2{ background: linear-gradient(145deg, #9FB8D4, #4F6E96); }
-.phLarge { width: 100%; height: 100%; }
-
-
-/* ── 화면 전용 ── */
-.marketList { padding: 0 20px; }
-/* 고정 바가 차지하는 만큼 본문 하단 여백을 확보한다 —
-   다른 화면의 주행동(FAB·지도 보기 필)을 가리지 않는다. */
-.writeFab { bottom: 18px; }
-.mapPill  { bottom: 18px; }
+*{box-sizing:border-box}body{margin:0;background:#eef1f4;font-family:-apple-system,BlinkMacSystemFont,&quot;Noto Sans KR&quot;,sans-serif;color:#17191c}.phone{width:390px;height:844px;background:#f7f8fa;position:relative;overflow:hidden}.status{height:44px;padding:14px 20px 0;display:flex;justify-content:space-between;font-size:12px;font-weight:700;background:white}.header{height:62px;background:white;border-bottom:1px solid #eceef1;display:flex;align-items:center;gap:12px;padding:0 16px}.back{font-size:28px}.avatar{width:38px;height:38px;border-radius:50%;background:#ffd5ba;display:grid;place-items:center;font-weight:800;color:#9a4b13}.who{flex:1}.name{font-size:16px;font-weight:800}.sub{display:block;font-size:12px;color:#777}.more{font-size:24px}.context{margin:12px 12px 0;padding:12px;border-radius:14px;background:white;border:1px solid #eceef1}.context b{display:block;font-size:14px}.context span{font-size:12px;color:#666}.messages{padding:18px 14px;display:flex;flex-direction:column;gap:12px}.bubble{max-width:76%;padding:10px 12px;border-radius:14px;background:white;border:1px solid #eceef1;font-size:14px}.mine{align-self:flex-end;background:#ff7a1a;color:white;border:0}.time{font-size:10px;color:#999;margin-top:3px}.mine .time{color:#ffe8d8}.session{position:absolute;left:0;right:0;bottom:58px;min-height:64px;background:white;border-top:1px solid #e4e6e9;display:flex;align-items:center;padding:8px 10px;gap:8px}.slot{height:46px;border-radius:12px;background:#fff5ed;border:1px solid #ffd8bb;display:flex;align-items:center;gap:8px;padding:0 10px;min-width:0}.walkie{flex:1}.location{width:112px;background:#f2f7ff;border-color:#d7e5ff}.dot{width:8px;height:8px;border-radius:50%;background:#2db36c;flex:none}.ico{font-size:17px}.slotText{min-width:0;flex:1}.slotText b,.slotText small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.slotText b{font-size:12px}.slotText small{font-size:10px;color:#676c73}.ptt{border:0;border-radius:999px;background:#ff7a1a;color:white;height:30px;padding:0 10px;font-size:11px;font-weight:800}.close{border:0;background:transparent;font-size:20px;color:#555;padding:7px}.composer{position:absolute;left:0;right:0;bottom:0;height:58px;background:white;border-top:1px solid #e8eaed;display:flex;align-items:center;gap:8px;padding:8px 12px}.plus{font-size:24px;color:#555}.input{flex:1;height:40px;border-radius:20px;background:#f1f2f4;color:#8a8e94;padding:11px 14px;font-size:13px}.send{font-size:13px;color:#ff7a1a;font-weight:800}.note{position:absolute;top:122px;right:12px;padding:5px 9px;border-radius:999px;background:#17191c;color:white;font-size:10px;font-weight:700}
 </style>
 </head>
-<body>
-<div class=&quot;app&quot;>
-    <div class=&quot;statusbar statusbar--onBg&quot;>
-      <span class=&quot;statusbarTime num&quot;>14:32</span>
-      <span class=&quot;statusbarIcons&quot;>
-        <svg width=&quot;17&quot; height=&quot;11&quot; viewBox=&quot;0 0 17 11&quot; fill=&quot;currentColor&quot; aria-hidden=&quot;true&quot;><rect x=&quot;0&quot; y=&quot;7&quot; width=&quot;3&quot; height=&quot;4&quot; rx=&quot;1&quot;/><rect x=&quot;4.5&quot; y=&quot;5&quot; width=&quot;3&quot; height=&quot;6&quot; rx=&quot;1&quot;/><rect x=&quot;9&quot; y=&quot;2.5&quot; width=&quot;3&quot; height=&quot;8.5&quot; rx=&quot;1&quot;/><rect x=&quot;13.5&quot; y=&quot;0&quot; width=&quot;3&quot; height=&quot;11&quot; rx=&quot;1&quot;/></svg>
-        <svg width=&quot;16&quot; height=&quot;11&quot; viewBox=&quot;0 0 16 11&quot; fill=&quot;currentColor&quot; aria-hidden=&quot;true&quot;><path d=&quot;M8 10.5 5.7 8.1a3.3 3.3 0 0 1 4.6 0zM8 6.1c-1.5 0-2.9.6-3.9 1.6L2.7 6.3A7.5 7.5 0 0 1 8 4.1c2 0 3.9.8 5.3 2.2l-1.4 1.4A5.5 5.5 0 0 0 8 6.1M8 2.1c-2.5 0-4.9 1-6.7 2.8L0 3.6A11.5 11.5 0 0 1 8 .3c3.1 0 6 1.2 8 3.3l-1.3 1.3A9.5 9.5 0 0 0 8 2.1&quot;/></svg>
-        <svg width=&quot;25&quot; height=&quot;12&quot; viewBox=&quot;0 0 25 12&quot; fill=&quot;none&quot; aria-hidden=&quot;true&quot;><rect x=&quot;.5&quot; y=&quot;.5&quot; width=&quot;21&quot; height=&quot;11&quot; rx=&quot;3&quot; stroke=&quot;currentColor&quot; opacity=&quot;.38&quot;/><rect x=&quot;2&quot; y=&quot;2&quot; width=&quot;16&quot; height=&quot;8&quot; rx=&quot;1.8&quot; fill=&quot;currentColor&quot;/><path d=&quot;M23 4.2v3.6a2 2 0 0 0 0-3.6&quot; fill=&quot;currentColor&quot; opacity=&quot;.45&quot;/></svg>
-      </span>
-    </div>
-    <div class=&quot;page&quot;>
-      <header class=&quot;rootHeader&quot;>
-      <div class=&quot;rootHeaderRow&quot;>
-        <div>
-          <span class=&quot;eyebrow&quot;>우리 동네</span>
-          <span class=&quot;rootTitle&quot;>Bình Thạnh<span class=&quot;rootTitleCaret&quot;><svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m6 9 6 6 6-6&quot;/></svg></span></span>
-        </div>
-        <div class=&quot;rootHeaderActions&quot;>
-          <span class=&quot;iconBtn iconBtn--quiet&quot;><svg width=&quot;22&quot; height=&quot;22&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;11&quot; cy=&quot;11&quot; r=&quot;8&quot;/><path d=&quot;m21 21-4.3-4.3&quot;/></svg></span>
-          <span class=&quot;iconBtn iconBtn--quiet&quot;><svg width=&quot;22&quot; height=&quot;22&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M10.268 21a2 2 0 0 0 3.464 0&quot;/><path d=&quot;M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326&quot;/></svg></span>
-          <span class=&quot;iconBtn iconBtn--quiet&quot;><svg width=&quot;22&quot; height=&quot;22&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z&quot;/></svg></span>
-        </div>
-      </div>
-      <div class=&quot;filterRow&quot;>
-        <span class=&quot;sortChip&quot;>최신순<svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m6 9 6 6 6-6&quot;/></svg></span>
-        <span class=&quot;chipDivider&quot;></span>
-        <div class=&quot;chipRail&quot;><span class=&quot;catChip catChipActive&quot;>전체</span><span class=&quot;catChip&quot;>오토바이</span><span class=&quot;catChip&quot;>헬멧</span><span class=&quot;catChip&quot;>부품</span><span class=&quot;catChip&quot;>용품</span><span class=&quot;catChip&quot;>의류</span></div>
-      </div>
-    </header>
-      <div class=&quot;scroll marketList&quot;><article class=&quot;listingRow&quot;>
-          <span class=&quot;listingThumb&quot;><span class=&quot;phLarge ph ph--moto&quot;></span></span>
-          <div class=&quot;listingBody&quot;>
-            <p class=&quot;listingTitle&quot;>Honda Vision 2021 실주행 8천km 무사고</p>
-            <p class=&quot;listingMeta&quot;>Bình Thạnh · 오토바이 4분 · 12분 전</p>
-            <span class=&quot;listingPrice&quot;><span class=&quot;num&quot;>28.500.000 đ</span></span>
-            <span class=&quot;listingLikes&quot;><span class=&quot;listingLikeItem&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z&quot;/></svg><span class=&quot;num&quot;>12</span></span><span class=&quot;listingLikeItem&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M22 17a2 2 0 0 1-2 2H6l-4 4V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z&quot;/></svg><span class=&quot;num&quot;>4</span></span></span>
-          </div>
-        </article><article class=&quot;listingRow&quot;>
-          <span class=&quot;listingThumb&quot;><span class=&quot;phLarge ph ph--helmet&quot;></span></span>
-          <div class=&quot;listingBody&quot;>
-            <p class=&quot;listingTitle&quot;>AGV K1 헬멧 M사이즈 (거의 새것)</p>
-            <p class=&quot;listingMeta&quot;>Thảo Điền · 오토바이 11분 · 1시간 전</p>
-            <span class=&quot;listingPrice&quot;><span class=&quot;dropBadge&quot;>가격내림</span><span class=&quot;num&quot;>1.850.000 đ</span></span>
-            <span class=&quot;listingLikes&quot;><span class=&quot;listingLikeItem&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z&quot;/></svg><span class=&quot;num&quot;>7</span></span></span>
-          </div>
-        </article><article class=&quot;listingRow&quot;>
-          <span class=&quot;listingThumb&quot;><span class=&quot;phLarge ph ph--moto&quot;></span><span class=&quot;listingStatusTag&quot;>예약중</span></span>
-          <div class=&quot;listingBody&quot;>
-            <p class=&quot;listingTitle&quot;>Yamaha Sirius 2019 서류 완비 · 명의이전 가능</p>
-            <p class=&quot;listingMeta&quot;>Phú Nhuận · 오토바이 7분 · 3시간 전</p>
-            <span class=&quot;listingPrice&quot;><span class=&quot;num&quot;>15.900.000 đ</span></span>
-            <span class=&quot;listingLikes&quot;><span class=&quot;listingLikeItem&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z&quot;/></svg><span class=&quot;num&quot;>21</span></span><span class=&quot;listingLikeItem&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M22 17a2 2 0 0 1-2 2H6l-4 4V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z&quot;/></svg><span class=&quot;num&quot;>9</span></span></span>
-          </div>
-        </article><article class=&quot;listingRow&quot;>
-          <span class=&quot;listingThumb&quot;><span class=&quot;phLarge ph ph--parts&quot;></span></span>
-          <div class=&quot;listingBody&quot;>
-            <p class=&quot;listingTitle&quot;>순정 머플러 + 브레이크 패드 세트</p>
-            <p class=&quot;listingMeta&quot;>Bình Thạnh · 오토바이 2분 · 어제</p>
-            <span class=&quot;listingPrice&quot;><span class=&quot;num&quot;>320.000 đ</span></span>
-            
-          </div>
-        </article></div>
-      <button class=&quot;writeFab&quot; type=&quot;button&quot; aria-label=&quot;글쓰기&quot;><svg width=&quot;26&quot; height=&quot;26&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M5 12h14&quot;/><path d=&quot;M12 5v14&quot;/></svg></button>
-      <span class=&quot;mapPill&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z&quot;/><path d=&quot;M15 5.764v15&quot;/><path d=&quot;M9 3.236v15&quot;/></svg>지도 보기</span>
-    </div>
-    <div class=&quot;sessionBar&quot;>
-    <div class=&quot;sessionSlot&quot;>
-      <span class=&quot;sessionDot&quot;></span>
-      <span class=&quot;sessionIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M4.9 19.1C1 15.2 1 8.8 4.9 4.9&quot;/><path d=&quot;M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;2&quot;/><path d=&quot;M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5&quot;/><path d=&quot;M19.1 4.9C23 8.8 23 15.1 19.1 19&quot;/></svg></span>
-      <span class=&quot;sessionLabel&quot;>Vision 거래</span>
-      <span class=&quot;pttBtn&quot;><svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M12 19v3&quot;/><path d=&quot;M19 10v2a7 7 0 0 1-14 0v-2&quot;/><rect x=&quot;9&quot; y=&quot;2&quot; width=&quot;6&quot; height=&quot;13&quot; rx=&quot;3&quot;/></svg>말하기</span>
-    </div>
-    <div class=&quot;sessionSlot&quot; style=&quot;flex:0 0 86px&quot;>
-      <span class=&quot;sessionIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M18 8c0 3.613-3.869 7.429-5.393 8.795a1 1 0 0 1-1.214 0C9.87 15.429 6 11.613 6 8a6 6 0 0 1 12 0&quot;/><circle cx=&quot;12&quot; cy=&quot;8&quot; r=&quot;2&quot;/><path d=&quot;M8.714 14h-3.71a1 1 0 0 0-.948.683l-2.004 6A1 1 0 0 0 3 22h18a1 1 0 0 0 .948-1.316l-2.004-6a1 1 0 0 0-.949-.684h-3.712&quot;/></svg></span>
-      <span class=&quot;sessionSub num&quot;>접속 3명</span>
-    </div>
-    <button class=&quot;sessionClose&quot; type=&quot;button&quot; aria-label=&quot;진행 중 세션 닫기&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M18 6 6 18&quot;/><path d=&quot;m6 6 12 12&quot;/></svg></button>
-  </div>
-    <nav class=&quot;tabbar&quot;><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8&quot;/><path d=&quot;M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z&quot;/></svg></span><span class=&quot;tabLabel&quot;>홈</span></span><span class=&quot;tab tabActive&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7&quot;/><path d=&quot;M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8&quot;/><path d=&quot;M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4&quot;/><path d=&quot;M2 7h20&quot;/><path d=&quot;M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7&quot;/></svg></span><span class=&quot;tabLabel&quot;>마켓</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z&quot;/><path d=&quot;M15 5.764v15&quot;/><path d=&quot;M9 3.236v15&quot;/></svg></span><span class=&quot;tabLabel&quot;>동네지도</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M7.9 20A9 9 0 1 0 4 16.1L2 22Z&quot;/></svg><span class=&quot;navBadge num&quot;>3</span></span><span class=&quot;tabLabel&quot;>채팅</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg></span><span class=&quot;tabLabel&quot;>커뮤니티</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;12&quot; cy=&quot;7&quot; r=&quot;4&quot;/></svg></span><span class=&quot;tabLabel&quot;>프로필</span></span></nav>
-  </div>
-</body>
-</html>
+<body><div class=&quot;phone&quot;>
+  <div class=&quot;status&quot;><span>14:32</span><span>5G&amp;nbsp;&amp;nbsp;92%</span></div>
+  <div class=&quot;header&quot;><span class=&quot;back&quot;>‹</span><span class=&quot;avatar&quot;>M</span><span class=&quot;who&quot;><span class=&quot;name&quot;>Minh Tuấn</span><span class=&quot;sub&quot;>Vision 거래 대화</span></span><span class=&quot;more&quot;>⋯</span></div>
+  <span class=&quot;note&quot;>현재 DM 방에서만 표시</span>
+  <div class=&quot;context&quot;><b>Honda Vision 2021 · 약속 확정</b><span>오늘 15:00 · Cà phê Chuyện 앞</span></div>
+  <div class=&quot;messages&quot;><div class=&quot;bubble&quot;>지금 출발할게요<div class=&quot;time&quot;>14:31</div></div><div class=&quot;bubble mine&quot;>네, 위치 공유 켜둘게요<div class=&quot;time&quot;>14:32</div></div></div>
+  <div class=&quot;session&quot;><div class=&quot;slot walkie&quot;><span class=&quot;dot&quot;></span><span class=&quot;ico&quot;>◉</span><span class=&quot;slotText&quot;><b>무전기</b><small>상대 접속 중</small></span><button class=&quot;ptt&quot;>말하기</button></div><div class=&quot;slot location&quot;><span class=&quot;ico&quot;>⌖</span><span class=&quot;slotText&quot;><b>위치공유</b><small>2명 참여</small></span></div><button class=&quot;close&quot; aria-label=&quot;세션 종료&quot;>×</button></div>
+  <div class=&quot;composer&quot;><span class=&quot;plus&quot;>＋</span><span class=&quot;input&quot;>메시지 보내기</span><span class=&quot;send&quot;>전송</span></div>
+</div></body></html>
 " width="390" height="844"></iframe></div></div>
 </section>
 </section>
@@ -2427,7 +1406,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 화면 샘플(<code>F-S0-01__FR-1.html</code>)을 코드 순서(사진 → 제목 → 카테고리 → 가격 → 가격 제안 토글 → <strong>거래 희망 장소</strong> → 설명 → (오토바이) 서류·번호판)로 재생성한다(F-N-02 FR-6 ①). ② 필수 라벨(사진·제목·카테고리·가격·거래 희망 장소)에 <code>*</code> 표시. 헤더 [완료]는 항상 활성으로 두고, 탭 시 첫 미입력 필드로 스크롤 + 포커스 + 인라인 문구("거래 희망 장소를 골라주세요") — F-BZ-03 FR-2 ①과 같은 규칙. ③ 장소 셀렉트 플레이스홀더 "만나기 편한 곳을 골라주세요 (약속 잡을 때 기본값이 돼요)" — S0 입력이 S4 재료가 됨을 폼이 말한다.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 G.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -3486,7 +2465,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안</div> 없음(원칙 확인용).</div>
 <div class="field field-prose"><div class="field-label">근거</div> MC-1 게이트 <code>postBlockReason</code>.</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -4563,7 +3542,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① <code>K</code> 하단 바를 <code>[상태 변경 ▾] [끌어올리기(채움)]</code> 2요소로 — 당근 판매자 하단 바 동형. 접힘 액션 열·상태 세그먼트는 제거. ② [상태 변경 ▾] 시트 = [판매중] / [예약중] / [거래완료] 3행 — 예약중·거래완료 선택 시 <strong>FR-4 상대 선택 시트</strong>로 이어진다. ③ 가격 수정 · 매물 수정 · 숨기기 · 삭제는 헤더 <code>⋮</code> 시트로: <code>[가격 수정] [매물 수정] ─ [숨기기] [삭제(위험)]</code>(진행 위, 구분선, 가역 종료, 비가역 종료 순 — P-1). 삭제만 확인 1회(F-S0-02 FR-2·F-N-02 FR-3). ④ "대화 상대 없이 예약"은 FR-4 시트 하단 텍스트로 허용 — 이 경우 약속 카드 없는 RESERVED가 되며 FR-3 결과 핑이 7일 후 뜬다.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1) — 구현 대기 · 구현 패키지 G.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -5609,7 +4588,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 철회를 <strong>숨기기(가역) / 삭제(비가역)</strong> 로 이원화한다(당근 내 판매글 ⋮ [숨기기]/[삭제]). ① <strong>숨기기</strong>: 확인 없음, 즉시. 카피 "피드·검색에서만 사라져요. 내 매물에서 다시 올릴 수 있어요"(토스트) — 상태 배지 "숨김", 이 화면 <code>B</code> 주행동 [다시 올리기] 유지, 채팅·찜 유지. 기존 <code>WITHDRAWN</code>의 의미를 "숨김"으로 확정한다(코드 상태값은 유지, 표기만 변경). ② <strong>삭제</strong>: 위험 톤 + <code>useConfirmStore</code> 확인 1회 "매물을 삭제할까요? 채팅·찜 기록도 함께 사라져요" [삭제] → <code>DELETED</code>(소프트 삭제, 목록에서 제거, 진행 중 약속(ACCEPTED/PAYMENT_REPORTED) 있으면 409 "진행 중 거래를 먼저 마무리해 주세요"). ③ FR-1 <code>⋮</code> 시트 항목·이 화면 카피·<code>WITHDRAWN</code> 의미를 한 번에 통일. <code>EXPIRED</code>는 현행(만료 배지 + [다시 올리기]).</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 숨기기 "Ẩn tin" / 삭제 "Xóa tin" · 확인 "Xóa tin đăng? Tin nhắn và lượt lưu cũng sẽ bị xóa." [Xóa].</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1) — 구현 대기 · 구현 패키지 G(서버: <code>DELETED</code> 상태 또는 <code>deleted_at</code>, 삭제 시 진행 거래 409).</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -6653,7 +5632,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 4지선다를 <strong>2단</strong>으로 바꾸고 문구를 코드 i18n으로 SoT 고정한다(3자 불일치 종결). ① 1단 배너: "이 매물, 거래되셨나요?" <code>[네, 거래했어요(채움)] [아니요(텍스트)]</code>. ② "네" → <strong>FR-4 상대 선택 시트</strong>("누구와 거래했나요?") — 약속 ACCEPTED 상대가 있으면 최상단 기본 선택 → 확인 1회 → SOLD + 그 DM 매물 카드 슬롯 "거래완료 · 후기 보내기"(F-S7-01 FR-2). "앱 밖에서 팔았어요" → SOLD(상대 없음, 후기 없음). ③ "아니요" → 인라인 2버튼 <code>[계속 팔아요] [판매를 그만둘래요]</code> — 후자는 FR-2 숨기기(확인 없음, 토스트). ④ 노출 조건 명시: (a) 약속 시각 +2시간이 지났고 거래가 SOLD·CANCELLED가 아닐 때, 또는 (b) 약속 없는 RESERVED가 7일 지속. 핑은 매물당 1회 활성, [아니요 → 계속 팔아요] 후 3일 뒤 1회 재노출. ⑤ i18n 키 <code>market.dealPing*</code>을 위 문구로 교체(ko/vi/en), 화면 샘플 재생성(F-N-02 FR-6 ①).</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 1단 "Tin này đã giao dịch chưa?" [Đã giao dịch] [Chưa] · 2단 "Bạn đã giao dịch với ai?".</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1) — 구현 대기 · 구현 패키지 G(서버: deal ping 결과 API를 2단 모델로 — <code>SOLD{counterpart_id|null}</code> / <code>STILL_SELLING</code> / <code>HIDDEN</code>).</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -7731,7 +6710,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 헤더 <code>[Bình Thạnh ▾] ······ [검색][찜]</code> 2아이콘 — 키워드 알림 아이콘 제거(당근 홈 헤더 [동네▾][검색][알림] 상한). ② 키워드 알림 진입은 세 곳으로 이관: 검색 입력 전 상태의 [키워드 알림 관리] 행(FR-4), 빈 결과 CTA(FR-3, 기존), 찜 목록(F-MP-02 FR-1 통합 화면) 헤더 <code>⋮</code> [키워드 알림 관리]. ③ 정렬 칩·카테고리 레일·FAB·지도 보기 필은 현행 유지.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 H.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -8739,13 +7718,13 @@ body {
             <p class=&quot;listingTitle&quot;>순정 머플러 + 브레이크 패드 세트</p>
             <p class=&quot;listingMeta&quot;>Bình Thạnh · 오토바이 2분 · 어제</p>
             <span class=&quot;listingPrice&quot;><span class=&quot;num&quot;>320.000 đ</span></span>
-            
+
           </div>
         </article></div>
       <button class=&quot;writeFab&quot; type=&quot;button&quot; aria-label=&quot;글쓰기&quot;><svg width=&quot;26&quot; height=&quot;26&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M5 12h14&quot;/><path d=&quot;M12 5v14&quot;/></svg></button>
       <span class=&quot;mapPill&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z&quot;/><path d=&quot;M15 5.764v15&quot;/><path d=&quot;M9 3.236v15&quot;/></svg>지도 보기</span>
     </div>
-    
+
     <nav class=&quot;tabbar&quot;><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8&quot;/><path d=&quot;M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z&quot;/></svg></span><span class=&quot;tabLabel&quot;>홈</span></span><span class=&quot;tab tabActive&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7&quot;/><path d=&quot;M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8&quot;/><path d=&quot;M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4&quot;/><path d=&quot;M2 7h20&quot;/><path d=&quot;M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7&quot;/></svg></span><span class=&quot;tabLabel&quot;>마켓</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z&quot;/><path d=&quot;M15 5.764v15&quot;/><path d=&quot;M9 3.236v15&quot;/></svg></span><span class=&quot;tabLabel&quot;>동네지도</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M7.9 20A9 9 0 1 0 4 16.1L2 22Z&quot;/></svg><span class=&quot;navBadge num&quot;>3</span></span><span class=&quot;tabLabel&quot;>채팅</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg></span><span class=&quot;tabLabel&quot;>커뮤니티</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;12&quot; cy=&quot;7&quot; r=&quot;4&quot;/></svg></span><span class=&quot;tabLabel&quot;>프로필</span></span></nav>
   </div>
 </body>
@@ -8760,7 +7739,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안</div> 없음.</div>
 <div class="field field-prose"><div class="field-label">근거</div> MM-7~13.</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -9837,7 +8816,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안</div> 없음.</div>
 <div class="field field-prose"><div class="field-label">근거</div> MM-16~18.</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -10862,7 +9841,7 @@ body {
 <div class="field field-prose"><div class="field-label">상태</div> 입력 전(최근·인기·키워드 알림 행) / 입력 중(디바운스 300ms, 스켈레톤) / 결과 n건 / 결과 0건(위 표) / 실패("검색에 실패했어요" + [다시 시도], F-N-02 FR-4).</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi "Không có kết quả cho '{q}'" · [Đăng ký thông báo từ khóa] · [Tìm ở toàn khu vực].</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2 <code>[정의 Y]</code>) — 구현 대기 · 구현 패키지 H(서버: 인기 검색어 집계 엔드포인트 1개).<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -11913,7 +10892,7 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 지우려면 상세까지 들어가야 함 → 목록이 쌓임.</div>
 <div class="field field-prose"><div class="field-label">근거</div> MW-1, MW-(부재), <code>ListingCard.tsx:39-49</code>(카드 안 하트가 <code>onToggleLike</code> 클릭 핸들러로 해제 토글), <code>MarketWishlist.tsx:86</code>(찜 목록에서 <code>onToggleLike</code>로 <code>handleRemoveLike</code> 연결).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -12941,7 +11920,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안</div> 없음.</div>
 <div class="field field-prose"><div class="field-label">근거</div> MK-1~4.</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -13974,7 +12953,7 @@ body {
 <div class="field field-prose"><div class="field-label">카피</div> vi 안전 노트 "Gặp trực tiếp, kiểm tra hàng rồi mới thanh toán. Hãy báo cáo nếu bị yêu cầu chuyển tiền trước."</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1) — 구현 대기 · 구현 패키지 F(판매자 블록 — 후기 집계 필드) + O(업체 아이덴티티).</div>
 <div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — 판매자 블록 신뢰 수치는 ★ 평점 유지; 승인안 ①의 "긍정 96%" 표기 제외, "평점 ★4.8(9)" 등 별점 표기로 대체. 나머지 승인안(②~⑤ 미니맵 카드·안전 노트·하단 바·업체 아이덴티티)은 유효.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -15049,7 +14028,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 시트 <code>[공유] [이 글 안 보기] ─ [신고하기] [차단하기(위험)]</code> — 이동·가역 위, 구분선, 종료 아래(P-1). [이 글 안 보기] = 로컬 숨김(가역) → 토스트 "이 매물을 더 보지 않아요 [실행취소]". 차단 확인 다이얼로그 = F-X-02 FR-2 공용 문구, 버튼 "차단". 신고는 F-X-02 FR-1 규격(사유 시트 → 확인 → "신고함"). 비로그인은 [공유]만 동작, 나머지 게이트 시트.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 B.<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -16169,7 +15148,7 @@ O  (무전기·위치공유 활성 시 드래그 캡슐/버블 — F-N-01)</pre>
 <div class="field field-prose"><div class="field-label">카피</div> vi 시스템 메시지 "Để giao dịch an toàn — hãy gặp trực tiếp, kiểm tra hàng rồi mới thanh toán. Nếu bị yêu cầu đặt cọc hoặc chuyển tiền trước, hãy báo cáo. [Xem thêm]" · en "For a safe deal — meet, check the item, then pay. Report anyone asking for a deposit or upfront transfer. [Learn more]".</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y]</code>) — 구현 대기 · 구현 패키지 C(서버: 방 생성 훅에 시스템 메시지 1건, 메시지 타입 추가).</div>
 <div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — 약속 게이트(<code>appointmentUnlocked</code>) 유지; 승인안 ③의 "[약속 잡기] 채움 칩(양측 상시, F-S4-01 FR-1 게이트 폐기)" 중 "게이트 폐기" 부분 제외 — 슬롯은 게이트 조건 충족 시에만 채움 칩으로 전환(F-S4-01 FR-1 r4 참조). 나머지 승인안(① 헤더 제목 티어 칩·② 안전거래 시스템 메시지)은 유효.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -17155,10 +16134,10 @@ body {
         <span class=&quot;input&quot;>메시지 입력...</span>
         <span class=&quot;sendBtn&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z&quot;/><path d=&quot;m21.854 2.147-10.94 10.939&quot;/></svg></span>
       </div>
-      
+
     </div>
   </div>
-  
+
 </div>
 </body>
 </html>
@@ -17179,7 +16158,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 1:1 시트 <code>[알림 끄기 / 알림 켜기] ─ [신고하기] [차단하기(위험)] [채팅방 나가기(위험)]</code> — 당근 채팅 ⋮ 4행 동형. ① 알림 토글은 상태 반영형(F-DM-01 FR-2 <code>muted</code> 필드 종속) — 가역, 무확인, 토스트. ② [차단하기] → F-X-02 FR-2 공용 확인 문구("○○님을 차단할까요? 이 사람의 메시지·매물이 더 이상 보이지 않아요. 상대에게는 알리지 않아요") [차단]; 진행 중 거래(ACCEPTED·PAYMENT_REPORTED)면 변형 문구(F-X-02 FR-2 ②). ③ [채팅방 나가기] 확인: 진행 중 약속·거래가 있으면 "확정된 약속·거래 기록이 함께 사라져요. 정말 나갈까요?" [나가기], 없으면 현행 문구. ④ 그룹방 시트는 <code>[알림] ─ [신고하기] [설정] [나가기(위험)]</code>(차단 없음, F-DM-02 FR-4). ⑤ 신고는 F-X-02 FR-1 규격 — DM 신고에는 최근 50개 메시지 스냅샷 자동 첨부 고지.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1, X-4 종속) — 구현 대기 · 구현 패키지 B(차단) + I(<code>muted</code>).</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -18165,7 +17144,7 @@ body {
         <span class=&quot;input&quot;>메시지 입력...</span>
         <span class=&quot;sendBtn&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z&quot;/><path d=&quot;m21.854 2.147-10.94 10.939&quot;/></svg></span>
       </div>
-      
+
     </div>
   </div>
   <div class=&quot;sheetBackdrop&quot;>
@@ -18191,7 +17170,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 1:1 매물 방 <code>+</code> 패널 = <strong>8항목 2행 그리드</strong> <code>[카메라][앨범][약속 잡기][가격 제안] / [현재 위치][실시간 위치][워키토키][이모티콘]</code>. [카메라] = <code>native.ts</code> 카메라 촬영 → 즉시 전송(대면 거래에서 서류·계기판 사진 빈도). 그룹방 = 6항목(약속·가격 제안 제외). [약속 잡기]는 게이트 없이 상시(F-S4-01 FR-1) — 이미 PROPOSED/ACCEPTED가 있으면 비활성 + "약속이 이미 있어요". 화면 샘플 재생성(F-N-02 FR-6 ① — 현재 와이어에 [워키토키] 누락).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 C.</div>
 <div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — 약속 게이트 유지; 승인안의 "[약속 잡기]는 게이트 없이 상시(F-S4-01 FR-1)" 부분 제외 — 기존 열림 조건(<code>appointmentUnlocked</code>)일 때만 활성. 나머지 승인안(8항목 2행 그리드·카메라 항목·그룹방 6항목)은 유효.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -19181,7 +18160,7 @@ body {
       <div class=&quot;composerPanel&quot;><div class=&quot;menuGrid&quot;><span class=&quot;menuItem&quot;><span class=&quot;menuIcon&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><rect width=&quot;18&quot; height=&quot;18&quot; x=&quot;3&quot; y=&quot;3&quot; rx=&quot;2&quot; ry=&quot;2&quot;/><circle cx=&quot;9&quot; cy=&quot;9&quot; r=&quot;2&quot;/><path d=&quot;m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21&quot;/></svg></span><span class=&quot;menuLabel&quot;>앨범</span></span><span class=&quot;menuItem&quot;><span class=&quot;menuIcon&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M8 2v4&quot;/><path d=&quot;M16 2v4&quot;/><rect width=&quot;18&quot; height=&quot;18&quot; x=&quot;3&quot; y=&quot;4&quot; rx=&quot;2&quot;/><path d=&quot;M3 10h18&quot;/><path d=&quot;m9 16 2 2 4-4&quot;/></svg></span><span class=&quot;menuLabel&quot;>약속 잡기</span></span><span class=&quot;menuItem&quot;><span class=&quot;menuIcon&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0&quot;/><circle cx=&quot;12&quot; cy=&quot;10&quot; r=&quot;3&quot;/></svg></span><span class=&quot;menuLabel&quot;>현재위치</span></span><span class=&quot;menuItem&quot;><span class=&quot;menuIcon&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M2 12h3&quot;/><path d=&quot;M19 12h3&quot;/><path d=&quot;M12 2v3&quot;/><path d=&quot;M12 19v3&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;7&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;3&quot;/></svg></span><span class=&quot;menuLabel&quot;>실시간위치</span></span><span class=&quot;menuItem&quot;><span class=&quot;menuIcon&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z&quot;/><circle cx=&quot;7.5&quot; cy=&quot;7.5&quot; r=&quot;.5&quot; fill=&quot;currentColor&quot;/></svg></span><span class=&quot;menuLabel&quot;>가격제안</span></span><span class=&quot;menuItem&quot;><span class=&quot;menuIcon&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;10&quot;/><path d=&quot;M8 14s1.5 2 4 2 4-2 4-2&quot;/><line x1=&quot;9&quot; x2=&quot;9.01&quot; y1=&quot;9&quot; y2=&quot;9&quot;/><line x1=&quot;15&quot; x2=&quot;15.01&quot; y1=&quot;9&quot; y2=&quot;9&quot;/></svg></span><span class=&quot;menuLabel&quot;>이모티콘</span></span></div></div>
     </div>
   </div>
-  
+
 </div>
 </body>
 </html>
@@ -19197,7 +18176,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 롱프레스 메뉴 <code>[공감 6종] / [복사] [답장] ─ [삭제(위험, 확인 1회)]</code>. ① [복사] 신설 — 텍스트 메시지 본문을 클립보드로(계좌번호·주소 복사 빈도), 토스트 "복사했어요". ② <strong>[수정]은 기본안 제거</strong>(당근 채팅과 동형 — 거래 대화의 합의 문구는 사후 변경되지 않아야 분쟁 증거가 된다). 존치하려면 두 조건을 동시에 충족해야 한다: (a) 말풍선에 "수정됨" 라벨, (b) 롱프레스 [수정 이력 보기]로 원문 전부 열람 가능(서버 <code>edit_history</code> 보관, 양측 열람). 조건 미충족 존치는 허용하지 않는다. ③ 삭제는 현행(<code>useConfirmStore</code>, 플레이스홀더 잔존).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 C.<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -20366,7 +19345,7 @@ K  탭바</pre></div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 카드 상태 <strong>3종</strong>을 정의한다. ① <strong>제안됨</strong>: (판매자) <code>[수락(채움)][거절]</code> / (구매자) <code>[제안 취소]</code>. 유효 24h — 지나면 "만료" 표시(재제안 가능). 동시 활성 제안은 방당 1건(새 제안 = 이전 자동 취소). ② <strong>수락됨</strong>: 카드 "합의가 27.000.000 đ" + 시스템 메시지 "가격이 27.000.000 đ으로 합의됐어요". <strong>합의가 전파</strong>: 매물 카드(F-DM-02 FR-1) 가격 옆 "합의 27.0M", 약속 카드·거래 화면 결제 금액 = <code>agreed_price_vnd</code>, 거래 이력(F-S7-03 FR-2) 표기 — 이 방에만 적용(매물 정가는 불변). ③ <strong>거절됨</strong>: 카드 "거절됨" + 판매자 거절 시 프리셋 1탭 시트 <code>[조금만 더 올려주시면 가능해요] [정가로만 가능해요] [이미 다른 분과 얘기 중이에요] [직접 입력]</code> → 자동 텍스트 메시지. 거절·취소는 가역이라 확인 없음(F-N-02 FR-3).</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 수락 시스템 메시지 "Đã thỏa thuận giá 27.000.000 đ" · 프리셋 "Tăng thêm chút nữa thì được" / "Chỉ bán đúng giá" / "Đang trao đổi với người khác".</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 C(서버: 제안 만료 24h, <code>agreed_price_vnd</code> 전파 — 거래 트랜잭션에 이미 필드 존재 확인).<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -21401,7 +20380,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안</div> 2026-09-22 대표 확정: 워키토키도 실시간 위치공유처럼 <code>+</code> 패널에서 채널을 열고 상대를 초대한다. 약속 확정 게이트를 두지 않는다. 초대 받은 쪽은 카드의 [참여하기]로 명시 참여한다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>DmDetail.tsx</code> + 메뉴 <code>walkieTalkie</code> 항목 및 <code>joinWalkieChannel()</code>.</div>
 <div class="field field-prose"><div class="field-label">판정(r2)</div> 승인(대표)</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -22444,7 +21423,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안</div> 캡슐을 F-N-01 제안대로 자유 위치 pill에서 <strong>고정 바</strong>(B0-4 "하단 바" 패턴)로 전환. 드래그 폐지. 펼침은 더블탭 대신 <strong>바 탭 1회</strong>로 대체해 발견 가능하게 하고, 닫기는 펼친 상태의 X를 바 축소 탭으로 대체해 숨은 제스처를 없앤다. 이 바와 다른 레이어(바텀시트·페이지 CTA바)의 상하 관계는 <strong>F-N-01 FR-2 "레이어 규칙"</strong>이 정의(위임 아님).</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>WalkieTalkieFloatingButton.tsx:75-99,420-433,680-734,850-857</code>.</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐ (F-N-01 FR-1과 함께 — 레이어(다른 오버레이와의 상하 관계)는 F-N-01 FR-2에서 정의 완료, 위임 아님)</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -23526,7 +22505,7 @@ body {
 <div class="field field-prose"><div class="field-label">근거</div> <code>WalkieTalkieFloatingButton.tsx:942-949</code>, i18n <code>walkieTalkie.contextMenu*</code>.</div>
 <div class="field field-prose"><div class="field-label">구현 완료(260922)</div> 롱프레스(450ms)가 <code>cell.requestClose()</code>를 직접 부르던 것을 <code>BottomSheet</code> 메뉴 오픈으로 교체(<code>ActiveSessionBar.tsx</code> <code>WalkieCell</code> <code>onCellPointerDown</code>). 메뉴 항목: [채널 변경](고아였던 <code>WalkieChannelPickerSheet.tsx</code> 재사용, <code>setActiveConversation</code> 호출) · [초대장 다시 보내기](<code>sendMessage(conversationId, '', { messageType: 'walkie_invite' })</code> 재사용). "홈화면 고정"은 이번 판정 범위 밖(OUT, 네이티브 위젯)이라 메뉴에 넣지 않았다. "대화방으로 이동"은 이미 바 탭(<code>onCellClick</code> → <code>onOpenChat</code>)이 담당해 메뉴에서 제외. "나가기"는 기존 X 버튼(<code>closeBtn</code>)이 그대로 유지 — 메뉴에 넣지 않음. 스타일은 <code>ActiveSessionBar.module.css</code>에 <code>.longPressMenu</code>/<code>.menuOption</code> 최소 추가. 테스트: <code>activeSessionBarPresence.contract.test.mjs</code>에 1케이스 추가(전체 13/13 통과). ESLint 0 errors, <code>tsc --noEmit</code> 클린.</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☑ 구현 완료(260922)</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -24591,7 +23570,7 @@ body {
         <span class=&quot;wtChannelRow&quot;><span class=&quot;wtPresenceDot&quot;></span><span class=&quot;wtChannelName&quot;>Minh Anh</span></span>
         <span class=&quot;wtStatusText&quot;>수신대기</span>
       </span>
-      
+
       <span class=&quot;wtGhost&quot;><svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M18 6 6 18&quot;/><path d=&quot;m6 6 12 12&quot;/></svg></span>
     </div>
     <div class=&quot;wtMenuList&quot;><span class=&quot;wtMenuOption&quot;>대화방으로 이동</span><span class=&quot;wtMenuOption&quot;>채널 변경</span><span class=&quot;wtMenuOption&quot;>초대장 다시 보내기</span><span class=&quot;wtMenuOption&quot;>홈화면 고정</span></div>
@@ -24637,7 +23616,7 @@ K  ┌ 진행 중 바: ● 무전기 · 채널명 · [말하기] · 접속 n명 
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① ACCEPTED 시 매물 카드 슬롯을 "9/21 15:00 약속 · 거래 열기"로 전환(F-DM-02 FR-1 슬롯 규칙) — 와이어의 [약속 잡기] 채움 칩·거래 진행 배너는 소멸(모순 해소). ② 약속 카드의 채움은 <strong>[거래 열기] 하나</strong>, 도구 <code>[길안내][위치 공유][무전기]</code>는 ghost 칩, <code>[약속 변경]</code>·<code>[약속 취소]</code>는 텍스트(F-S5-01 FR-1). ③ 하단 고정 바 레이아웃·전송 피드백·FR-6 상태 문법은 확정대로. ④ 화면 샘플 재생성(F-N-02 FR-6 ②).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1) — 구현 대기 · 구현 패키지 C.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -25711,7 +24690,7 @@ body {
 <div class="field field-prose"><div class="field-label">검증</div> 첫 문의 직후 구매자·판매자 모두 [약속 잡기]가 보이고 탭하면 시트가 열린다. <code>DmDetail.tsx</code>에 <code>appointmentUnlocked</code> 참조 0.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y]</code>) — 구현 대기 · 구현 패키지 C(서버: 약속 생성 권한 = 방 참여자, <code>appointment_unlocked</code> 제거).</div>
 <div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — <code>appointmentUnlocked</code> 게이트 유지(폐기 안 함). 승인안 전체(게이트 폐기·양측 상시·409 비활성 로직) 제외 — 기존 "판매자가 거래 진행을 시작한 뒤" 조건 그대로 두고, r1에서 이미 구현 완료된 매물 카드 칩 승격(UI 위치)은 그대로 유효.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -26697,10 +25676,10 @@ body {
         <span class=&quot;input&quot;>메시지 입력...</span>
         <span class=&quot;sendBtn&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z&quot;/><path d=&quot;m21.854 2.147-10.94 10.939&quot;/></svg></span>
       </div>
-      
+
     </div>
   </div>
-  
+
 </div>
 </body>
 </html>
@@ -26719,7 +25698,7 @@ body {
 <div class="field field-prose"><div class="field-label">상태</div> 상세 지점 미입력 시 [약속 제안 보내기] 탭 → 필드 포커스 + "만날 지점을 적어주세요" / 전송 실패 토스트 + 시트 유지 / 활성 약속 존재(409) → "약속이 이미 있어요" + 시트 닫힘.</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 장소 2단 플레이스홀더 "VD: Trước cổng Vinhomes" · 토글 "Nhắc trước 1 giờ" · [Gửi đề xuất hẹn].</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y]</code>, 지연 공개 미채택) — 구현 대기 · 구현 패키지 D(서버: <code>appointments.place_detail</code>, <code>place_lat/lng</code>, <code>remind_before_min</code> 참여자별).</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -27750,7 +26729,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 수신자 카드 <code>[약속 수락(채움)] [다른 시간 제안(ghost)]</code> + <code>[거절]</code> 텍스트(위험 톤 제거 — 가역). [다른 시간 제안] = FR-2 시트를 기존 값으로 프리필 → 전송 시 새 PROPOSED 카드, 이전 카드는 "변경 제안됨"(비활성 표시). 제안자 카드 <code>[취소]</code> 텍스트. 거절·취소는 확인 없음(F-N-02 FR-3), 상대에게 알림(F-N-02 FR-5 #1).</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi [Chấp nhận hẹn] [Đề xuất giờ khác] [Từ chối].</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 D.<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -28789,7 +27768,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 카드 헤더에 <strong>카운트다운</strong> "오늘 15:00 · 2시간 후"(T-24h 이내는 상대 시간 병기, 1분 갱신; 지나면 "약속 시각 지남 · 12분"). ② 하단 텍스트 2개 <code>[약속 변경] [약속 취소]</code> — 변경 = FR-2 시트 프리필 → 새 PROPOSED(이전 ACCEPTED는 상대 수락 전까지 유효, 카드에 "변경 제안 중" 표시); 취소 = F-X-01 FR-1(사유 칩 + 확인 1회). ③ 채움은 <strong>[거래 열기] 하나</strong>, <code>[길안내][위치 공유][무전기]</code>는 ghost 칩(F-S3-03 FR-5). <code>C</code> 진행 배너는 폐기 — 매물 카드 슬롯 "9/21(일) 15:00 · 거래 열기"(F-DM-02 FR-1). ④ 리마인더: T-1h 양측 푸시 "1시간 후 Cà phê Chuyện 앞 약속이에요 [길안내]"(FR-2 토글 종속); T+15m 도착 기록 없는 당사자에게 "늦으시나요? [10분 늦어요] 보내기"(F-RN-01 FR-2 퀵 칩으로 연결) — 알림 표는 F-N-02 FR-5 #2·#5. ⑤ [장소 다시 확인]은 카드 장소 행 탭(지도 시트)으로 흡수.</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 카운트다운 "Hôm nay 15:00 · còn 2 giờ" · [Đổi lịch hẹn] [Hủy hẹn] · 리마인더 "Còn 1 giờ đến hẹn tại {place} [Chỉ đường]".</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y]</code>, X-11) — 구현 대기 · 구현 패키지 D(서버: 변경 제안 = 기존 약속 <code>supersedes_id</code>, 리마인더·T+15m 스케줄 잡).</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -29817,7 +28796,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 동의 모달 밀도를 줄인다: 제목 "내 위치를 실시간으로 공유해요" + 불릿 3개(① 이 대화의 상대만 볼 수 있어요 ② 약속이 끝나거나 나가면 자동으로 멈춰요 ③ 나가면 위치 기록은 바로 삭제돼요) + [자세히] 펼침(현재 전문 <code>consentBody/consentRetention</code>) + <code>[동의하고 시작(채움)] [취소]</code>. 1회 동의 후에는 재표시하지 않는다(서버 <code>location_share_consent_at</code> 기록, 전문 변경 시 재동의). 초대 카드 [참여하기]·모달 위치는 현행.</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 제목 "Chia sẻ vị trí của bạn theo thời gian thực" · 불릿 "Chỉ người trong cuộc trò chuyện này thấy được" / "Tự dừng khi hẹn kết thúc hoặc bạn rời đi" / "Rời đi là lịch sử vị trí bị xóa ngay" · [Đồng ý và bắt đầu].</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 D.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -30859,7 +29838,7 @@ body {
 <div class="field field-prose"><div class="field-label">레이어(r5, 260924 갱신)</div> 세션 바는 더 이상 전역 고정이 아니다(F-N-01 FR-2 r5) — DM 방 밖에서는 애초에 렌더되지 않으므로 이 모달(시트류)과 겹칠 자리 자체가 없다. <code>useSheetPresenceStore</code> 억제 카운터는 폐기·삭제됐다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>LiveLocationFloatingButton.tsx:44-116</code>, 인벤토리 B 위치공유 절.</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐ (F-N-01 FR-1과 함께)</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -31946,7 +30925,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 현금 경로를 QR과 동격으로 정의한다(X-8). ① 판매자 화면 = 위 표. ② 현금 선택 시 구매자 화면(FR-2·FR-3)의 [송금했어요]는 <strong>[현금으로 건넸어요]</strong>로, 판매자 화면(FR-4)의 [입금을 확인했어요]는 <strong>[현금을 받았어요]</strong>로 라벨만 바뀌고 상태·창 게이트·확인 다이얼로그는 동일(<code>PAYMENT_REPORTED</code> → <code>PAYMENT_CONFIRMED</code> 재사용). ③ 타임라인(FR-5) 결제 단계 표기 "결제 · QR 송금" / "결제 · 현금 직접". ④ 미선택 상태(둘 다 안 고름)로 약속 시각 창에 들어가면 구매자 화면은 "판매자가 받을 방법을 아직 정하지 않았어요 — 만나서 정해도 돼요"(결제 버튼 비활성, 현금 기본 제안).</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi "Bạn muốn nhận tiền thế nào?" [Đăng ký QR] [Nhận tiền mặt] · "Saigon Rider không xác nhận chuyển khoản. Hãy kiểm tra trực tiếp trong app ngân hàng."</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y]</code>, X-8) — 구현 대기 · 구현 패키지 E(서버: <code>transactions.payment_method</code> enum(QR·CASH), 전환 이력).</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -32983,7 +31962,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 창 밖 [송금했어요]는 <strong>disabled 스타일이 눈에 보이게</strong>(채움 아님, 회색) + 라벨 "약속 시간에 열려요 · 2시간 12분 후"(1분 갱신). 현금 경로면 "만나서 물건 확인 후 건네요". ② 결제 금액 위 <strong>선입금 경고 카드</strong>(danger 톤): "선입금은 절대 하지 마세요 — 판매자가 먼저 보내라고 하면 [신고]"([신고] = F-X-02 FR-1 거래/QR 예외 진입점). ③ [안전거래 가이드] 링크는 이 화면 <code>B</code> 하단(F-DM-02 FR-1 배너에서 이관). ④ 화면 샘플 재생성 — 현재 와이어의 활성 채움 버튼은 돈 경로 SoT 불일치(F-N-02 FR-6 ①).</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 경고 "Tuyệt đối không chuyển tiền trước — nếu người bán yêu cầu, hãy [Báo cáo]" · 버튼 "Mở lúc đến giờ hẹn · còn 2 giờ 12 phút".</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1) — 구현 대기 · 구현 패키지 E.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -34009,7 +32988,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 창 진입 시 결제 카드 위에 <strong>[물건을 직접 확인했어요] 단계 카드</strong>를 둔다 — 코드의 <code>buyer_inspected_at</code> 게이트(없으면 송금 신고 409)를 화면에 드러내는 것. ① 체크리스트 3개(카테고리별: 오토바이 = "시동·주행 확인" · "서류와 번호판이 일치해요" · "외관이 사진과 같아요" / 일반 = "작동·상태 확인" · "구성품이 맞아요" · "설명과 같아요") 전부 탭 → 채움 버튼 활성 → 탭 시 <code>buyer_inspected_at</code> 기록 → QR 카드 펼침 + [송금했어요] 활성. ② [송금했어요] 확인 다이얼로그 "송금을 완료하셨나요? 되돌릴 수 없어요" [송금했어요](행위명). 현금 경로면 [현금으로 건넸어요] / "현금을 건넸나요? 되돌릴 수 없어요". ③ 409 응답 문구 매핑: "물건 확인 단계를 먼저 완료해 주세요". ④ 창 안에서도 선입금 경고 카드(FR-2 ②)는 결제 카드 접힘 상태에서 유지, 확인 완료 후 소멸.</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 단계 카드 [Tôi đã kiểm tra hàng trực tiếp] · 체크 "Đã thử khởi động/chạy" · "Giấy tờ và biển số trùng khớp" · "Ngoại hình đúng như ảnh" · 확인 "Bạn đã chuyển tiền chưa? Không thể hoàn tác." [Đã chuyển tiền] / [Đã đưa tiền mặt].</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1) — 구현 대기 · 구현 패키지 E.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -35040,7 +34019,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 버튼 2개: <code>[입금을 확인했어요(채움)]</code>(확인 1회, 현행 카피 유지) + <code>[아직 입금이 안 왔어요(외곽선)]</code>. ② 후자 탭 → 구매자에게 푸시 + DM 시스템 카드 "판매자가 아직 입금을 확인하지 못했어요 — [송금 내역 보내기] [송금 신고 취소]"([송금 내역 보내기] = 이미지 첨부 시트 → DM 전송; [송금 신고 취소] = F-X-01 FR-2 (a)) · 판매자 화면은 "구매자에게 알렸어요 · 15분 후 다시 확인해 주세요"(재탭은 15분 쿨다운). 15분 후 판매자에게 넛지 푸시 "입금이 확인되면 [확인했어요]를 눌러주세요"(F-N-02 FR-5 #7). ③ 죽은 [거래 취소] 제거 → 같은 자리 <code>표시</code> 행 "송금 신고 이후엔 취소할 수 없어요 · 문제가 있나요?" → F-X-01 FR-2 접힘 행으로 스크롤. ④ 현금 경로 라벨 [현금을 받았어요] / [아직 받지 못했어요](동일 흐름). ⑤ 24h 미확인 → 양측 "문제가 있나요?" 출구 안내 푸시(F-X-01 FR-2 ①).</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi [Đã nhận được tiền] [Chưa nhận được tiền] · 구매자 카드 "Người bán chưa xác nhận nhận tiền — [Gửi ảnh chuyển khoản] [Hủy báo chuyển tiền]".</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y]</code>) — 구현 대기 · 구현 패키지 E(서버: <code>payment_not_received_at</code> + 15분 넛지·24h 안내 잡) + A(신고 취소). <strong>패키지 A 부분(260924, 커밋) 구현 완료</strong>: ③ 죽은 [거래 취소] 자리를 DM 카드에서 제거하고 "문제가 있나요?" 안내로 대체해 <code>F-X-01 FR-2</code> 접힘 행으로 이동(<code>DmDetail.tsx</code>), ⑤ 24h 미확인 양측 출구 안내 넛지 잡(<code>nudge_stalled_transactions</code>). <strong>패키지 E 미구현(다음 작업)</strong>: ① <code>[입금을 확인했어요]</code>/<code>[아직 입금이 안 왔어요]</code> 2버튼 분리, ② 15분 쿨다운 넛지·DM 시스템 카드("송금 내역 보내기"), ④ 현금 경로 라벨.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -36098,7 +35077,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 판매자 카드 <code>[거래 완료(채움)]</code> + <code>[요청 거절]</code> 텍스트 — 비가역(완료)과 가역(거절)의 무게를 가른다. 확인 모달 카피("매물이 거래완료로 바뀌고… 상품을 전달한 뒤에 눌러 주세요") 유지, 버튼 "거래 완료". 확인 즉시 <strong>후기 시트(FR-3) 자동 오픈 1회</strong>(닫으면 매물 카드 슬롯 "거래완료 · 후기 보내기"로 남는다). 구매자 [완료 요청]은 ghost 유지(가역). 현금 경로에서는 판매자가 [현금을 받았어요] 후 이 카드가 뜬다.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 F.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -37143,7 +36122,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① <code>C</code> 후기 배너 폐기 → 매물 카드 상태 슬롯 "거래완료 · 후기 보내기"(채움 칩, F-DM-02 FR-1) → 제출 후 "거래완료 · 내 후기 보기"(표시) → 상대 후기 도착 시 시스템 메시지 "○○님이 후기를 남겼어요 [보기]" + 슬롯 "받은 후기 보기". ② 후기 시트 정의는 <strong>FR-3(신설)</strong>. ③ SOLD 전환 시 진행 도구(길안내·위치공유·무전기·거래 열기)·<code>+</code> 진행 항목 제거, 입력창 유지 — 킷 기본안 ②. ④ 후기 요청 알림: SOLD 직후 상대에게 1회, 미제출 3일 후 재알림 1회, 30일 후 만료(F-N-02 FR-5 #9). ⑤ 현재 <code>ReviewSheet</code>(별점)는 FR-3 모델로 교체.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y]</code>, X-7) — 구현 대기 · 구현 패키지 F.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -38168,18 +37147,37 @@ body {
 " width="390" height="844"></iframe></div></div>
 </section>
 <section class="scene" id="F-S7-01__FR-3">
-<h3 class="scene-id">F-S7-01 FR-3 <span class="scene-title">거래 후기 시트 — 좋았어요/별로예요 → 태그 → 한 줄(260924 신설, X-7)</span></h3>
-<div class="field field-prose"><div class="field-label">조건</div> SOLD 거래의 양측, 내 후기 미제출, SOLD 후 30일 이내. 진입 4곳: FR-1 완료 확정 직후 자동 1회 · 매물 카드 슬롯 "후기 보내기"(FR-2) · 거래 이력 행 [후기 작성](F-S7-02 FR-1) · 프로필 시트 [리뷰 남기기](F-P-02 FR-3). 앱 밖 거래(F-S0-02 FR-4 "앱 밖에서 팔았어요")는 상대가 없어 후기 없음.</div>
-<div class="field field-prose"><div class="field-label">와이어</div> <code>O</code> 바텀시트 3단(한 시트 안에서 단계 전환, 뒤로 가능): <strong>① 판단</strong> 상단 <code>상대 아바타 · 닉네임 · 티어 칩 / 매물 1줄</code> + "거래는 어땠나요?" + <code>[👍 좋았어요] [👎 별로예요]</code> 2버튼 → <strong>② 태그</strong>(다중 선택, 최소 1) — 좋았어요: <code>시간 약속을 잘 지켜요</code> · <code>친절해요</code> · <code>물건 상태가 설명과 같아요</code> · <code>응답이 빨라요</code> · <code>가격 합의가 깔끔해요</code> / 별로예요: <code>약속 시간을 안 지켰어요</code> · <code>물건 상태가 설명과 달랐어요</code> · <code>응답이 느렸어요</code> · <code>불친절했어요</code> · <code>가격을 갑자기 바꿨어요</code> → <strong>③ 한 줄 후기</strong>(선택, 200자, 플레이스홀더 "다른 이웃에게 도움이 될 한마디") → <code>[후기 보내기(채움)]</code>.</div>
-<div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>O</td><td>상대·매물 헤더(아바타·닉네임·티어 칩·매물 제목)</td><td>표시</td><td>표시</td><td>없음</td><td>"누구에 대한 후기인지"를 시트 안에서 확정 — 이력 화면에서 열 때 필수</td></tr><tr><td>O</td><td>[👍 좋았어요] / [👎 별로예요]</td><td><strong>주행동</strong>(1단)</td><td>진행</td><td>2단으로 전환(선택값 유지)</td><td>당근 매너 평가의 첫 갈래. 별점 5단은 "4점인가 5점인가"를 고민시켜 제출률을 떨어뜨린다</td></tr><tr><td>O</td><td>태그 칩 5개(선택 방향별)</td><td>보조</td><td>진행·가역</td><td>토글(최소 1)</td><td>신뢰 티어 계산 재료이자 상대 프로필 "받은 후기" 분포(F-P-01 FR-1)의 원천. 자유 텍스트보다 집계 가능</td></tr><tr><td>O</td><td>한 줄 후기(200자, 선택)</td><td>보조</td><td>진행</td><td>입력</td><td>선택이라 마찰을 늘리지 않는다. 좋았어요만 공개</td></tr><tr><td>O</td><td>[후기 보내기]</td><td><strong>주행동</strong>(3단)</td><td>진행·비가역</td><td>제출 → 시트 닫힘 + 토스트 "후기를 보냈어요"</td><td>3단 자체가 확인 역할 — 별도 확인 다이얼로그 없음(F-N-02 FR-3 예외 기록: 단계형 폼은 마지막 단계가 확인)</td></tr><tr><td>O</td><td>[뒤로](2·3단) / [닫기](×)</td><td>보조</td><td>이동</td><td>이전 단계 / 시트 닫힘(초안은 세션 내 유지)</td><td>닫아도 슬롯이 남아 재진입 가능</td></tr><tr><td>—</td><td>공개 규칙</td><td>—</td><td>—</td><td>—</td><td><strong>좋았어요</strong>: 태그·한 줄이 상대 프로필 "받은 거래 후기"에 공개(작성자 닉네임 일부 마스킹). <strong>별로예요</strong>: 상대에게 비공개, 신뢰 티어·"긍정 p%" 집계에만 반영 — 보복 후기·분쟁 확산 방지(당근 비매너 평가 비공개 동형)</td></tr><tr><td>—</td><td>수정·삭제</td><td>—</td><td>—</td><td>—</td><td>제출 후 수정 불가(비가역). 30일 만료 후 슬롯 소멸. 신고는 후기 행 ⋮(F-X-02 FR-1 대상 "후기")</td></tr></tbody></table></div>
-<div class="field field-prose"><div class="field-label">상태</div> 로딩(헤더 스켈레톤) / 제출 중(버튼 스피너) / 실패(토스트 "후기를 보내지 못했어요" + 시트 유지·재시도) / 이미 제출(슬롯 "내 후기 보기" → 읽기 전용 시트: 내 선택·태그·한 줄) / 만료(슬롯 소멸, 이력 행 "후기 기간 지남" 표시).</div>
-<div class="field field-prose"><div class="field-label">카피</div> ko 위 와이어 / vi "Giao dịch thế nào?" [👍 Tốt] [👎 Không tốt] · 태그(좋았어요) "Đúng giờ hẹn" · "Thân thiện" · "Hàng đúng như mô tả" · "Trả lời nhanh" · "Thỏa thuận giá rõ ràng" · (별로예요) "Không đúng giờ hẹn" · "Hàng khác mô tả" · "Trả lời chậm" · "Không thân thiện" · "Đổi giá bất ngờ" · [Gửi đánh giá] / en "How was the deal?" [👍 Good] [👎 Not good].</div>
-<div class="field field-prose"><div class="field-label">전이</div> SOLD → (판매자) FR-1 확인 직후 자동 오픈 / (구매자) 푸시 "○○님과의 거래, 어땠나요?" → 슬롯 탭 → 이 시트 → 제출 → 슬롯 "내 후기 보기" + 상대에게 "후기를 남겼어요" 시스템 메시지 + 상대 프로필 집계 갱신(좋았어요만 공개). 3일 미제출 → 재알림 1회 → 30일 만료.</div>
-<div class="field field-prose"><div class="field-label">검증</div> SOLD 후 양측 각자 1회만 제출 가능하고, 별로예요 후기는 상대 프로필 어디에도 텍스트로 노출되지 않으면서 "긍정 p%"에는 반영된다. 이력 행 [후기 작성]과 DM 슬롯에서 연 시트가 같은 상대·같은 매물을 헤더에 보인다.</div>
-<div class="field field-prose"><div class="field-label">근거</div> F-S7-01 FR-2 문제(후기 시트 프레임 부재 — <code>ReviewSheet</code> 존재만 언급), X-7(5프레임이 같은 시트를 가리킴), F-P-01 FR-1 "받은 거래 후기" 섹션, 현재 <code>TradeHistory.tsx:76-82</code>(별점형 <code>ReviewSheet</code>). 서버: <code>reviews</code> 스키마를 <code>sentiment(GOOD·BAD)</code>·<code>tags[]</code>·<code>comment</code>·<code>visibility</code>로 확장, 기존 별점 데이터는 ★4~5 → GOOD, ★≤3 → BAD로 1회 마이그레이션, 신뢰 티어 계산 입력 갱신.</div>
-<div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 F-S7-01 FR-2 <code>[정의 Y]</code> "거래 후기 시트 신규 프레임") — 구현 대기 · 구현 패키지 F.</div>
-<div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — 후기 평가 모델은 ★ 별점 유지, 👍 좋았어요/👎 별로예요 2단 전환 폐기; 승인안 ① 판단 단계([👍 좋았어요][👎 별로예요] 2버튼)만 제외하고 기존 별점 입력(★1~5)으로 대체. 태그 선택(②)·한 줄 후기(③)·공개 규칙(저평점 비공개 동형)은 ★ 기준으로 어휘만 바꿔 유효 — 서버 <code>reviews.sentiment(GOOD·BAD)</code> 확장·기존 별점 GOOD/BAD 마이그레이션은 제외, 기존 ★ 컬럼 유지.<br>---</div>
-<div class="field"><div class="field-label">화면 목업(자동 생성)</div><div class="mockup-wrap"><div class="phone-mock"><div class="mock-empty">고정 띠 없음</div></div><div class="overlay-tray"><div class="overlay-label">O · 떠 있는 것 / 고정 레이아웃 아님</div><div class="mock-band-items"><div class="mock-item w-text">상대·매물 헤더(아바타·닉네임·티어 칩·매물 제목)</div><div class="mock-item w-primary">[👍 좋았어요] / [👎 별로예요]</div><div class="mock-item w-secondary">태그 칩 5개(선택 방향별)</div><div class="mock-item w-secondary">한 줄 후기(200자, 선택)</div><div class="mock-item w-primary">[후기 보내기]</div><div class="mock-item w-secondary">[뒤로](2·3단) / [닫기](×)</div></div></div><div class="mock-legend"><span class="legend-title">범례</span><span class="mock-item w-primary">채움</span><span class="legend-eq">=주행동</span><span class="mock-item w-secondary">외곽선</span><span class="legend-eq">=보조</span><span class="mock-item w-ghost">흐림</span><span class="legend-eq">=숨김</span><span class="mock-item w-danger">위험색</span><span class="legend-eq">=파괴적</span><span class="mock-item w-text">텍스트</span><span class="legend-eq">=표시</span><span class="warn-badge" title="이유 없음">⚠</span><span class="legend-eq">=이유 없음</span></div></div></div>
+<h3 class="scene-id">F-S7-01 FR-3 <span class="scene-title">거래 후기 시트 — ★1~5 별점 + 매너 태그 + 한 줄 후기(X-7)</span></h3>
+<div class="field field-prose"><div class="field-label">현재 유효 판정(r4, 260924 대표 반려 반영)</div> 후기 평가값은 기존 <strong>정수 ★1~5</strong>다. 👍 좋았어요/👎 별로예요 2분법과 <code>sentiment(GOOD·BAD)</code> 전환·별점 마이그레이션은 폐기됐다.</div>
+<div class="field field-prose"><div class="field-label">현재 구현(260927)</div> 공용 <code>ReviewSheet</code> 한 장에서 별점(필수) → 매너 칭찬 태그 4종(선택) → 후기 텍스트(선택) → [후기 보내기] 순으로 입력한다. 서버 <code>marketplace_reviews.rating</code>은 <code>SMALLINT CHECK (1..5)</code>, <code>manner_tags</code>와 <code>comment</code>를 함께 저장한다.</div>
+<div class="field field-prose"><div class="field-label">조건</div> 완료 거래의 상대방에게 아직 후기를 남기지 않은 사용자. 앱 밖 판매(F-S0-02 FR-4)는 거래 상대가 없어 후기 대상이 아니다.</div>
+<div class="field field-prose"><div class="field-label">와이어(현재 구현)</div> <code>O</code> 바텀시트 한 장: 제목 "거래 후기 보내기" → 별점 ★1~5(선택한 점수에 <code>별로예요/아쉬워요/보통이에요/좋아요/최고예요!</code>) → 매너 칭찬 칩 <code>[시간 약속] [친절해요] [응답이 빨라요] [물건 상태가 좋아요]</code>(다중 선택·선택사항) → 후기 입력(선택) → <code>[후기 보내기(채움)]</code>.</div>
+<div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>O</td><td>★1~5 별점</td><td>보조(필수 게이트)</td><td>진행·가역</td><td>선택 점수와 설명 갱신</td><td>r4가 유지한 유일한 평가값이며 제출 필수값</td></tr><tr><td>O</td><td>매너 칭찬 태그 4종</td><td>보조</td><td>진행·가역</td><td>다중 토글</td><td>기존 <code>manner_tags</code> 집계 입력, 현재는 선택사항</td></tr><tr><td>O</td><td>후기 텍스트</td><td>보조</td><td>진행</td><td>입력</td><td>선택사항인 거래 경험 보충</td></tr><tr><td>O</td><td>[후기 보내기]</td><td><strong>주행동</strong></td><td>진행·비가역</td><td>제출 → 시트 닫힘 + 성공 토스트</td><td>별점이 없으면 비활성, 전송 중 중복 제출 차단</td></tr><tr><td>O</td><td>시트 닫기</td><td>보조</td><td>이동</td><td>닫기</td><td>제출하지 않아도 기존 후기 진입점에서 다시 열 수 있음</td></tr></tbody></table></div>
+<div class="field field-prose"><div class="field-label">현재 상태</div> 시트 열림 때 입력 초기화 / 제출 중 버튼 비활성 / 성공 시 <code>onSubmitted</code> 후 닫힘 / 실패 시 오류 토스트와 시트 유지. 태그 최소 1개 강제, 30일 만료, 읽기 전용 "내 후기 보기", 저평점 공개 제한은 <strong>현재 코드에 구현돼 있지 않다.</strong></div>
+<div class="field field-prose"><div class="field-label">제안(승인 목표 중 미구현)</div> r3에서 승인되고 r4가 별점 어휘로 유지한 상대·매물 헤더, 후기 요청 슬롯·알림·30일 만료, 공개 범위 규칙은 별도 구현이 필요하다. 이 화면 샘플은 승인 목표를 배송된 것처럼 그리지 않고 현재 <code>ReviewSheet</code>를 표시한다.</div>
+<div class="field field-prose"><div class="field-label">검증</div> 별점 0에서는 제출할 수 없고 ★1~5 각각이 정수로 저장된다. 태그·텍스트 없이도 별점만으로 제출 가능하며, 같은 <code>ReviewSheet</code>를 DM과 거래 이력에서 공유한다.</div>
+<div class="field field-prose"><div class="field-label">근거</div> <code>frontend/src/components/market/ReviewSheet.tsx</code>, <code>frontend/src/components/market/ReviewSheet.module.css</code>, <code>database/init/088_marketplace_reviews.sql</code>, <code>database/init/139_marketplace_reviews_rating_int.sql</code>, <code>backend/app/routers/market.py</code>.</div>
+<div class="field field-prose"><div class="field-label">대표 지시 이력(r3, 현재 지시 아님)</div> <code>[👍 좋았어요] [👎 별로예요] → 방향별 태그 → 한 줄</code> 3단 시트와 <code>sentiment</code> 스키마 전환은 r4에서 반려됐다.<br>---</div>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!doctype html>
+<html lang=&quot;ko&quot;>
+<head>
+<meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;>
+<title>거래 후기 · 현행 별점 모델</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef1f4;font-family:-apple-system,BlinkMacSystemFont,&quot;Noto Sans KR&quot;,sans-serif;color:#17191c}.phone{width:390px;height:844px;background:#f5f6f8;position:relative;overflow:hidden}.status{height:44px;padding:14px 20px 0;display:flex;justify-content:space-between;font-size:12px;font-weight:700}.under{padding:18px}.trade{background:white;border:1px solid #e9ebee;border-radius:16px;padding:16px}.trade b{display:block}.trade span{font-size:13px;color:#777}.shade{position:absolute;inset:0;background:rgba(15,18,22,.42)}.sheet{position:absolute;left:0;right:0;bottom:0;background:white;border-radius:22px 22px 0 0;padding:10px 20px 30px}.handle{width:42px;height:4px;border-radius:4px;background:#d5d7da;margin:0 auto 20px}.title{font-size:19px;font-weight:800;margin-bottom:20px}.label{font-size:13px;font-weight:700;color:#676c73;margin:14px 0 8px}.stars{display:flex;justify-content:center;gap:8px;color:#f59e0b;font-size:39px;line-height:1}.starText{text-align:center;color:#f59e0b;font-size:14px;font-weight:800;margin-top:8px}.tags{display:flex;flex-wrap:wrap;gap:8px}.tag{border:1px solid #dfe2e6;border-radius:999px;padding:9px 13px;font-size:12px;font-weight:700;background:white}.active{background:#17191c;color:white;border-color:#17191c}.input{height:82px;border:1px solid #dfe2e6;border-radius:12px;padding:12px;color:#999;font-size:13px}.submit{margin-top:22px;height:48px;border-radius:13px;background:#ff7a1a;color:white;display:grid;place-items:center;font-weight:800}.badge{position:absolute;right:18px;top:18px;border-radius:999px;background:#fff4e9;color:#bd560c;padding:5px 9px;font-size:10px;font-weight:800}
+</style>
+</head>
+<body><div class=&quot;phone&quot;>
+  <div class=&quot;status&quot;><span>14:32</span><span>5G&amp;nbsp;&amp;nbsp;91%</span></div>
+  <div class=&quot;under&quot;><div class=&quot;trade&quot;><b>Honda Vision 2021 · 거래완료</b><span>Minh Tuấn님과의 거래</span></div></div>
+  <div class=&quot;shade&quot;></div>
+  <section class=&quot;sheet&quot;><div class=&quot;handle&quot;></div><span class=&quot;badge&quot;>현재 구현 · ★1~5</span><div class=&quot;title&quot;>거래 후기 보내기</div>
+    <div class=&quot;label&quot;>별점</div><div class=&quot;stars&quot; aria-label=&quot;별점 5점&quot;>★★★★★</div><div class=&quot;starText&quot;>최고예요!</div>
+    <div class=&quot;label&quot;>매너 칭찬 (선택)</div><div class=&quot;tags&quot;><span class=&quot;tag active&quot;>시간 약속을 잘 지켜요</span><span class=&quot;tag&quot;>친절해요</span><span class=&quot;tag active&quot;>응답이 빨라요</span><span class=&quot;tag&quot;>물건 상태가 좋아요</span></div>
+    <div class=&quot;label&quot;>후기 (선택)</div><div class=&quot;input&quot;>거래 경험을 남겨주세요</div><div class=&quot;submit&quot;>후기 보내기</div>
+  </section>
+</div></body></html>
+" width="390" height="844"></iframe></div></div>
 </section>
 </section>
 <hr class="sep">
@@ -38193,7 +37191,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안</div> ① 행 탭 목적지를 <strong>그 거래의 대화방(DM)</strong> 하나로 고정한다(현재 매물 상세는 제거). 근거: 대화방 <code>C</code>에 이미 후기 배너가 붙어 있어(F-S7-01 FR-1, B0-4 "상단 고정 진행 배너") 상대·합의·후기가 한 자리에 모이고, 매물 상세는 SOLD 이후 "현재 광고"라 재판매·삭제 시 목적지가 깨진다. ② 매물을 다시 보려는 경로는 대화방 <code>C</code> 매물 카드로 남긴다(별도 진입점 추가하지 않음). <strong>검증:</strong> 이력 행 탭 → 해당 거래 대화방 진입, 매물이 삭제·재등록된 거래에서도 행 탭이 유효할 것.</div>
 <div class="field field-prose"><div class="field-label">근거</div> TH-1~3, <code>TradeHistory.tsx:15</code>(주석 "항목 탭 → 거래완료(DM) 화면"), <code>TradeHistory.tsx:69</code>(<code>onOpen={() =&gt; navigate(</code>/dm/${tr.conversationId}<code>)}</code> — 주석과 실제 구현이 일치, 매물 상세가 아닌 대화방으로 고정됨).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 감사 확인)<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -39291,9 +38289,10 @@ body {
 <hr class="sep">
 <section class="flow">
 <h2 class="flow-id">F-RN-01 <span class="flow-title">길안내(<code>/ride-nav</code>) — 실거래 이동 축</span></h2>
-<div class="preamble"><div class="quote"><strong>분류 정정 노트 (이 프레임이 신설된 이유).</strong> 이 화면은 그동안 "퀘스트·게이미피케이션 잠정보류" 묶음에 얹혀 나열돼 왔으나, <strong>게이미피케이션 폐기 대상이 아니다.</strong> 같은 라우트가 두 모드로 갈리며(<code>type=quest</code> / <code>type=nav</code>), 그중 <code>type=nav</code> 는 <strong>DM 약속 카드 [길안내]에서 진입하는 실거래 동선</strong>이다 — F-S5-01(약속·이동)의 요소 표가 이미 [길안내]를 "S5 핵심 도구"로 적고 있고, 그 버튼의 착지점이 바로 이 화면이다. 확정 전제 ④(게임화 의도적 폐기)가 걷어낼 대상은 이 화면의 <code>type=quest</code> 분기이지 화면 자체가 아니다. 따라서 이 프레임은 <strong><code>type=nav</code>(실거래 이동)만 판정 대상</strong>으로 두고, <code>type=quest</code> 분기는 아래 FR-1 요소 표에 존치 여부만 기록한다.</div><div>&gt;</div><div class="quote"><strong>실거래 연결 근거(코드).</strong> <code>DmDetail.tsx:1086-1095</code> — 약속 카드의 [길안내]가 <code>handleNavigate(destination)</code>으로 <code>type=nav</code> + <strong><code>appointmentId</code></strong> + 약속 장소 좌표/이름을 실어 <code>/ride-nav</code> 로 이동한다. <code>DmDetail.tsx:1097-1101</code> — 현재위치 핀 미리보기는 <code>appointmentId</code> 없이 좌표만 싣는 <strong>별개 경로</strong>(코드 주석이 "약속 목적지에는 이 경로를 쓰지 않는다"고 명시). <code>RideNav.tsx:136,193-201</code> — <code>appointmentId</code> 가 있을 때만 약속 이동 상태(<code>fetchAppointmentTravelStatus</code>)를 읽는다. 즉 DM 약속 → 길안내는 <strong>파라미터 수준에서 구분되는 1급 경로</strong>다. 그 밖의 진입은 <code>LiveLocationModal.tsx:212</code>(위치공유 목적지), <code>InfoGasList.tsx:418</code>·<code>InfoRepairList.tsx:352</code>·<code>InfoRepairDetail.tsx:228</code>(주유소·정비소), <code>LinkRouter.tsx:51-58</code>(Live Activity 카드 복귀), <code>QuestDetail.tsx:118</code>(<code>type=quest</code>).</div></div>
+<div class="preamble"><div class="quote"><strong>분류 정정 노트 (이 프레임이 신설된 이유).</strong> 이 화면은 그동안 "퀘스트·게이미피케이션 잠정보류" 묶음에 얹혀 나열돼 왔으나, <strong>게이미피케이션 폐기 대상이 아니다.</strong> 같은 라우트가 두 모드로 갈리며(<code>type=quest</code> / <code>type=nav</code>), 그중 <code>type=nav</code> 는 <strong>DM 약속 카드 [길안내]에서 진입하는 실거래 동선</strong>이다 — F-S5-01(약속·이동)의 요소 표가 이미 [길안내]를 "S5 핵심 도구"로 적고 있고, 그 버튼의 착지점이 바로 이 화면이다. 확정 전제 ④(게임화 의도적 폐기)가 걷어낼 대상은 이 화면의 <code>type=quest</code> 분기이지 화면 자체가 아니다. 따라서 이 프레임은 <strong><code>type=nav</code>(실거래 이동)만 판정 대상</strong>으로 두고, <code>type=quest</code> 분기는 아래 FR-1 요소 표에 존치 여부만 기록한다.</div><div>&gt;</div><div class="quote"><strong>실거래 연결 근거(코드).</strong> <code>DmDetail.tsx:1086-1095</code> — 약속 카드의 [길안내]가 <code>handleNavigate(destination)</code>으로 <code>type=nav</code> + <strong><code>appointmentId</code></strong> + 약속 장소 좌표/이름을 실어 <code>/ride-nav</code> 로 이동한다. <code>DmDetail.tsx:1097-1101</code> — 현재위치 핀 미리보기는 <code>appointmentId</code> 없이 좌표만 싣는 <strong>별개 경로</strong>(코드 주석이 "약속 목적지에는 이 경로를 쓰지 않는다"고 명시). <code>RideNav.tsx:136,193-201</code> — <code>appointmentId</code> 가 있을 때만 약속 이동 상태(<code>fetchAppointmentTravelStatus</code>)를 읽는다. 즉 DM 약속 → 길안내는 <strong>파라미터 수준에서 구분되는 1급 경로</strong>다. 그 밖의 진입은 <code>LiveLocationModal.tsx:212</code>(위치공유 목적지), <code>InfoGasList.tsx:418</code>·<code>InfoRepairList.tsx:352</code>·<code>InfoRepairDetail.tsx:228</code>(주유소·정비소), <code>LinkRouter.tsx:51-58</code>(Live Activity 카드 복귀), <code>QuestDetail.tsx:118</code>(<code>type=quest</code>).</div><div class="quote"><strong>현재 구현과 승인 목표 구분(260927)</strong>: 아래 화면 샘플 4장은 <code>frontend/src/pages/ride/RideNav.tsx</code>의 <strong>배송된 <code>type=nav</code> 상태</strong>를 그린다. 승인(r3)됐지만 아직 미구현인 시트 안 채움 시작 버튼·약속시각 차이, 지연/불참 칩, Google 핸드오프 확인·수동 도착, 게이트 중 출발 알림은 샘플에 넣지 않는다. 각 FR의 승인안은 목표 사양이며 현재 동작으로 읽지 않는다.</div></div>
 <section class="scene" id="F-RN-01__FR-1">
 <h3 class="scene-id">F-RN-01 FR-1 <span class="scene-title">진입·모드 분기</span></h3>
+<div class="field field-prose"><div class="field-label">현재 구현(260927)</div> 목적지 지도를 먼저 보여주고, 사용자가 시트의 [경로 찾기]로 경로를 계산하면 지도 위 FAB [경로 안내 시작]이 나타난다. 출발 알림·이동수단·턴 목록·Google 핸드오프는 시트 안에 있으며, r3의 "시트 안 채움 시작 버튼 + 약속시각 차이" 위계는 아직 미구현이다.</div>
 <div class="field field-prose"><div class="field-label">조건</div> DM 약속 카드 [길안내] 탭(주 경로) 또는 정보 화면·위치공유·Live Activity 복귀.</div>
 <div class="field field-prose"><div class="field-label">와이어</div> 전면 지도 + 좌상단 [←] / 우측 스택(속도계·지도 컨트롤) / 하단 <code>DraggableSheet</code>(헤더 = 도착 예정시각 · 경로 거리) / (안내 시작 전) 중앙 하단 [경로 안내 시작] FAB.</div>
 <div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>—</td><td>[←] 뒤로</td><td>보조</td><td>이동</td><td>이전 화면(quest 면 이탈 확인 후 홈)</td><td>약속 카드에서 온 사용자가 대화로 되돌아가는 유일한 길</td></tr><tr><td>시트 헤더</td><td>도착 예정시각 · 남은 경로 거리</td><td>표시</td><td>—</td><td>없음</td><td>약속 시각과 대조할 수 있어야 "늦는다"를 상대에게 알릴지 판단한다 — S5의 핵심 사실</td></tr><tr><td>시트</td><td>이동수단 라디오(오토바이·자동차·도보)</td><td>보조</td><td>가역(재탐색)</td><td>경로 재계산</td><td>오토바이가 주 이동수단이라 기본값이며, 안내 시작 후에는 <code>disabled</code></td></tr><tr><td>시트</td><td>오토바이 베타 경고</td><td>표시</td><td>—</td><td>없음</td><td>경로가 실제 규제와 다를 수 있다는 고지 — 오토바이 모드에서만</td></tr><tr><td>시트</td><td>[경로 찾기] / 턴바이턴 스텝 목록</td><td>보조</td><td>진행</td><td>경로 조회 / 없음</td><td>탐색 전·후가 같은 자리를 쓴다(한 자리 = 한 상태)</td></tr><tr><td>지도</td><td>[경로 안내 시작] FAB</td><td><strong>주행동</strong></td><td>진행</td><td>GPS watch 시작 · 카메라 추종</td><td>이 화면에 온 목적 자체. 시작 전까지 GPS를 켜지 않아 배터리를 아낀다</td></tr><tr><td>시트</td><td>[Google 지도로 이동]</td><td>보조</td><td>이동(외부 앱)</td><td>Google 지도 딥링크</td><td>인앱 안내가 베타라 상시 탈출구를 남긴다. <strong>다만 주행동과 같은 시트 안에 상시 노출돼 위계 경쟁 — 판정 필요</strong></td></tr><tr><td>전체</td><td><code>type=quest</code> 분기(퀘스트 진행 칩·진행률·이동거리/안전등급 통계)</td><td>숨김에 준함</td><td>—</td><td>—</td><td>확정 전제 ④(게임화 의도적 폐기) 대상. <strong>이 프레임의 판정 대상이 아니라 존치 여부만 기록</strong> — 제거해도 <code>type=nav</code> 동선은 영향 없음</td></tr><tr class="no-reason"><td>전체</td><td><code>DEV_DONGTAN_PIN</code> / <code>devRaw</code> 분기</td><td>—</td><td>—</td><td>—</td><td><strong>이유 없음</strong>(사용자 대면 근거 없음) — 한국 실기기 검증용 dev 우회, 코드 주석이 2026-08-07 제거 예정이라고 적어둔 잔재</td></tr></tbody></table></div>
@@ -39303,10 +38302,15 @@ body {
 <div class="field field-prose"><div class="field-label">근거</div> <code>RideNav.tsx:128</code>(<code>type</code> 분기), <code>:136</code>(<code>appointmentId</code>), <code>:669-674</code>(안내 시작 FAB), <code>:780-789</code>(이동수단 라디오, 안내 중 <code>disabled</code>), <code>:790-792</code>(오토바이 베타 경고), <code>:810-844</code>([경로 찾기] ↔ 스텝 목록 한 자리), <code>:845-848</code>(Google 핸드오프), <code>:849-893</code>(<code>type=quest</code> 시트 본문 — 진행률·이동거리·진행시간), <code>:83-88,137</code>(<code>DEV_DONGTAN_PIN</code>/<code>devRaw</code> 주석 — 제거 예정 잔재), 진입 <code>DmDetail.tsx:1086-1095</code>.</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 시트 위계를 고정한다: 헤더(약속 장소명 · 도착 예정 · 약속 시각과의 차이 "약속 12분 전 도착" / danger "약속보다 8분 늦어요") → <strong>[경로 안내 시작(채움)]</strong>(현재 FAB를 시트 안 채움으로 이동, 화면에서 가장 무거운 요소) → 이동수단 라디오(안내 중 disabled) → 오토바이 베타 경고 → 최하단 텍스트 <code>[Google 지도로 열기]</code>(ghost·텍스트 무게, 안내 전후 동일 자리). <code>type=quest</code> 분기 제거는 B3(게임화 잔재 일괄 삭제) 소관으로 별도 — 단 <code>DEV_DONGTAN_PIN</code>/<code>devRaw</code> 잔재는 이 패키지에서 제거. "인앱 안내 = 외부 핸드오프 + 알림"으로 단순화하는 대안은 <strong>미채택</strong>(인앱 안내 유지).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 D.</div>
-<div class="mockup-none">화면 목업: 요소 표에 영역 정보가 없어 화면을 그릴 수 없음(요소 표 행이 있으나 영역 값이 H/C/B/K/O 중 어느 것과도 일치하지 않음).</div>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!doctype html>
+<html lang=&quot;ko&quot;><head><meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;><title>RideNav 경로 미리보기</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,&quot;Noto Sans KR&quot;,sans-serif;color:#16191d}.phone{width:390px;height:844px;position:relative;overflow:hidden;background:#dfe8df}.map{position:absolute;inset:0;background:linear-gradient(35deg,transparent 46%,#fff 47% 51%,transparent 52%),linear-gradient(145deg,transparent 43%,#f7faf6 44% 49%,transparent 50%),#dfe9dc}.road{position:absolute;left:42px;top:145px;width:300px;height:360px;border:7px solid #ff7a1a;border-color:#ff7a1a transparent transparent #ff7a1a;border-radius:50%;transform:rotate(-18deg)}.pin{position:absolute;left:285px;top:180px;width:28px;height:28px;border-radius:50% 50% 50% 0;background:#ff7a1a;transform:rotate(-45deg);box-shadow:0 2px 8px #777}.back,.control,.speed{position:absolute;background:white;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 10px #7775}.back{left:14px;top:52px;width:44px;height:44px;font-size:28px}.control{right:14px;top:108px;width:44px;height:44px;font-size:20px}.speed{right:14px;top:58px;width:44px;height:44px;font-size:11px;font-weight:800}.start{position:absolute;right:18px;bottom:350px;background:#ff7a1a;color:white;border-radius:999px;padding:13px 18px;font-size:14px;font-weight:800;box-shadow:0 4px 14px #9a4b1355}.sheet{position:absolute;left:0;right:0;bottom:0;height:330px;background:white;border-radius:22px 22px 0 0;padding:10px 18px 18px;box-shadow:0 -4px 20px #0002}.handle{width:42px;height:4px;background:#d5d7da;border-radius:4px;margin:0 auto 14px}.eta{display:flex;justify-content:space-between;border-bottom:1px solid #eceef1;padding-bottom:12px}.eta b{font-size:26px}.eta small{display:block;color:#777}.dist{text-align:right}.modes{display:flex;gap:8px;margin:13px 0}.mode{flex:1;border:1px solid #ddd;border-radius:10px;padding:9px;text-align:center;font-size:12px;font-weight:700}.on{background:#17191c;color:white;border-color:#17191c}.warn{font-size:11px;color:#9a5a20;background:#fff6e9;padding:8px;border-radius:8px}.depart,.find,.google{height:38px;margin-top:9px;border-radius:10px;display:grid;place-items:center;font-size:12px;font-weight:700}.depart{border:1px solid #ddd}.find{background:#f1f2f4}.google{color:#4667a8}.state{position:absolute;top:112px;left:14px;background:#17191c;color:white;border-radius:999px;padding:6px 10px;font-size:10px;font-weight:800}
+</style></head><body><div class=&quot;phone&quot;><div class=&quot;map&quot;></div><div class=&quot;road&quot;></div><div class=&quot;pin&quot;></div><div class=&quot;back&quot;>‹</div><div class=&quot;speed&quot;>0 km/h</div><div class=&quot;control&quot;>◎</div><span class=&quot;state&quot;>현재 구현 · 경로 계산 완료</span><div class=&quot;start&quot;>▶ 경로 안내 시작</div><section class=&quot;sheet&quot;><div class=&quot;handle&quot;></div><div class=&quot;eta&quot;><div><b>15:18</b><small>도착 예정 · 18분</small></div><div class=&quot;dist&quot;><b>6.4 km</b><small>경로</small></div></div><div class=&quot;modes&quot;><span class=&quot;mode on&quot;>오토바이</span><span class=&quot;mode&quot;>자동차</span><span class=&quot;mode&quot;>도보</span></div><div class=&quot;warn&quot;>오토바이 경로는 베타이며 실제 도로 규제와 다를 수 있어요.</div><div class=&quot;depart&quot;>상대방에게 출발 알림 보내기</div><div class=&quot;find&quot;>경로 단계 목록</div><div class=&quot;google&quot;>G&amp;nbsp; Google 지도로 이동</div></section></div></body></html>
+" width="390" height="844"></iframe></div></div>
 </section>
 <section class="scene" id="F-RN-01__FR-2">
 <h3 class="scene-id">F-RN-01 FR-2 <span class="scene-title">약속 이동 알림(출발 → 도착)</span></h3>
+<div class="field field-prose"><div class="field-label">현재 구현(260927)</div> 경로 계산 성공 뒤 [상대방에게 출발 알림 보내기]가 나타나고, 발송 뒤 비활성 "출발 알림을 보냈어요"로 바뀐다. 출발 기록이 있는 상태에서 40m·정확도 게이트를 통과하면 도착을 자동 기록하고 [안내 종료] 배너를 띄운다. r3의 출발 권유·지연/불참 칩·수동 도착 백업은 아직 미구현이다.</div>
 <div class="field field-prose"><div class="field-label">조건</div> <code>type=nav</code> 이면서 <code>appointmentId</code> 가 있는 경우(= DM 약속 카드에서 온 경우)에만.</div>
 <div class="field field-prose"><div class="field-label">와이어</div> 시트 안 [상대방에게 출발 알림 보내기] → 누른 뒤 [출발 알림을 보냈어요](비활성) / 목적지 40m 반경 진입 시 자동 도착 기록 + 지도 상단 "목적지에 도착했어요" 배너 [안내 종료].</div>
 <div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>시트</td><td>[상대방에게 출발 알림 보내기]</td><td>보조</td><td>비가역(보낸 뒤 취소 없음)</td><td>상대에게 출발 알림</td><td><strong>이 화면이 실거래 축인 결정적 증거</strong> — 약속 상대에게 "출발했다"를 알리는 것은 길안내가 아니라 거래 행위다. <code>appointmentId</code> 없으면 렌더되지 않는다</td></tr><tr><td>—</td><td>도착 자동 기록(반경 40m + 정확도 게이트)</td><td>—</td><td>비가역</td><td>자동</td><td>운전 중 탭을 요구하지 않기 위해 자동. <strong>출발을 명시한 뒤에만</strong> 위치 샘플을 서버로 보낸다(동의 기반)</td></tr><tr><td>지도</td><td>도착 배너 [안내 종료]</td><td>보조</td><td>이동</td><td>이전 화면(= 약속 대화방)</td><td>도착 = 이 화면의 임무 종료. 되돌아갈 곳은 온 곳(DM)</td></tr><tr class="no-reason"><td>—</td><td>"늦어요/못 가요" 알림</td><td>없음</td><td>—</td><td>—</td><td><strong>이유 없음</strong> — 출발·도착 두 신호만 있고 지연·취소를 알릴 수단이 이 화면에 없다. 사용자는 화면을 나가 DM으로 돌아가야 한다</td></tr></tbody></table></div>
@@ -39317,10 +38321,15 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① <strong>출발 알림 1탭 권유</strong>: [경로 안내 시작] 탭 시 출발 알림 미전송이면 시트 "상대에게 출발 알림을 보낼까요?" <code>[보내기(채움, 기본)] [나중에]</code> — 기본안 ②의 권유를 확정. 별도 [출발 알림] 버튼은 권유를 거절한 경우에만 시트에 남는다. ② <strong>지연·불참 퀵 칩</strong>(안내 중 시트 상단, <code>appointmentId</code> 있을 때만): <code>[10분 늦어요] [30분 늦어요] [못 가요…]</code> — 늦어요 탭 = 상대 DM 시스템 메시지 "○○님이 10분 정도 늦어요 · 예상 15:10 도착" + 푸시 + 약속 카드 헤더 ETA 갱신(최근값 우선, F-N-02 FR-5 #4); 못 가요 = F-X-01 FR-1 취소 확인(사유 칩 "일정이 바뀌었어요" 프리셀렉트) → 취소 → 안내 종료. ③ 도착 자동 기록(40m·정확도 게이트)은 현행 유지 + FR-3의 수동 [도착했어요] 백업. ④ 게이트 차단(FR-4) 상태에서도 출발 알림·지연 칩은 <code>appointmentId</code>만으로 활성(FR-4 기본안 ②).</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 권유 "Gửi thông báo đã xuất phát cho người kia?" [Gửi] [Để sau] · 칩 [Muộn 10 phút] [Muộn 30 phút] [Không đến được…] · 시스템 "{name} sẽ đến muộn khoảng 10 phút · dự kiến 15:10".</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y]</code>) — 구현 대기 · 구현 패키지 D(서버: <code>appointment_travel.delay_min</code>·<code>eta_at</code>, 시스템 메시지 타입).</div>
-<div class="mockup-none">화면 목업: 요소 표에 영역 정보가 없어 화면을 그릴 수 없음(요소 표 행이 있으나 영역 값이 H/C/B/K/O 중 어느 것과도 일치하지 않음).</div>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!doctype html>
+<html lang=&quot;ko&quot;><head><meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;><title>RideNav 약속 이동 알림</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,&quot;Noto Sans KR&quot;,sans-serif;color:#16191d}.phone{width:390px;height:844px;position:relative;overflow:hidden;background:#dfe8df}.map{position:absolute;inset:0;background:linear-gradient(35deg,transparent 46%,#fff 47% 51%,transparent 52%),linear-gradient(145deg,transparent 43%,#f7faf6 44% 49%,transparent 50%),#dfe9dc}.route{position:absolute;left:72px;top:80px;width:230px;height:430px;border:8px solid #ff7a1a;border-color:transparent #ff7a1a #ff7a1a transparent;border-radius:48%;transform:rotate(12deg)}.bike{position:absolute;left:192px;top:320px;width:34px;height:34px;border-radius:50%;background:#1677ff;color:white;display:grid;place-items:center;box-shadow:0 2px 8px #3335}.back,.control,.speed{position:absolute;background:white;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 10px #7775}.back{left:14px;top:52px;width:44px;height:44px;font-size:28px}.control{right:14px;top:108px;width:44px;height:44px;font-size:20px}.speed{right:14px;top:58px;width:44px;height:44px;font-size:11px;font-weight:800}.status{position:absolute;left:14px;top:110px;background:#17191c;color:white;padding:7px 10px;border-radius:999px;font-size:10px;font-weight:800}.arrival{position:absolute;left:54px;right:54px;top:165px;background:white;border-radius:12px;padding:10px;text-align:center;font-size:12px;box-shadow:0 2px 10px #7774}.arrival b{color:#1f8a55}.sheet{position:absolute;left:0;right:0;bottom:0;height:270px;background:white;border-radius:22px 22px 0 0;padding:10px 18px 18px;box-shadow:0 -4px 20px #0002}.handle{width:42px;height:4px;background:#d5d7da;border-radius:4px;margin:0 auto 14px}.eta{display:flex;justify-content:space-between;border-bottom:1px solid #eceef1;padding-bottom:12px}.eta b{font-size:26px}.eta small{display:block;color:#777}.sent{margin-top:12px;border:1px solid #dce9e1;background:#f1faf5;color:#297148;border-radius:10px;padding:11px;text-align:center;font-size:12px;font-weight:800}.modes{display:flex;gap:8px;margin:12px 0}.mode{flex:1;border-radius:9px;background:#f1f2f4;color:#8a8e94;padding:8px;text-align:center;font-size:11px}.steps{display:flex;gap:10px;align-items:center;font-size:12px}.turn{width:34px;height:34px;border-radius:10px;background:#fff1e6;color:#d75f09;display:grid;place-items:center;font-size:20px}
+</style></head><body><div class=&quot;phone&quot;><div class=&quot;map&quot;></div><div class=&quot;route&quot;></div><div class=&quot;bike&quot;>▲</div><div class=&quot;back&quot;>‹</div><div class=&quot;speed&quot;>34 km/h</div><div class=&quot;control&quot;>◉</div><span class=&quot;status&quot;>현재 구현 · 안내 중</span><div class=&quot;arrival&quot;><b>자동 도착 기록</b> · 출발 전송 후 40m·정확도 조건 충족 시</div><section class=&quot;sheet&quot;><div class=&quot;handle&quot;></div><div class=&quot;eta&quot;><div><b>15:18</b><small>도착 예정 · 12분</small></div><div><b>3.8 km</b><small>남은 경로</small></div></div><div class=&quot;sent&quot;>✓ 출발 알림을 보냈어요</div><div class=&quot;modes&quot;><span class=&quot;mode&quot;>오토바이 · 안내 중 변경 불가</span></div><div class=&quot;steps&quot;><span class=&quot;turn&quot;>↱</span><span><b>300m 앞 우회전</b><br><small>Nguyễn Hữu Cảnh</small></span></div></section></div></body></html>
+" width="390" height="844"></iframe></div></div>
 </section>
 <section class="scene" id="F-RN-01__FR-3">
 <h3 class="scene-id">F-RN-01 FR-3 <span class="scene-title">경로 이탈 · 외부 지도 핸드오프</span></h3>
+<div class="field field-prose"><div class="field-label">현재 구현(260927)</div> 50m 이탈이 5초 지속되면 현재 위치 기준 인앱 재탐색을 안내 1회당 최대 2번 수행한다. 상한을 소진하거나 재탐색이 불가능할 때만 "경로를 이탈했어요" + [Google 지도로 재안내] 배너가 나타난다. Google 탭은 확인 없이 외부 지도를 열고 이 화면의 안내 상태는 유지된다. r3의 핸드오프 확인·복귀 배너·수동 도착은 미구현이다.</div>
 <div class="field field-prose"><div class="field-label">조건</div> <code>type=nav</code>, 안내 중, 경로에서 50m 이상 5초 이상 벗어남.</div>
 <div class="field field-prose"><div class="field-label">와이어</div> 지도 상단 배너 "경로를 이탈했어요" [Google 지도로 재안내] / 목적지 근접 구간에서는 배너 대신 나침반 칩(방향 화살표 + 직선거리).</div>
 <div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>지도</td><td>이탈 배너 [Google 지도로 재안내]</td><td>보조</td><td>이동(외부 앱)</td><td>현재위치→목적지 딥링크</td><td>인앱 재탐색 API가 유료라 <strong>사용자 탭 기반 핸드오프로 전환</strong>됨. 운전 중 자동 이탈이 아니라 선택</td></tr><tr><td>지도</td><td>라스트마일 나침반 칩</td><td>표시</td><td>—</td><td>없음</td><td>목적지 근접 구간은 골목·주차 진입이라 경로 안내가 무의미 — 방향과 직선거리만</td></tr><tr><td>—</td><td>인앱 자동 재탐색</td><td>없음</td><td>—</td><td>—</td><td>의도적 제거(비용). 단 사용자에게는 "왜 스스로 다시 찾지 않는가"가 설명되지 않는다 — <strong>문구 판정 필요</strong></td></tr></tbody></table></div>
@@ -39330,10 +38339,15 @@ body {
 <div class="field field-prose"><div class="field-label">근거</div> <code>RideNav.tsx:62-63</code>(<code>OFF_ROUTE_DISTANCE_M = 50</code>, <code>OFF_ROUTE_SECONDS = 5</code>), <code>:432-448</code>(이탈 판정 — 주석 "재탐색 API 호출 대신 사용자 탭 기반 Google 지도 딥링크 핸드오프로 전환"), <code>:613-620</code>(<code>openGoogleReroute</code>), <code>:675-686</code>(이탈 배너), <code>:688-699</code>(나침반 칩).</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 핸드오프 탭 시 시트 "Google 지도로 이동해요. 도착하면 여기서 [도착했어요]를 눌러주세요" <code>[이동(채움)] [취소]</code> — 우리 화면의 안내는 <strong>유지</strong>(종료 아님). ② 복귀 시 지도 상단 배너 "안내 진행 중 · Google 지도에서 안내됨"(표시) + 시트에 <strong>수동 [도착했어요]</strong> 상시(40m 밖이면 확인 "아직 목적지에서 멀어요. 도착으로 기록할까요?" [도착 기록]). ③ 이탈 배너 → Google 재안내는 현행. ④ 인앱 자동 재탐색 부재는 배너 부제 1줄 "앱 안 재탐색은 준비 중이에요 — Google 지도로 이어서 안내받을 수 있어요"로 설명.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 D.</div>
-<div class="mockup-none">화면 목업: 요소 표에 영역 정보가 없어 화면을 그릴 수 없음(요소 표 행이 있으나 영역 값이 H/C/B/K/O 중 어느 것과도 일치하지 않음).</div>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!doctype html>
+<html lang=&quot;ko&quot;><head><meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;><title>RideNav 경로 이탈</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,&quot;Noto Sans KR&quot;,sans-serif;color:#16191d}.phone{width:390px;height:844px;position:relative;overflow:hidden;background:#dfe8df}.map{position:absolute;inset:0;background:linear-gradient(35deg,transparent 46%,#fff 47% 51%,transparent 52%),linear-gradient(145deg,transparent 43%,#f7faf6 44% 49%,transparent 50%),#dfe9dc}.route{position:absolute;left:56px;top:105px;width:260px;height:410px;border-left:8px solid #ff7a1a;border-radius:45%;transform:rotate(-10deg)}.bike{position:absolute;left:270px;top:310px;width:34px;height:34px;border-radius:50%;background:#1677ff;color:white;display:grid;place-items:center}.back,.control,.speed{position:absolute;background:white;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 10px #7775}.back{left:14px;top:52px;width:44px;height:44px;font-size:28px}.control{right:14px;top:108px;width:44px;height:44px;font-size:20px}.speed{right:14px;top:58px;width:44px;height:44px;font-size:11px;font-weight:800}.banner{position:absolute;left:14px;right:14px;top:112px;background:white;border:1px solid #f1d3c0;border-radius:14px;padding:12px;box-shadow:0 3px 15px #5554}.banner b{display:block;font-size:14px}.banner small{display:block;color:#777;margin:4px 0 10px}.google{height:40px;border-radius:10px;background:#17191c;color:white;display:grid;place-items:center;font-size:12px;font-weight:800}.state{position:absolute;left:14px;top:245px;background:#fff4e9;color:#b24d09;border-radius:999px;padding:6px 10px;font-size:10px;font-weight:800}.sheet{position:absolute;left:0;right:0;bottom:0;height:220px;background:white;border-radius:22px 22px 0 0;padding:10px 18px}.handle{width:42px;height:4px;background:#d5d7da;border-radius:4px;margin:0 auto 14px}.eta{display:flex;justify-content:space-between;border-bottom:1px solid #eceef1;padding-bottom:12px}.eta b{font-size:25px}.eta small{display:block;color:#777}.note{margin-top:13px;background:#f5f6f8;border-radius:11px;padding:12px;font-size:12px;color:#565b62}.note strong{display:block;color:#17191c;margin-bottom:3px}
+</style></head><body><div class=&quot;phone&quot;><div class=&quot;map&quot;></div><div class=&quot;route&quot;></div><div class=&quot;bike&quot;>▲</div><div class=&quot;back&quot;>‹</div><div class=&quot;speed&quot;>21 km/h</div><div class=&quot;control&quot;>◉</div><div class=&quot;banner&quot;><b>경로를 이탈했어요</b><small>인앱 재탐색 2회를 소진했어요.</small><div class=&quot;google&quot;>G&amp;nbsp; Google 지도로 재안내</div></div><span class=&quot;state&quot;>현재 구현 · 확인 없이 외부 지도 열기</span><section class=&quot;sheet&quot;><div class=&quot;handle&quot;></div><div class=&quot;eta&quot;><div><b>15:24</b><small>도착 예정</small></div><div><b>4.1 km</b><small>경로</small></div></div><div class=&quot;note&quot;><strong>안내 상태는 계속 유지돼요</strong>Google 지도를 연 뒤에도 이 화면은 자동 종료되지 않습니다.</div></section></div></body></html>
+" width="390" height="844"></iframe></div></div>
 </section>
 <section class="scene" id="F-RN-01__FR-4">
 <h3 class="scene-id">F-RN-01 FR-4 <span class="scene-title">위치 게이트 차단(권한·측위 실패·권역 밖)</span></h3>
+<div class="field field-prose"><div class="field-label">현재 구현(260927)</div> 지도와 목적지 핀을 유지한 채 시트 ETA 자리를 사유 제목으로 바꾸고 [다시 시도], 권한 거부 네이티브의 [위치 설정 열기], 권역 밖이 아닐 때 [Google 지도로 이동]을 제공한다. 경로가 없으므로 출발 알림은 숨겨지며, r3에서 승인한 "게이트 중에도 약속 알림 활성"은 아직 미구현이다.</div>
 <div class="field field-prose"><div class="field-label">조건</div> <code>type=nav</code>, 위치 권한 거부 / 측위 타임아웃 / 서비스 권역 밖.</div>
 <div class="field field-prose"><div class="field-label">와이어</div> <strong>화면을 갈아치우지 않는다</strong> — 지도와 목적지 핀은 그대로, 시트 헤더의 도착예정 자리에 게이트 사유 제목, 시트 본문에 설명 + [다시 시도] + (권한 사유일 때) [위치 설정 열기] + (권역 밖이 아닐 때) [Google 지도로 이동].</div>
 <div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>시트 헤더</td><td>게이트 사유 제목</td><td>표시</td><td>—</td><td>없음</td><td>ETA 자리를 상태로 교체 — 레이아웃 유지, 숫자만 상태로</td></tr><tr><td>시트</td><td>[다시 시도]</td><td><strong>주행동</strong></td><td>가역</td><td>경로 재조회</td><td>측위 실패는 일시적인 경우가 많아 재시도가 첫 수단</td></tr><tr><td>시트</td><td>[위치 설정 열기]</td><td>보조</td><td>이동(OS)</td><td>앱 설정</td><td>권한 거부는 앱 안에서 못 푸는 유일한 사유 — 네이티브에서만 노출</td></tr><tr><td>시트</td><td>[Google 지도로 이동]</td><td>보조</td><td>이동(외부 앱)</td><td>딥링크</td><td>측위 실패는 우리 쪽 사유라 대안을 준다. <strong>권역 밖에는 노출하지 않음</strong>(우리가 서비스하지 않는 곳으로 보내지 않는다)</td></tr><tr><td>전체</td><td>좌표 자체가 없을 때의 전체화면 폴백</td><td>표시</td><td>—</td><td>—</td><td>게이트 차단과 <strong>다른 사유</strong>(목적지 미상). 코드 주석이 두 경우를 섞지 말라고 명시</td></tr></tbody></table></div>
@@ -39342,7 +38356,11 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 권한 거부 상태로 약속 이동을 시작한 사용자는 출발 알림도 도착 기록도 못 보내고, 상대의 DM에는 아무 진행 신호가 뜨지 않는다 — S5가 조용히 실패하고 F-X-01(교착)로 흘러간다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>RideNav.tsx:566-572</code>(<code>gateBlocked</code> 정의 + 주석 "화면을 갈아치우지 않는다 — 대표 지시 2026-08-13 11:38"), <code>:705-715</code>(헤더 ETA 자리 교체), <code>:754-777</code>(게이트 본문 · [다시 시도] · [위치 설정 열기] · 권역 밖 Google 핸드오프 제외), <code>:798-800</code>([출발 알림] 조건에 <code>route?.configured</code> 포함 — 게이트 차단 시 렌더 불가), <code>:903-916</code>(좌표 없음 전체화면 폴백 — 게이트와 다른 사유임을 주석이 명시), <code>frontend/src/lib/serviceLocation.ts:14,71</code>(게이트 3분류).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐<br>  - <strong>AI 기본안(대표 확인 대기)</strong>: 제안 ①(화면 안 처리 현행 유지)을 채택한다 — 이미 대표 지시(2026-08-13)로 확정된 패턴이라 재론할 근거가 없다. 제안 ②([출발 알림]을 <code>route?.configured</code> 대신 <code>appointmentId</code> 존재만으로 활성화)도 채택한다 — 실패 시나리오(권한 거부 시 상대가 진행 신호를 전혀 못 받아 F-X-01 교착으로 흘러감)를 직접 막고, 알림 발송 자체는 경로 계산과 무관한 사용자 의사표시라 게이트와 묶일 이유가 없다.<br>---</div>
-<div class="mockup-none">화면 목업: 요소 표에 영역 정보가 없어 화면을 그릴 수 없음(요소 표 행이 있으나 영역 값이 H/C/B/K/O 중 어느 것과도 일치하지 않음).</div>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!doctype html>
+<html lang=&quot;ko&quot;><head><meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;><title>RideNav 위치 게이트</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,&quot;Noto Sans KR&quot;,sans-serif;color:#16191d}.phone{width:390px;height:844px;position:relative;overflow:hidden;background:#dfe8df}.map{position:absolute;inset:0;background:linear-gradient(35deg,transparent 46%,#fff 47% 51%,transparent 52%),linear-gradient(145deg,transparent 43%,#f7faf6 44% 49%,transparent 50%),#dfe9dc}.pin{position:absolute;left:278px;top:205px;width:30px;height:30px;border-radius:50% 50% 50% 0;background:#ff7a1a;transform:rotate(-45deg);box-shadow:0 2px 8px #777}.pin:after{content:&quot;&quot;;position:absolute;width:10px;height:10px;border-radius:50%;background:white;left:10px;top:10px}.back,.control{position:absolute;background:white;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 10px #7775}.back{left:14px;top:52px;width:44px;height:44px;font-size:28px}.control{right:14px;top:58px;width:44px;height:44px;font-size:20px}.state{position:absolute;left:14px;top:112px;background:#17191c;color:white;border-radius:999px;padding:6px 10px;font-size:10px;font-weight:800}.sheet{position:absolute;left:0;right:0;bottom:0;height:340px;background:white;border-radius:22px 22px 0 0;padding:10px 18px 22px;box-shadow:0 -4px 20px #0002}.handle{width:42px;height:4px;background:#d5d7da;border-radius:4px;margin:0 auto 14px}.head{border-bottom:1px solid #eceef1;padding-bottom:14px}.head b{font-size:19px;display:block}.head span{font-size:13px;color:#777}.desc{margin:16px 0;color:#565b62;line-height:1.5;font-size:14px}.actions{display:flex;gap:8px}.retry,.settings,.google{height:44px;border-radius:11px;display:grid;place-items:center;font-size:13px;font-weight:800}.retry{flex:1;background:#ff7a1a;color:white}.settings{flex:1;border:1px solid #dfe2e6}.google{margin-top:10px;border:1px solid #dfe2e6;color:#4667a8}.missing{margin-top:13px;color:#a34f19;background:#fff5ed;border-radius:10px;padding:9px;font-size:11px}
+</style></head><body><div class=&quot;phone&quot;><div class=&quot;map&quot;></div><div class=&quot;pin&quot;></div><div class=&quot;back&quot;>‹</div><div class=&quot;control&quot;>◎</div><span class=&quot;state&quot;>현재 구현 · 지도와 목적지 유지</span><section class=&quot;sheet&quot;><div class=&quot;handle&quot;></div><div class=&quot;head&quot;><b>위치 권한이 필요해요</b><span>Cà phê Chuyện</span></div><div class=&quot;desc&quot;>현재 위치를 확인할 수 없어 경로를 만들지 못했어요. 위치 권한을 허용한 뒤 다시 시도해 주세요.</div><div class=&quot;actions&quot;><div class=&quot;retry&quot;>↻ 다시 시도</div><div class=&quot;settings&quot;>위치 설정 열기</div></div><div class=&quot;google&quot;>G&amp;nbsp; Google 지도로 이동</div><div class=&quot;missing&quot;>현재 구현에서는 경로가 없으면 출발 알림도 표시되지 않아요.</div></section></div></body></html>
+" width="390" height="844"></iframe></div></div>
 </section>
 </section>
 <hr class="sep">
@@ -39359,7 +38377,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> 취소 확인 모달(<code>useConfirmStore</code>, 두 경로 공통)에 <strong>사유 칩 3개</strong>(선택 필수 1): <code>[일정이 바뀌었어요] [다른 곳에서 거래했어요] [연락이 안 돼요]</code> → [약속 취소](행위명). 사유는 상대 푸시·시스템 메시지에 포함("○○님이 약속을 취소했어요 · 일정이 바뀌었어요") 되고 서버 <code>cancel_reason</code>으로 저장 — 약속 시각 2시간 이내 취소·"연락이 안 돼요" 피취소는 신뢰 티어 계산 재료(감점 규칙은 티어 스펙에서 확정, 여기서는 기록만). F-RN-01 FR-2 [못 가요…]는 이 모달을 사유 프리셀렉트로 연다. 신고 후 숨김·확인 통일은 구현 완료 유지.</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 칩 "Lịch của tôi thay đổi" · "Đã giao dịch nơi khác" · "Không liên lạc được" · [Hủy hẹn].</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 완료(260924, 커밋) · 구현 패키지 A. 사유 칩 3개 + <code>useConfirmStore</code> 공통 확인(<code>DmDetail.tsx</code>·<code>TradeTransaction.tsx</code>), 서버 <code>cancel_reason</code> 저장·상대 알림 문구 반영(<code>market.py::cancel_appointment</code>, <code>push_i18n.py</code>) 완료. <strong>미구현</strong>: F-RN-01 FR-2 [못 가요…] 프리셀렉트 연동, 신뢰 티어 감점 반영(티어 스펙 확정 전이라 기록만 — 승인안 원문대로).</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -40473,7 +39491,7 @@ body {
 <div class="field field-prose"><div class="field-label">카피</div> vi "Đánh giá giao dịch đã nhận" · "9 đánh giá · 96% tích cực" · 0건 "Người này chưa có lịch sử giao dịch — hãy gặp trực tiếp và kiểm tra trước khi giao dịch".</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y]</code>) — 구현 대기 · 구현 패키지 F(서버: 프로필 응답에 <code>review_summary{count, positive_pct, top_tags[], recent[]}</code>, <code>/users/:id/reviews</code> 페이지네이션).</div>
 <div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — "받은 거래 후기" 섹션의 수치 표기는 ★ 평점 유지; 승인안 ②의 "후기 9 · 긍정 96%" 요약 · "별로예요 후기는 … 긍정 p%에만 반영" 표기 제외, "후기 9 · 평점 ★4.8" 등으로 대체하고 서버 <code>review_summary.positive_pct</code> 필드는 <code>avg_rating</code>(★ 평균)으로 대체. 태그 상위 3개·최근 후기 2건·전체보기·친구 칩 삭제(①③④⑤⑥)는 유효.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -41572,7 +40590,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922) — 제안①(사유 탭→접수 확인 1회, <code>useConfirmStore</code>, <code>UserProfile.tsx:187-193</code>) · 제안②(시트 [신고하기][차단하기(위험 톤)] 2행 + <code>blockUser()</code> 재사용, <code>UserProfile.tsx:195-213,448-466</code>) · 제안③(접수 후 "신고함" 비활성 표기, <code>UserProfile.tsx:452-456</code>) 구현 확인.</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 화면 샘플을 구현(260922) 구조 <code>[신고하기][차단하기(위험)]</code> 2행 + 사유는 2단계로 재생성(F-N-02 FR-6 ①). ② 차단 확인 다이얼로그 = F-X-02 FR-2 공용 문구, 버튼 <strong>"차단"</strong>. ③ 신고 = F-X-02 FR-1 규격(확인 문구·토스트·"신고함"). ④ 비로그인은 ⋮ 탭 시 게이트 시트.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 B.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -42684,7 +41702,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① <code>LV.9</code> 배지 제거(와이어·코드). ② 미리보기 배너를 <code>B</code> 최상단에서 헤더 아래 <code>C</code>(고정)로 올리고 우측에 [프로필 수정] 텍스트 버튼(→ <code>/settings/profile</code>, F-SET-01 FR-3). 킷 ①②③ 전부 채택. 배너 카피 "다른 사람에게 보이는 화면이에요".</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 F.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -43780,7 +42798,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 구현 착수 첫 단계로 <code>/profile/:userId/listings</code>·<code>/posts</code> 컴포넌트를 <strong>실측</strong>해 요소 표 "미확인" 행을 실제 요소로 대체한다(이 프레임의 판정은 실측 후 확정 — 아래 기본선은 실측 결과와 무관하게 유효). ② <code>B</code> 영역은 <code>이동</code> 성격만(그리드 카드 탭 → 상세). 찜·응원·신고는 카드 위에 두지 않는다. ③ 정렬: 판매중 → 예약중 → 거래완료(흐림 + "거래완료" 라벨). ④ 빈 상태 "판매 중인 매물이 없어요" / "작성한 글이 없어요" + [프로필로 돌아가기]. ⑤ 4상태 조회(F-N-02 FR-4). ⑥ 비로그인 open(F-N-02 FR-1).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2, 실측 조건부) — 구현 대기 · 구현 패키지 F.<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -44794,7 +43812,7 @@ body {
             <span class=&quot;plTitle&quot;>우천용 라이딩 재킷 L</span>
             <span class=&quot;plMeta&quot;>Bình Thạnh · 1주 전</span>
             <span class=&quot;plPrice&quot;><span class=&quot;num&quot;>420.000 đ</span></span>
-            
+
           </span>
         </button>
         <button class=&quot;plCard&quot; type=&quot;button&quot;>
@@ -44812,7 +43830,7 @@ body {
             <span class=&quot;plTitle&quot;>브레이크 패드 미사용 2세트</span>
             <span class=&quot;plMeta&quot;>Bình Thạnh · 2주 전</span>
             <span class=&quot;plPrice&quot;><span class=&quot;num&quot;>180.000 đ</span></span>
-            
+
           </span>
         </button>      </div>
     </div>
@@ -44841,7 +43859,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1, 2차 재설계)</div> <strong>안 B 확정(260922, 사용자 최종 선택)</strong> — <code>⋯</code>(소셜 더보기)는 제거하지 않고 소셜 지표 행(<code>.socialRow</code>, [팔로워 n][팔로잉 n]) 우측 끝으로 이동, 거래축 분기 줄(<code>.profileActions</code>)에는 [내 매물][거래이력] 2요소만 남아 균등 2등분 레이아웃이 된다. <strong>구현 완료(260922)</strong>: <code>ProfileMain.tsx</code> — <code>.socialRow</code> 안에 <code>.socialMoreBtn</code>(구 <code>.addFriendIconBtn</code>을 이 자리로 옮기며 개명) 버튼 신설(<code>setSocialActionsOpen</code> 핸들러 재사용), <code>.profileActions</code>에서 더보기 버튼 제거. <code>ProfileMain.module.css</code> — <code>.addFriendIconBtn</code>(P2-15 44px 히트영역 확장 포함) 삭제 후 <code>.socialRow{position:relative}</code> + <code>.socialMoreBtn{position:absolute; right:0}</code> 신설로 이관. 시트 안 [프로필 공유]·[친구 추가]를 <code>.verifyCard</code>→<code>.collapsedActionRow</code>(<code>.priceEditBtn</code> 톤)로 바꾼 시각 스타일 변경은 안 A/B와 무관하게 유효해 그대로 유지. 1차 제안 ④(3요소 높이 통일)는 대상 소멸로 폐기 확정 — <code>.heroEntryRow</code>/<code>.heroEntryIcon</code>은 260919 원본(padding 7px 10px, 아이콘 24px) 그대로다.</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 화면 샘플을 <strong>안 B 확정 구조</strong>로 재생성 — <code>⋯</code>는 소셜 지표 행 우측, 거래축 줄에는 목적지 진입만, 탭 줄 [피드|기록|배지] 제거(FR-5 제거 판정과 정합), 구 액션행 [공유][친구추가][채팅] 삭제(F-N-02 FR-6 ①). ② <strong>대표 확정 사항 재검토 → 승인(일괄)</strong>: 거래축 줄을 <code>[내 매물] [거래이력] [찜]</code> <strong>3등분</strong>으로 확장한다 — 안 B의 "2요소 균등"은 "동일 무게·동일 성격끼리 균등"이 본뜻이고 [찜]도 <code>보조</code>·<code>이동</code>·거래축(S1 유예한 판단의 재개)이라 P-1을 깨지 않는다. [찜] → 통합 찜 화면(F-MP-02 FR-1: <code>/map/favorites</code> 탭 [매물|업체]). 순서 S0 → S7 → S1 재개: [내 매물][거래이력][찜]. ③ <code>⋯</code> 시트는 [프로필 공유][사람 찾기](라벨 갱신, F-SOC-01 FR-3).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2, "대표 확정 사항 재검토" 항목 포함 승인) — 구현 대기 · 구현 패키지 H([찜] 진입) + U(와이어).</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -45952,7 +44970,7 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 인증 완료 파트너가 시트를 올릴 때마다 "이미 끝난 카드"를 지나쳐야 라운지에 닿는다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>ProfileMain.tsx:480-498</code>(인증 카드 분기), <code>:326-336,510-530</code>(라운지 요약·openBizLounge), <code>:1010-1027</code>(업체 선택 시트).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -47083,7 +46101,7 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 후기 미작성 거래가 목록 하단에 밀리면 S7이 끝나지 않는다(후기 제출률 하락).</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>ProfileMain.tsx:669-677</code>(내 매물, 260922 제거됨 — 아래 판정 참조), <code>:682-690</code>(공개 미리보기), <code>:694-711</code>(파트너 시작), <code>:717-721</code>(전체 보기), <code>:723-737</code>(서브탭), <code>:761-762,1030-1036</code>(행 탭·리뷰 시트).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922, 내 매물 진입 행 항목만) — 시트 안 단독 [내 매물] 진입 행은 헤더(FR-1 제안③)와 완전 중복이라 제거했다. 거래 섹션의 [전체 보기](<code>tradeMore</code>, <code>/trades</code>)는 아래 거래 미니 리스트(<code>tradeRow</code>)와 짝을 이루는 "섹션 헤더 + 더보기" 패턴이라 <strong>유지</strong> — 제거하면 그 섹션의 더보기 기능 자체가 없어지므로 단독 중복 진입점과 성격이 다르다. 제안①(거래 행 탭 목적지를 DM 방으로)은 F-S7-02 FR-1과 묶인 별도 판정으로 미확정(☐) 유지.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -48209,7 +47227,7 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 오탈자를 고치려는 사용자가 상세 → 프로필 → 탭 → 케밥까지 4단계를 거친다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>ProfileMain.tsx:660-666</code>(탭 줄 TABS 3종), <code>:774-776</code>(새 게시물), <code>:793</code>(카드 탭), <code>:823-836</code>(케밥·수정·삭제), <code>:338-353</code>(삭제 확인), <code>:841-849</code>(더보기). 인벤토리 <code>260918_flow_inventory_B_comms.md</code>(교차 화면 2번 — 수정/삭제 경로 분산).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -49353,7 +48371,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922) — 제안① 4상태 분기(<code>CustomerSupport.tsx:74-81,194-205</code>) 구현 확인. 제안②는 기 충족.</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> [새 문의 등록] 탭 → FR-3 폼 상단에 <strong>"이 질문인가요?" FAQ 3개 접힘 카드</strong>(deflection): 유형 칩(FR-3)을 고르면 그 카테고리의 FAQ 상위 3개로 갱신(데이터 = F-SET-01 FR-8 FAQ, 카테고리 매핑 <code>사기·송금 문제→마켓</code>, <code>계정→계정</code>, 기타→일반), 각 항목 펼침 → 답이 되면 [해결됐어요](폼 닫힘·티켓 없음) / 아니면 그대로 작성 계속. FAQ 0건이면 카드 비노출. 목록 카드(미읽음 점·답변 n건)·4상태 분기는 현행.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 T.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -50370,7 +49388,7 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 신고 내용을 다시 읽으려다 옆의 [신고 취소]를 눌러 확인 다이얼로그를 보게 된다. 다이얼로그를 습관적으로 승인하면 <strong>재신고가 불가능해진다.</strong></div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>CustomerSupport.tsx:205-233</code>(카드), <code>:234-241,89-105</code>(취소·확인 다이얼로그·<code>can_cancel</code>). 인벤토리 <code>260918_flow_inventory_D_trust.md:236-265</code>.</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922) — 제안①(취소 버튼 시트 이동)은 v6에서 이미 확인 완료. 제안②(4상태 분기, <code>reportsError</code>/<code>StateBlock</code>, <code>CustomerSupport.tsx:83-90,235-246</code>) 구현 확인.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -51383,7 +50401,7 @@ body {
 <div class="field field-prose"><div class="field-label">상태</div> 사진 업로드 중(버튼 비활성 + 오버레이) / 업로드 실패(해당 슬롯 재시도) / 제출 실패(토스트 + 폼 유지) / 거래 선택 시트 0건("연결할 거래가 없어요" — 선택 없이 진행 가능).</div>
 <div class="field field-prose"><div class="field-label">카피</div> vi 칩 "Lừa đảo·Chuyển tiền" · "Hàng không đúng" · "Tài khoản" · "Khác" · 플레이스홀더 "Khi nào · giao dịch nào · vấn đề gì" · [Gửi yêu cầu].</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y]</code>) — 구현 대기 · 구현 패키지 T(서버: <code>support_tickets.transaction_id</code>·<code>type</code>·<code>photo_content_ids</code>, 제목 nullable).</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -52396,7 +51414,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐ (신고 취소 노출 여부·확인 다이얼로그는 구현 완료 — 남은 판정은 "대상 이동" 5타입 확장 여부뿐)</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① [대상으로 이동] 채움 버튼 제거 → 시트 본문의 <strong>대상 행 자체를 탭 가능</strong>하게(5타입 + 신설 2): <code>LISTING→/market/:id</code> · <code>USER→/profile/:id</code> · <code>POST→/feed/post/:id</code> · <code>COMMENT→/feed/post/:id#c-:commentId</code> · <code>BIZ→/biz/:id</code> · <code>REVIEW→/profile/:id/reviews</code> / <code>DM</code>·삭제·탈퇴 대상은 <code>표시</code> 행("대화 신고 · 이동 없음" / "삭제된 대상이에요"). ② 하단 = <code>[신고 취소]</code> 텍스트 위험 행 <strong>단독</strong>(<code>can_cancel</code>일 때만 렌더) + <code>useConfirmStore</code> 확인 — 조회 의도가 파괴적 버튼을 스치지 않는다. ③ 대상 행에 사용자 신고면 [차단하기] 보조 텍스트(F-X-02 FR-2 확인) — "누구였는지 알 수 없어 차단하러 갈 수 없다" 실패 시나리오 해소.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 B.<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -53469,7 +52487,7 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 운영자가 "거래 id를 알려주세요"라고 답했는데 사용자가 답할 자리가 없다 → 새 문의를 또 만든다(중복 티켓) 또는 포기한다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>frontend/src/pages/settings/SupportDetail.tsx:25-56</code>(조회 전용, 입력 폼 없음 — 파일 전체 63줄), <code>backend/app/routers/support.py:117</code>(답글 엔드포인트 존재). 인벤토리 <code>260918_flow_inventory_D_trust.md:514</code>(§고아·도달불가 1번).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922) — 제안①(답글 입력창+보내기, <code>SupportDetail.tsx:76-88,124-144</code>) · 제안②(로딩/실패 분기, <code>SupportDetail.tsx:22-36,43-69</code>) 구현 확인.<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -54485,18 +53503,20 @@ body {
 <div class="preamble"><div class="bullet"><strong>단계</strong> <strong>CM(커뮤니티 — 독립 여정)</strong> · <strong>상태</strong> 제안 · <strong>등급</strong> B(프레임·요소표까지. 화면 샘플은 다음 단계) · <strong>적용 대상</strong> 탭바 커뮤니티 탭 하위 전체</div><div class="bullet"><strong>왜 독립 여정인가</strong> 거래 여정 화면(S0~S7·X) 어디에서도 피드/그룹을 참조하지 않는다 — 접점은 <strong>단 하나, 타인 프로필(F-P-01 FR-1)의 게시물 레일</strong>뿐이다. 따라서 S0~S7에 끼워넣지 않고 CM 축으로 따로 세운다(§B1 참조).</div></div>
 <section class="scene" id="F-CM-01__FR-1">
 <h3 class="scene-id">F-CM-01 FR-1 <span class="scene-title">피드 목록(커뮤니티 탭 루트)</span></h3>
-<div class="field field-prose"><div class="field-label">조건</div> 탭바 커뮤니티 탭. 5필터(전체/내동네/친구/핫/내그룹) 중 기본값.</div>
-<div class="field field-prose"><div class="field-label">와이어</div> <code>H</code> 좌 [+ 새 글] · 우 [프로필][DM(미읽음 dot)] / <code>C</code> 필터 칩 5종 / <code>B</code> 2열 그리드 카드(사진·본문 일부·작성자 아바타·닉네임·응원 하트+숫자) → 무한/더보기 / <code>K</code> 탭바.</div>
-<div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>H</td><td>새 글 작성(+)</td><td><strong>주행동</strong></td><td>진행</td><td><code>/feed/new</code></td><td>커뮤니티 여정의 생산 행동. 다만 <strong>헤더 좌측 아이콘</strong>이라 무게가 주행동답지 않다(앱 내 다른 작성 진입은 FAB — 마켓·그룹 상세)</td></tr><tr class="no-reason"><td>H</td><td>프로필 아이콘</td><td>보조</td><td>이동</td><td><code>/profile</code></td><td><strong>이유 없음.</strong> B1 에서 개인 프로필은 "모든 단계에서 되돌아오는 상시 허브"이고 그 자리는 탭바가 이미 맡는다 — 목적지가 같은 진입을 헤더에 한 번 더 둘 근거가 없다 → 제안 ①에서 제거</td></tr><tr class="no-reason"><td>H</td><td>DM 아이콘 + 미읽음 dot</td><td>보조</td><td>이동</td><td><code>/dm</code></td><td><strong>이유 없음</strong>(목적지가 탭바 DM 탭과 같음). 다만 미읽음 dot 은 앱 안에서 여기에만 있다 — 아이콘이 아니라 <strong>dot 이 유일한 기능</strong>이므로 제안 ①에서 탭바로 옮긴다</td></tr><tr><td>C</td><td>필터 칩 5종</td><td>보조</td><td>표시 전환</td><td>목록 재조회(내동네는 GPS 재요청 트리거)</td><td>탐색 축. 칩은 앱 내 관례(세그먼트 칩)와 일치</td></tr><tr><td>B</td><td>카드 탭</td><td>보조</td><td>이동</td><td><code>/feed/post/:id</code></td><td>열람</td></tr><tr><td>B</td><td>응원(🔥) 토글</td><td>보조</td><td>진행·가역</td><td>낙관적 토글</td><td>목록에서 가능한 유일한 반응(댓글은 상세 위임) — 위계 일관</td></tr><tr><td>B</td><td>아바타·닉네임 탭</td><td>보조</td><td>이동</td><td><code>/profile/:userId</code>(F-P-01)</td><td><strong>거래 여정과의 유일한 접점 방향</strong> — 커뮤니티에서 만난 사람을 프로필로 판단하러 갈 수 있다</td></tr></tbody></table></div>
+<div class="field field-prose"><div class="field-label">현재 유효 결정(r4, 260924)</div> 이 서비스에는 친구 관계가 없다. 피드 관계 필터는 <strong><code>팔로잉</code></strong>이고, 그룹 기능 유지 결정에 따라 <strong><code>내 그룹</code></strong>도 존치한다. 아래 r1~r3 문단은 결정 이력이며 이 문장이 우선한다.</div>
+<div class="field field-prose"><div class="field-label">현재 구현 메모(260927)</div> 헤더 단순화·작성 FAB는 반영됐지만 소스의 필터 키/라벨은 아직 <code>friends</code>/<code>친구</code>다. 최종 상태는 <code>following</code>/<code>팔로잉</code>으로 맞춰야 하며, 이 문서와 화면 샘플은 최종 결정 기준으로 표시한다.</div>
+<div class="field field-prose"><div class="field-label">조건</div> 탭바 커뮤니티 탭. 5필터(전체/내 동네/팔로잉/인기/내 그룹) 중 기본값.</div>
+<div class="field field-prose"><div class="field-label">와이어</div> <code>H</code> 제목 "피드" / <code>C</code> 필터 칩 5종(전체·내 동네·팔로잉·인기·내 그룹) / <code>B</code> 2열 그리드 카드(사진·본문 일부·작성자 아바타·닉네임·응원 하트+숫자) → 무한/더보기 / 우하단 작성 FAB / <code>K</code> 탭바.</div>
+<div class="field field-table"><div class="field-label">요소 표</div><table><thead><tr><th>영역</th><th>요소</th><th>무게</th><th>성격</th><th>탭하면</th><th>왜 여기</th></tr></thead><tbody><tr><td>H</td><td>새 글 작성(+)</td><td><strong>주행동</strong></td><td>진행</td><td><code>/feed/new</code></td><td>커뮤니티 여정의 생산 행동. 다만 <strong>헤더 좌측 아이콘</strong>이라 무게가 주행동답지 않다(앱 내 다른 작성 진입은 FAB — 마켓·그룹 상세)</td></tr><tr class="no-reason"><td>H</td><td>프로필 아이콘</td><td>보조</td><td>이동</td><td><code>/profile</code></td><td><strong>이유 없음.</strong> B1 에서 개인 프로필은 "모든 단계에서 되돌아오는 상시 허브"이고 그 자리는 탭바가 이미 맡는다 — 목적지가 같은 진입을 헤더에 한 번 더 둘 근거가 없다 → 제안 ①에서 제거</td></tr><tr class="no-reason"><td>H</td><td>DM 아이콘 + 미읽음 dot</td><td>보조</td><td>이동</td><td><code>/dm</code></td><td><strong>이유 없음</strong>(목적지가 탭바 DM 탭과 같음). 다만 미읽음 dot 은 앱 안에서 여기에만 있다 — 아이콘이 아니라 <strong>dot 이 유일한 기능</strong>이므로 제안 ①에서 탭바로 옮긴다</td></tr><tr><td>C</td><td>필터 칩 5종(전체·내 동네·팔로잉·인기·내 그룹)</td><td>보조</td><td>표시 전환</td><td>목록 재조회(내 동네는 GPS 재요청 트리거)</td><td>친구 모델 없이 팔로우 관계와 그룹 관계를 각각 탐색한다</td></tr><tr><td>B</td><td>카드 탭</td><td>보조</td><td>이동</td><td><code>/feed/post/:id</code></td><td>열람</td></tr><tr><td>B</td><td>응원(🔥) 토글</td><td>보조</td><td>진행·가역</td><td>낙관적 토글</td><td>목록에서 가능한 유일한 반응(댓글은 상세 위임) — 위계 일관</td></tr><tr><td>B</td><td>아바타·닉네임 탭</td><td>보조</td><td>이동</td><td><code>/profile/:userId</code>(F-P-01)</td><td><strong>거래 여정과의 유일한 접점 방향</strong> — 커뮤니티에서 만난 사람을 프로필로 판단하러 갈 수 있다</td></tr></tbody></table></div>
 <div class="field field-prose"><div class="field-label">주행동</div> 새 글 작성.</div>
 <div class="field field-prose"><div class="field-label">제안</div> ① 헤더 우측 [프로필][DM] 두 아이콘을 제거하고, DM 미읽음 dot 은 탭바 DM 탭 아이콘에 붙인다 — 두 아이콘 다 목적지가 탭바와 같고, 남는 기능인 dot 은 탭바에 있는 편이 어느 화면에서도 보인다(B0-2 당근마켓 헤더는 [뒤로][상대][더보기] 셋 상한). *검증 기준:* <code>/feed</code> 헤더에 남는 액션이 작성 진입 하나뿐이고, 읽지 않은 DM 이 있을 때 <code>/feed</code> 를 포함한 모든 탭 화면에서 탭바 DM 탭에 dot 이 보인다. ② 새 글 작성을 헤더 아이콘에서 <strong>FAB</strong>(우하단, 탭바 위)로 내려 마켓 목록·그룹 상세의 작성 진입과 같은 자리·같은 모양으로 맞춘다(B0-4 앱 내 기존 패턴). *검증 기준:* 마켓 목록과 피드 목록을 연달아 열었을 때 작성 버튼의 위치·모양이 같고, <code>/feed/new</code> 로 가는 경로가 그 하나뿐이다.</div>
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 헤더에 아이콘 3개가 붙어 "작성"이 어느 것인지 즉시 안 보인다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>frontend/src/pages/feed/FeedList.tsx:142-160</code>(헤더 3종), <code>:121-203</code>(필터 5종), <code>:246-261</code>(카드), <code>:129-135,306-314</code>(응원), <code>:271-303</code>(아바타/닉네임). 인벤토리 <code>260918_flow_inventory_B_comms.md:186-297</code>.</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
-<div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 헤더 = 제목 "피드"만(우측 아이콘 0 — [프로필][DM] 제거, DM 미읽음 dot은 탭바 DM 탭으로, 킷 ①). ② 필터 칩 <code>[전체] [내 동네] [팔로잉] [인기]</code> — <strong>"친구" 칩 → "팔로잉"</strong>(대표 r2 "친구 개념 없음", API 파라미터 <code>following</code>), <strong>[내 그룹] 칩 제거</strong>(F-CM-02 FR-1 B안 접기 확정). ③ 작성은 우하단 FAB(마켓 목록과 동형, 킷 ②). ④ 비로그인 열람 open(F-N-02 FR-1): [팔로잉] 칩·응원·FAB 탭 → 게이트 시트. ⑤ 카드 작성자 닉네임 옆 티어 칩은 두지 않는다(F-N-02 FR-2 제외 대상 — 커뮤니티 카드는 관계 판단 자리가 아님).</div>
-<div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1) — 구현 대기 · 구현 패키지 M.</div>
+<div class="field field-prose"><div class="field-label">대표 지시 이력(r3, r4에서 일부 번복)</div> ① 헤더 = 제목 "피드"만(우측 아이콘 0 — [프로필][DM] 제거, DM 미읽음 dot은 탭바 DM 탭으로, 킷 ①). ② 필터 칩 <code>[전체] [내 동네] [팔로잉] [인기]</code> — <strong>"친구" 칩 → "팔로잉"</strong>(대표 r2 "친구 개념 없음", API 파라미터 <code>following</code>), <strong>[내 그룹] 칩 제거</strong>(F-CM-02 FR-1 B안 접기 확정). ③ 작성은 우하단 FAB(마켓 목록과 동형, 킷 ②). ④ 비로그인 열람 open(F-N-02 FR-1): [팔로잉] 칩·응원·FAB 탭 → 게이트 시트. ⑤ 카드 작성자 닉네임 옆 티어 칩은 두지 않는다(F-N-02 FR-2 제외 대상 — 커뮤니티 카드는 관계 판단 자리가 아님).</div>
+<div class="field field-prose"><div class="field-label">대표 지시 이력(r3 판정)</div> 당시 승인됐으나 r4에서 ②의 <code>[내 그룹]</code> 제거만 번복됐다. 현재 적용 범위는 바로 아래 r4 판정을 따른다.</div>
 <div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — 커뮤니티 그룹 라우트·진입 유지; 승인안 ②의 "[내 그룹] 칩 제거(F-CM-02 FR-1 B안 접기 확정)" 제외, [내 그룹] 칩 존치. 나머지 승인안(①③④⑤ 헤더·팔로잉 칩·FAB·비로그인 게이트·티어 칩 제외)은 유효.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -55495,8 +54515,8 @@ body {
       <div class=&quot;feedFilterRow&quot;>
         <span class=&quot;fChip fChipActive&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;10&quot;/><path d=&quot;M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20&quot;/><path d=&quot;M2 12h20&quot;/></svg>전체</span>
         <span class=&quot;fChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0&quot;/><circle cx=&quot;12&quot; cy=&quot;10&quot; r=&quot;3&quot;/></svg>내 동네</span>
-        <span class=&quot;fChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg>친구</span>
-        <span class=&quot;fChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5&quot;/></svg>핫</span>
+        <span class=&quot;fChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg>팔로잉</span>
+        <span class=&quot;fChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5&quot;/></svg>인기</span>
         <span class=&quot;fChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M18 21a8 8 0 0 0-16 0&quot;/><circle cx=&quot;10&quot; cy=&quot;8&quot; r=&quot;5&quot;/><path d=&quot;M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3&quot;/></svg>내 그룹</span>
       </div>
 
@@ -55571,7 +54591,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 히어로 통계(<code>12.4km · 안전 A</code>)·<code>+30 EXP</code>·작성자 <code>LV.7</code> 제거(와이어·코드, F-N-02 FR-2 ②). ② 본인 글 헤더 <code>⋮</code> → <code>[수정] ─ [삭제(위험, useConfirmStore 확인 1회)]</code> / 타인 글 <code>⋮</code> → <code>[신고]</code>(F-X-02 FR-1 규격) — F-P-02 FR-4 제안 ①과 한 판정(프로필 내 피드 탭 케밥은 목록 관리용 존치). ③ 댓글 행 우측 = <code>♡</code> + <code>⋮</code>(본인 = [삭제] 확인 1회 / 타인 = [신고]) — ⚑ 아이콘 나란히 배치 폐기. ④ 못 찾음(404·삭제) → 토스트+튕김 대신 "삭제된 글이에요" 빈 상태 + [피드로]. ⑤ 비로그인 열람 open, 댓글 입력·응원 탭 → 게이트 시트.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1) — 구현 대기 · 구현 패키지 M(서버: 댓글 삭제 엔드포인트 확인, 없으면 신설).</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -56705,7 +55725,7 @@ body {
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> <strong>B안(접기) 확정.</strong> ① <code>App.tsx</code>의 <code>/community/groups</code>·<code>/community/groups/new</code>·<code>/group/:slug</code> 라우트 등록과 <code>TopBar.tsx</code> <code>SECTION_ROOTS</code> 착지점 제거. 화면 코드(<code>GroupList.tsx</code>·<code>GroupCreate.tsx</code>·<code>GroupDetail.tsx</code>)·서버 API·테이블은 <strong>존치</strong>(되살릴 때 라우트 복구로 끝). ② 기존 그룹 대화방(<code>communityGroupId</code> 있는 방) 존재 여부를 먼저 조회 — 있으면 <strong>일반 그룹톡방으로 그대로 유지</strong>(방 이름·사진 유지, 그룹 상세로 올라가는 경로만 사라짐). 대표 r2 "커뮤니티 그룹 ≠ 그룹톡방"과 정합. ③ 직접 URL 진입 → 앱 표준 라우트 폴백(홈). ④ F-CM-01 FR-1 [내 그룹] 칩 제거. ⑤ 이유(리뷰 §3): 모임 수요는 그룹톡방이 받고 있고, A안은 FR-2·개설 폼을 미검증 상태로 같이 열며, 런치 범위의 크기가 아니다. 검증 기준 = 킷 B안 ①~④ 그대로.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y — 존폐 판정]</code> → <strong>B안 접기</strong>) — 구현 대기 · 구현 패키지 M.</div>
 <div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — 커뮤니티 그룹 현행 유지(라우트·화면·API·[내 그룹] 칩 모두 존치, B안 접기 미채택). 승인안 전체(①~⑤ 라우트 제거·그룹톡방 유지 전환·URL 폴백·칩 제거) 제외.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -57795,7 +56815,7 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 관리자가 목록을 스크롤하다 강퇴 아이콘을 스쳐 멤버가 즉시 쫓겨난다. 되돌리려면 재가입 요청을 받아야 한다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>frontend/src/pages/community/GroupDetail.tsx:46-57,83-89</code>(가입), <code>:97-122</code>(탭), <code>:170-178</code>(FAB), <code>:127-137</code>(채팅방), <code>:254-265,283-291</code>(승인), <code>:245-252,300-309</code>(강퇴 — 확인 없음). 인벤토리 <code>260918_flow_inventory_B_comms.md:186-297</code>(문서-코드 불일치 정정 포함: PENDING 승인은 실제로 구현돼 있음).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922) — 제안①(강퇴 <code>useConfirmStore</code> 확인 1회, <code>GroupDetail.tsx:246-261</code>) · 제안②(승인·강퇴 텍스트 라벨 행 분리, 강퇴만 위험 톤, <code>GroupDetail.tsx:292-313</code>) 구현 확인.<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -58887,7 +57907,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 검색 아이콘 <code>requireAuth</code> 제거 — 비로그인도 <code>/map/search</code>까지(FR-2, F-N-02 FR-1). ② 헤더 재구성: 위치 행 아래 <strong>검색바 1줄</strong>("동네 가게 검색", 탭 = <code>/map/search</code>, 당근 동네지도 상단 검색바) + 우측 <strong>[내 저장 ▾] 1개</strong>(→ <code>/map/profile</code> = "내 동네 저장", F-MP-02 FR-3, 로그인 게이트) — 찜·동네프로필 아이콘 2개는 제거. ③ 지도 캔버스 모드를 F-S1-01 FR-2와 통일(핀 → 하단 캐러셀 카드 → 상세 오버레이, [리스트로] 복귀, 오버레이 [카테고리 더보기] 칩 제거 — F-MP-02 FR-4 제거 판정과 정합). ④ 지도 화면 하단 1줄 OSM 저작자 표시(F-SET-01 FR-1 ⑥ 이관). ⑤ 홈 [더보기](F-H-01 FR-2 ④)를 위한 <code>sort=news</code>(소식 있는 업체 우선) 파라미터 1개. 카드 "걸어서 4분"·소식 줄·후기 줄 유지.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1) — 구현 대기 · 구현 패키지 N.</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -59999,7 +59019,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① FR-1의 범위 파라미터(선택 동네 bbox · [내 주변만] 반경)를 검색 요청에 그대로 전달 — 전역 bbox 고정 폐기. ② 결과 카드에 거리 표기("걸어서 4분" 또는 "1.2km"). ③ 0건 → "Bình Thạnh에 없어요" + [전체 지역에서 찾기](범위 해제 재검색). ④ 비로그인 검색은 FR-1 ①로 성립(이 화면 변경 없음). 4상태는 현행(<code>StateBlock</code>).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2) — 구현 대기 · 구현 패키지 N(서버: <code>/biz/search</code>에 bbox·radius 파라미터).<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -61169,7 +60189,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 헤더 = <code>[뒤로] · [찜] · [⋮]</code> — <code>⋮</code> 시트 <code>[공유] ─ [신고하기(위험)]</code>(킷 ①②). 업체 신고는 F-X-02 FR-1 규격(사유 + 기타 메모)으로 교체. ② <strong>업체 매물 → <code>/market/:id</code> 전이에서 업체 맥락 유지</strong>: 판매자 블록을 업체 아이덴티티(로고 · 업체명 · 인증 배지 · 단골 n)로 렌더 + "업체 페이지 보기" 링크, 뒤로가기는 진입한 업체 상세로 착지(킷 ③, F-S2-01 FR-1 ⑤). ③ <strong>쿠폰 섹션 [받기]/[받음]은 유지한다</strong> — 대표 판정(260923): 업체 쿠폰은 쿠폰함(F-COUP-01)과 <strong>별개</strong>, 비노출·플래그 동기화 제안은 철회. 받은 쿠폰은 이 업체 상세 홈 탭에 "받음 · 매장에서 보여주세요" 상태로 확인한다(별도 쿠폰함 불필요). ④ 후기 작성 게이트(문의·전화 이력 조건)는 §5 미포함 — 별도 판정으로 남긴다. 하단 바 <code>[전화][문의하기(채움)]</code> 유지, 비로그인 open(문의·찜·팔로우는 게이트 시트).</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1, 쿠폰 섹션 유지) — 구현 대기 · 구현 패키지 O(업체 아이덴티티 블록 — 서버: 매물 응답 <code>seller_biz_profile</code>) + B(신고 규격).<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>
@@ -62272,7 +61292,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
 <div class="field field-prose"><div class="field-label">제안(승인안, 260924)</div> ① 관리 메뉴를 <strong>4행(소식 · 가격 · 쿠폰 · 매물) 전부 페이지 이동</strong>으로 통일 — [리뷰 관리] 행은 빼고 성과 탭 상단 "후기 N건 · 미답변 M" 카드(탭 → 후기 섹션 스크롤)로 격하(킷 ④). <strong>[쿠폰 관리] 행은 유지</strong>(대표 판정: 업체 쿠폰은 쿠폰함과 별개 — 동기화·숨김 제안 철회). ② <strong>파트너 철회 요청</strong> = 운영 탭 최하단 위험 톤 행 <code>[파트너 철회 요청]</code> + <code>useConfirmStore</code> "파트너 철회를 요청할까요? 접수 후 운영팀이 확인하고 업체 페이지가 비공개돼요" [요청] → 기존 구현(CS 초안 <code>SupportTicket source=BIZ</code>) 접수 → 행 라벨 "철회 요청 접수됨"(<code>표시</code>, 재요청 불가). PENDING 신청 철회(F-BZ-03 FR-3)도 같은 문법. ③ 도움말 행 → <code>/settings/support</code> <strong>페이지 이동</strong>(킷 ③). ④ 미답변 문의 우선조치 카드(킷 ①)는 기본안 유지.</div>
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P2, 쿠폰 관리 행 유지) — 구현 대기 · 구현 패키지 O.<br>---</div>
-<div class="field"><div class="field-label">화면 샘플(제안 반영)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
+<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;>

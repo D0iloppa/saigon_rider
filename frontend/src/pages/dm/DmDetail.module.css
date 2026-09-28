@@ -966,6 +966,17 @@
   color: var(--danger, #dc2626);
 }
 
+.blockedComposer {
+  flex: 0 0 auto;
+  padding: 16px max(20px, env(safe-area-inset-left)) calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
 /* ── 메시지 수정/삭제/공감/답장 (215_dm_message_sync) ─────────────── */
 
 /* 소프트 삭제 플레이스홀더 */

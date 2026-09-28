@@ -943,6 +943,11 @@
     "messagesLoadError": "메시지를 불러오지 못했어요",
     "inputPlaceholder": "메시지 입력...",
     "sendBtn": "전송",
+    "blockAction": "차단하기",
+    "blockConfirm": "{{name}}님을 차단할까요? 이 사람의 메시지·매물이 더 이상 보이지 않아요. 상대에게는 알리지 않아요",
+    "blockConfirmTrade": "진행 중 거래가 있어요 — 차단하면 약속이 취소되고 고객센터에 자동 접수돼요",
+    "blockedByMe": "차단한 사용자예요 · 메시지를 보낼 수 없어요",
+    "messagingDisabled": "메시지를 보낼 수 없어요",
     "makeAppointment": "약속잡기",
     "laStatus": {
       "accepted": "약속 확정",

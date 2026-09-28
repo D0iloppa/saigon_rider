@@ -119,6 +119,8 @@ function transformConversation(raw: any): DmConversation {
         }
       : null,
     boardUnread: raw.board_unread ?? 0,
+    messagingDisabled: raw.messaging_disabled ?? false,
+    blockedByMe: raw.blocked_by_me ?? false,
   };
 }
 
@@ -195,6 +197,8 @@ export async function createConversation(
       activeTrades: [],
       notice: null,
       boardUnread: 0,
+      messagingDisabled: false,
+      blockedByMe: false,
     }, 100);
   }
   requireSession();

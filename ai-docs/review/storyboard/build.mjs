@@ -590,8 +590,8 @@ function renderScreenSection(scene) {
     } else {
       sampleEmbedCount++;
       return (
-        `<div class="field"><div class="field-label">화면 샘플(제안 반영)</div>` +
-        `<div class="screen-sample"><iframe srcdoc="${escAttr(sampleHtml)}" width="390" height="844"></iframe></div></div>`
+        `<div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div>` +
+        `<div class="screen-sample"><iframe srcdoc="${escAttr(sampleHtml.replace(/[ \t]+$/gm, ''))}" width="390" height="844"></iframe></div></div>`
       );
     }
   }

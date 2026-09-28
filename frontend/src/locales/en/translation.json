@@ -943,6 +943,11 @@
     "messagesLoadError": "Couldn't load messages",
     "inputPlaceholder": "Type a message...",
     "sendBtn": "Send",
+    "blockAction": "Block",
+    "blockConfirm": "Block {{name}}? You will no longer see this person's messages or listings. They will not be notified.",
+    "blockConfirmTrade": "You have an active trade — blocking will cancel the appointment and automatically notify Support.",
+    "blockedByMe": "You blocked this user · You can't send messages",
+    "messagingDisabled": "You can't send messages",
     "makeAppointment": "Set a meetup",
     "laStatus": {
       "accepted": "Meetup confirmed",

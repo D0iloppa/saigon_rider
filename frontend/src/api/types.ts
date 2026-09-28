@@ -241,6 +241,10 @@ export interface DmConversation {
   notice: DmNotice | null;
   /** 게시판 전체 미읽음 글 수 (init/220) — 단건 조회에서만 채워진다(목록은 항상 0). */
   boardUnread: number;
+  /** 차단 관계로 새 DM 전송이 금지됨. 기존 방/이력은 유지된다. */
+  messagingDisabled: boolean;
+  /** 내가 상대를 차단한 경우에만 true. 상대가 나를 차단했는지는 노출하지 않는다. */
+  blockedByMe: boolean;
 }
 
 export interface DmNotice {

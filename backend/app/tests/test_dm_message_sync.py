@@ -67,9 +67,11 @@ class WatermarkPollingTest(unittest.IsolatedAsyncioTestCase):
         select_result.scalars.return_value.all.return_value = rows
         reactions_result = MagicMock()
         reactions_result.all.return_value = list(reaction_rows)
+        watermarks_result = MagicMock()
+        watermarks_result.all.return_value = []
         db = MagicMock()
         db.get = AsyncMock(return_value=self.conv)
-        db.execute = AsyncMock(side_effect=[select_result, reactions_result])
+        db.execute = AsyncMock(side_effect=[select_result, reactions_result, watermarks_result])
         return db
 
     async def test_after_cursor_filters_and_orders_by_updated_at(self):
@@ -100,6 +102,8 @@ class WatermarkPollingTest(unittest.IsolatedAsyncioTestCase):
         sql = str(db.execute.await_args_list[0].args[0].compile(dialect=postgresql.dialect()))
         self.assertIn("ORDER BY dm_messages.created_at", sql)
         self.assertNotIn("updated_at >", sql)
+        # F-X-02 FR-2: 차단은 새 전송만 막고 기존 이력 조회는 막지 않는다.
+        dm.require_unblocked.assert_not_awaited()
 
     async def test_poll_response_carries_edit_delete_and_reactions(self):
         # 한 폴링 응답에 수정본·삭제본이 함께 실리고, 공감 집계가 붙는다.
@@ -468,7 +472,8 @@ class ConversationListDeletedMessageTest(unittest.IsolatedAsyncioTestCase):
         deleted_last = _message(conv_id, other, content="비밀 내용", deleted_at=datetime.now(UTC))
 
         blocks = MagicMock()
-        blocks.all.return_value = []
+        # 차단 관계여도 기존 direct 방은 목록에 남고 읽기 전용 상태를 함께 내린다.
+        blocks.all.return_value = [(me, other)]
         members = MagicMock()
         members.all.return_value = [(conv_id, datetime.now(UTC) - timedelta(days=1), None)]
         convs = MagicMock()
@@ -489,6 +494,8 @@ class ConversationListDeletedMessageTest(unittest.IsolatedAsyncioTestCase):
 
         # 삭제된 마지막 메시지 — 원문 대신 플레이스홀더 (DmDetail 의 dm.deletedMessage 와 동일 문구)
         self.assertEqual(result[0].last_message_preview, "삭제된 메시지입니다")
+        self.assertTrue(result[0].messaging_disabled)
+        self.assertTrue(result[0].blocked_by_me)
         # 안읽음 카운트 쿼리에 deleted_at IS NULL 조건이 들어간다
         unread_sql = str(db.execute.await_args_list[5].args[0].compile(dialect=postgresql.dialect()))
         self.assertIn("deleted_at IS NULL", unread_sql)

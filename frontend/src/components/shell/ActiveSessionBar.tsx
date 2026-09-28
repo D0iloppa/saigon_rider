@@ -62,6 +62,14 @@ function useWalkieSessionCell() {
   const presenceRefreshRef = useRef<(() => void) | null>(null);
   const sentPendingIdsRef = useRef<Set<string>>(new Set());
   const prevPresentRef = useRef<string[] | null>(null);
+  // Capacitor 호출을 직렬화한다. React effect cleanup/start 가 채널 전환·StrictMode 재마운트에서
+  // 맞물려도 이전 채널의 end 가 새 채널의 start 뒤에 도착해 상태 표면을 지우지 않게 한다.
+  const channelStatusTaskRef = useRef<Promise<void>>(Promise.resolve());
+  const enqueueChannelStatus = useCallback((operation: () => Promise<void>) => {
+    channelStatusTaskRef.current = channelStatusTaskRef.current
+      .then(operation, operation)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -469,6 +477,53 @@ function useWalkieSessionCell() {
     : (isGroup ? allPresent : otherPresent)
       ? 'connected'
       : 'alone';
+
+  // DM 밖에서는 인앱 바를 그리지 않는 대표 판정은 유지하되, 활성 채널 자체는 OS 지속 표면에
+  // 표시한다. lifecycle effect 는 채널 진입/전환/퇴장만 담당하고, 아래 update effect 는 presence와
+  // 발화 상태만 갱신한다. 두 호출은 위 큐로 직렬화돼 cleanup 시 stale 표면이 남지 않는다.
+  const channelStatusSpeakingText = isRec
+    ? t('walkieTalkie.statusRecording', { defaultValue: '발신중' })
+    : speakingOthers.length >= 2
+      ? t('walkieTalkie.multipleSpeaking', { count: speakingOthers.length, defaultValue: '{{count}}명이 말하는 중' })
+      : speakingOtherName
+        ? t('walkieTalkie.someoneSpeaking', { name: speakingOtherName, defaultValue: '{{name}}님이 말하는 중' })
+        : '';
+
+  useEffect(() => {
+    if (!active || !conversationId) return;
+    enqueueChannelStatus(() => native.walkieTalkie.startChannelStatus({
+      channelId: conversationId,
+      channelName,
+      presentCount,
+      totalCount: presence?.members.length ?? 0,
+      speakingText: channelStatusSpeakingText,
+    }));
+    return () => {
+      enqueueChannelStatus(() => native.walkieTalkie.endChannelStatus());
+    };
+    // Presence/발화 변화는 아래 update effect가 처리한다. 여기까지 의존시키면 매 하트비트마다
+    // end/start가 발생해 Android FGS와 iOS Live Activity가 깜빡인다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, conversationId, channelName, enqueueChannelStatus]);
+
+  useEffect(() => {
+    if (!active || !conversationId) return;
+    enqueueChannelStatus(() => native.walkieTalkie.updateChannelStatus({
+      channelId: conversationId,
+      channelName,
+      presentCount,
+      totalCount: presence?.members.length ?? 0,
+      speakingText: channelStatusSpeakingText,
+    }));
+  }, [
+    active,
+    channelName,
+    channelStatusSpeakingText,
+    conversationId,
+    enqueueChannelStatus,
+    presentCount,
+    presence?.members.length,
+  ]);
 
   return {
     active,

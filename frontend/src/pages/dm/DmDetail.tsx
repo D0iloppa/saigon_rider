@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { createPortal } from 'react-dom';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, ChevronDown, CircleUserRound, CreditCard, Flag, HandCoins, ImagePlus, LayoutList, LocateFixed, LogOut, MailOpen, MapPin, Megaphone, MoreVertical, Pencil, Radio, Reply, Smile, Trash2, X } from 'lucide-react';
+import { AlertCircle, Ban, CalendarPlus, ChevronDown, CircleUserRound, CreditCard, Flag, HandCoins, ImagePlus, LayoutList, LocateFixed, LogOut, MailOpen, MapPin, Megaphone, MoreVertical, Pencil, Radio, Reply, Smile, Trash2, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -53,7 +53,7 @@ import type { AppointmentNavigationDestination } from '@/api/dm';
 import { native } from '@/lib/native';
 import type { DealStatusKind } from '@/lib/plugins/liveActivity';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
-import { fetchMyReview, localizedName, type ReviewBrief } from '@/api/market';
+import { blockUser, fetchMyReview, localizedName, type ReviewBrief } from '@/api/market';
 import ReviewSheet from '@/components/market/ReviewSheet';
 import { translateText } from '@/api/translate';
 import { toast } from '@/components/ui/Toast';
@@ -235,6 +235,7 @@ export default function DmDetail() {
   const isDirect = (conv?.conversationType ?? locationState?.conv?.conversationType ?? 'direct') === 'direct';
   const roomTitle = conv?.title ?? locationState?.conv?.title ?? t('dm.group', { defaultValue: '그룹톡방' });
   const roomMemberCount = conv?.memberCount ?? locationState?.conv?.memberCount ?? null;
+  const messagingDisabled = isDirect && !!conv?.messagingDisabled;
 
   // 서버 total 캐시 — 위로 스크롤 시 "아직 안 받은 과거분" 페이지 계산용
   const totalRef = useRef<number | null>(null);
@@ -585,6 +586,9 @@ export default function DmDetail() {
     } catch (err) {
       // 전송 실패 시 입력을 비운 채로 두지 않고 원문을 복원 — 재입력 없이 한 번의 조작으로 재전송 가능 (P1-6)
       composerRef.current?.setValue(text);
+      // 상대가 이 화면을 연 뒤 나를 차단했을 수 있다. 단건 계약을 다시 받아 입력창을
+      // 읽기 전용 상태로 전환한다(차단 주체는 서버가 노출하지 않는다).
+      if (isDirect) refreshConv();
       const msg = err instanceof Error ? err.message : '';
       toast.error(
         msg.includes('banned_keyword')
@@ -1199,6 +1203,45 @@ export default function DmDetail() {
         }
       },
       { confirmLabel: t('dm.leaveRoom') },
+    );
+  };
+
+  const handleBlockPick = () => {
+    if (!conversationId || !otherUserId) return;
+    setMoreSheetOpen(false);
+    const hasActiveTrade = currentAppointment?.status === 'ACCEPTED';
+    useConfirmStore.getState().open(
+      {
+        mode: 'text',
+        value: hasActiveTrade
+          ? t('dm.blockConfirmTrade', {
+              defaultValue: '진행 중 거래가 있어요 — 차단하면 약속이 취소되고 고객센터에 자동 접수돼요',
+            })
+          : t('dm.blockConfirm', {
+              name: otherName,
+              defaultValue: `${otherName}님을 차단할까요? 이 사람의 메시지·매물이 더 이상 보이지 않아요. 상대에게는 알리지 않아요`,
+            }),
+      },
+      async () => {
+        try {
+          await blockUser(otherUserId);
+          useConfirmStore.getState().close();
+          setConv((prev) => prev ? { ...prev, messagingDisabled: true, blockedByMe: true } : prev);
+          if (walkieActiveConversationId === conversationId) {
+            useWalkieTalkieBubbleStore.getState().close();
+          }
+          if (liveChannelConversationId === conversationId) {
+            useLocationChannelStore.getState().clear();
+          }
+          toast.success(t('market.blockDone', {
+            defaultValue: '차단했어요 · 설정 > 차단 사용자 관리에서 해제할 수 있어요',
+          }));
+        } catch {
+          useConfirmStore.getState().close();
+          toast.error(t('market.blockError', { defaultValue: '차단 처리에 실패했어요' }));
+        }
+      },
+      { confirmLabel: { mode: 'text', value: t('dm.blockAction', { defaultValue: '차단' }) } },
     );
   };
 
@@ -2276,9 +2319,15 @@ export default function DmDetail() {
 
       {/* 채팅방 안 "진행 중 바" (F-N-01 FR-2, 대표 판정 2026-09-24) — 이 방의 세션일 때만
           입력창 바로 위 in-flow 로 뜬다. 다른 화면·다른 방에는 뜨지 않는다. */}
-      {conversationId && <ActiveSessionBar conversationId={conversationId} />}
+      {conversationId && !messagingDisabled && <ActiveSessionBar conversationId={conversationId} />}
 
-      <MessageComposer
+      {messagingDisabled ? (
+        <div className={styles.blockedComposer} role="status">
+          {conv?.blockedByMe
+            ? t('dm.blockedByMe', { defaultValue: '차단한 사용자예요 · 메시지를 보낼 수 없어요' })
+            : t('dm.messagingDisabled', { defaultValue: '메시지를 보낼 수 없어요' })}
+        </div>
+      ) : <MessageComposer
         ref={composerRef}
         onSend={handleSend}
         placeholder={t('dm.inputPlaceholder')}
@@ -2352,7 +2401,7 @@ export default function DmDetail() {
             ),
           },
         ]}
-      />
+      />}
 
       <input
         ref={fileInputRef}
@@ -2434,6 +2483,16 @@ export default function DmDetail() {
           >
             {t('dm.moreMenuReport', { defaultValue: '신고하기' })}
           </button>
+          {isDirect && !conv?.blockedByMe && (
+            <button
+              className={`${styles.reportItem} ${styles.leaveItem}`}
+              type="button"
+              onClick={handleBlockPick}
+            >
+              <Ban size={17} />
+              {t('dm.blockAction', { defaultValue: '차단하기' })}
+            </button>
+          )}
           {/* 위치 공유하기 항목 제거(260919 리뷰킷 F-S3-01 FR-2) — 진입로가 이미 "+" 메뉴와
               활성 약속 카드 두 곳에 있어 세 번째 진입로가 종료 행위(신고·나가기) 사이에 끼면
               오탭 시 상대에게 실시간 위치를 전송하는 사고로 이어진다. */}

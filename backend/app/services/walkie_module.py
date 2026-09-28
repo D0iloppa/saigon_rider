@@ -14,11 +14,11 @@ import uuid
 from pathlib import Path
 
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from ..deps import verify_user_session
-from ..models import Content, DmConversation, DmConversationBan, DmConversationMember, User
+from ..models import Content, DmConversation, DmConversationBan, DmConversationMember, User, UserBlock
 
 
 def _as_uuid(ref: str) -> uuid.UUID | None:
@@ -38,7 +38,7 @@ class DmMembership:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def _allowed(self, channel_ref: str, user_ref: str) -> bool:
+    async def _allowed(self, channel_ref: str, user_ref: str, *, reject_blocked: bool = False) -> bool:
         conv_id, uid = _as_uuid(channel_ref), _as_uuid(user_ref)
         if conv_id is None or uid is None:
             return False
@@ -47,7 +47,24 @@ class DmMembership:
             if conv is None:
                 return False
             if conv.conversation_type == "direct":
-                return uid in (conv.participant_1, conv.participant_2)
+                if uid not in (conv.participant_1, conv.participant_2):
+                    return False
+                if not reject_blocked:
+                    # F-X-02 FR-2: 차단 전 음성 이력도 기존 DM 이력과 함께 읽을 수 있어야 한다.
+                    return True
+                blocked = (
+                    await db.execute(
+                        select(UserBlock.blocker_id).where(
+                            or_(
+                                (UserBlock.blocker_id == conv.participant_1)
+                                & (UserBlock.blocked_id == conv.participant_2),
+                                (UserBlock.blocker_id == conv.participant_2)
+                                & (UserBlock.blocked_id == conv.participant_1),
+                            )
+                        )
+                    )
+                ).first()
+                return blocked is None
             banned = (
                 await db.execute(
                     select(DmConversationBan.user_id).where(
@@ -73,9 +90,8 @@ class DmMembership:
         return await self._allowed(channel_ref, user_ref)
 
     async def can_speak(self, channel_ref: str, user_ref: str) -> bool:
-        # 듣기와 말하기의 권한을 지금은 동일하게 둔다. 나중에 "읽기 전용 채널"이 필요해지면
-        # 여기만 갈라지고 모듈은 손대지 않는다.
-        return await self._allowed(channel_ref, user_ref)
+        # 차단 뒤에도 과거 음성 이력은 읽되 새 발화는 양쪽 모두 막는다.
+        return await self._allowed(channel_ref, user_ref, reject_blocked=True)
 
     async def list_members(self, channel_ref: str) -> list[str]:
         conv_id = _as_uuid(channel_ref)

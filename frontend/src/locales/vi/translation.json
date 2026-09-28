@@ -943,6 +943,11 @@
     "messagesLoadError": "Không tải được tin nhắn",
     "inputPlaceholder": "Nhập tin nhắn...",
     "sendBtn": "Gửi",
+    "blockAction": "Chặn",
+    "blockConfirm": "Chặn {{name}}? Bạn sẽ không còn thấy tin nhắn và tin đăng của người này. Người đó sẽ không được thông báo.",
+    "blockConfirmTrade": "Bạn đang có giao dịch với người này — chặn sẽ hủy hẹn và tự động gửi yêu cầu đến Trung tâm hỗ trợ.",
+    "blockedByMe": "Bạn đã chặn người này · Không thể gửi tin nhắn",
+    "messagingDisabled": "Không thể gửi tin nhắn",
     "makeAppointment": "Hẹn gặp",
     "laStatus": {
       "accepted": "Đã chốt hẹn",

@@ -1259,6 +1259,10 @@ class DmConversationOut(BaseModel):
     notice: DmNoticeOut | None = None
     # init/220 — 게시판 전체 미읽음(헤더 점). 목록에는 싣지 않는다(행마다 집계 비용).
     board_unread: int = 0
+    # F-X-02 FR-2 — 차단 후에도 기존 direct 방/이력은 읽을 수 있지만 새 전송은 막힌다.
+    # blocked_by_me 는 내가 차단한 경우에만 true 로 내려 상대에게 차단 주체를 노출하지 않는다.
+    messaging_disabled: bool = False
+    blocked_by_me: bool = False
 
 
 class DmChannelOut(BaseModel):

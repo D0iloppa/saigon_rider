@@ -86,6 +86,21 @@ async def _listing_context(db: AsyncSession, listing_id: uuid.UUID | None):
     return _market_card(listing) if listing else None
 
 
+async def _direct_block_state(db: AsyncSession, viewer_id: uuid.UUID, other_id: uuid.UUID) -> tuple[bool, bool]:
+    """Return (messaging_disabled, blocked_by_me) without revealing who blocked to the peer."""
+    rows = (
+        await db.execute(
+            select(UserBlock.blocker_id, UserBlock.blocked_id).where(
+                or_(
+                    (UserBlock.blocker_id == viewer_id) & (UserBlock.blocked_id == other_id),
+                    (UserBlock.blocker_id == other_id) & (UserBlock.blocked_id == viewer_id),
+                )
+            )
+        )
+    ).all()
+    return bool(rows), any(blocker_id == viewer_id for blocker_id, _blocked_id in rows)
+
+
 def _resolve_dm_image(msg: DmMessage) -> str | None:
     # Private Content (including payment_qr) must not escape through imgproxy URLs.
     if msg.message_type == "payment_qr" or (msg.image_content and msg.image_content.is_private):
@@ -254,7 +269,10 @@ async def get_conversations(
             )
         )
     ).all()
-    blocked_ids = {blocked_id if blocker_id == _session_uid else blocker_id for blocker_id, blocked_id in block_rows}
+    blocked_by_me_ids = {blocked_id for blocker_id, blocked_id in block_rows if blocker_id == _session_uid}
+    messaging_disabled_ids = {
+        blocked_id if blocker_id == _session_uid else blocker_id for blocker_id, blocked_id in block_rows
+    }
 
     # 그룹/오픈톡방 §3.3(c): last_read_at 이 unread 계산의 SoT (direct 도 백필로 이 값을 쓴다).
     member_rows = (
@@ -319,8 +337,6 @@ async def get_conversations(
         if is_direct and conv.id in hidden_direct_ids:
             continue
         other_id = _other_user_id(conv, user_id) if is_direct else None
-        if is_direct and other_id in blocked_ids:
-            continue
         other_user = await db.get(User, other_id) if other_id else None
 
         last_msg = (
@@ -391,6 +407,8 @@ async def get_conversations(
                 member_count=conv.member_count,
                 community_group_id=conv.community_group_id,
                 active_trades=active_trades_map.get(conv.id, []),
+                messaging_disabled=is_direct and other_id in messaging_disabled_ids,
+                blocked_by_me=is_direct and other_id in blocked_by_me_ids,
             )
         )
     return result
@@ -411,7 +429,7 @@ async def get_conversation(
         return _group_conv_out(conv, await _resolve_notice(db, conv), await _board_unread(db, conv_id, _session_uid))
 
     other_id = require_participant(conv, _session_uid)
-    await require_unblocked(db, _session_uid, other_id)
+    messaging_disabled, blocked_by_me = await _direct_block_state(db, _session_uid, other_id)
     other_user = await db.get(User, other_id)
     return DmConversationOut(
         id=conv.id,
@@ -425,6 +443,8 @@ async def get_conversation(
         context_id=conv.context_id,
         context_listing=await _listing_context(db, conv.context_id) if conv.context_type == "listing" else None,
         appointment_unlocked=await _appointment_unlocked(db, conv, _session_uid),
+        messaging_disabled=messaging_disabled,
+        blocked_by_me=blocked_by_me,
     )
 
 
@@ -652,7 +672,6 @@ async def get_messages(
         raise HTTPException(status_code=404, detail="Conversation not found")
     if conv.conversation_type == "direct":
         require_participant(conv, _session_uid)
-        await require_unblocked(db, conv.participant_1, conv.participant_2)
     else:
         await require_member(db, conv, _session_uid)
 
@@ -1300,7 +1319,6 @@ async def mark_read(
 
     if conv.conversation_type == "direct":
         require_participant(conv, _session_uid)
-        await require_unblocked(db, conv.participant_1, conv.participant_2)
         unread = (
             (
                 await db.execute(

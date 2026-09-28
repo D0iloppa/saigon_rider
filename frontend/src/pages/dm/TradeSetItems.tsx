@@ -60,7 +60,6 @@ export default function TradeSetItems() {
   }, [conversationId]);
 
   const isBuyer = !!tradeSet && myId !== tradeSet.sellerId;
-  const sellerNickname = tradeSet && myId === tradeSet.sellerId ? user?.nickname ?? '' : otherNickname;
 
   // 활성(INQUIRY/RESERVED) 항목 + 세트가 CLOSED(전부 완료)일 때만 COMPLETED 항목도 보여준다.
   const rows = (tradeSet?.items ?? []).filter(
@@ -104,7 +103,7 @@ export default function TradeSetItems() {
     <div className={styles.page}>
       <TopBar
         showBack={false}
-        title={t('dm.tradeSetListSheetTitle', { nickname: sellerNickname, defaultValue: '{{nickname}}님과 한 번에 거래하는 물품이에요' })}
+        title={t('dm.tradeSetListSheetTitle', { nickname: otherNickname, defaultValue: '{{nickname}}님과 한 번에 거래하는 물품이에요' })}
         leftContent={
           <button type="button" className={styles.headerBtn} onClick={() => navigate(`/dm/${conversationId}`)} aria-label={t('common.close')}>
             <X size={22} strokeWidth={2} />

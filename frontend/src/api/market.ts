@@ -686,6 +686,7 @@ export interface ListingOffer {
   conversationId: string;
   counterpartId: string;
   counterpartNickname: string | null;
+  counterpartAvatarUrl: string | null;
   amount: number;
   status: string;
 }
@@ -698,6 +699,7 @@ export async function fetchListingOffers(listingId: string): Promise<ListingOffe
     conversationId: r.conversation_id,
     counterpartId: r.counterpart_id,
     counterpartNickname: r.counterpart_nickname ?? null,
+    counterpartAvatarUrl: r.counterpart_avatar_url ?? null,
     amount: r.amount,
     status: r.status,
   }));

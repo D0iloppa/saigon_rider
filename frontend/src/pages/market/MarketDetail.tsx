@@ -682,6 +682,11 @@ export default function MarketDetail() {
                     <Pencil size={16} strokeWidth={2.2} />
                     {t('market.editListing', { defaultValue: '매물 수정' })}
                   </button>
+                  {/* 실기기 피드백(260928): 매물 철회를 접힘 액션 열 안으로 이동 — [가격 수정][매물 수정][매물 철회] 순서 */}
+                  <button className={styles.withdrawBtn} type="button" onClick={handleWithdrawPick}>
+                    <Trash2 size={16} strokeWidth={2.2} />
+                    {t('market.withdraw', { defaultValue: '매물 철회' })}
+                  </button>
                 </>
               )}
               {/* F-S0-02 FR-1 r6: 상태 전환은 위 본문 상태 필로 이동 — 여기는 요청 진입점 카운터 */}
@@ -695,11 +700,6 @@ export default function MarketDetail() {
                   {t('market.chatsCount', { count: chatCount, defaultValue: `대화중인 채팅 ${chatCount}` })}
                 </button>
               </div>
-              {/* 제안 ⓐ: 매물 철회는 종료·비가역 — 접힘 액션 열에서 분리해 열 최하단에 위험 톤으로 배치 */}
-              <button className={styles.withdrawBtn} type="button" onClick={handleWithdrawPick}>
-                <Trash2 size={16} strokeWidth={2.2} />
-                {t('market.withdraw', { defaultValue: '매물 철회' })}
-              </button>
             </div>
             )
           ) : (

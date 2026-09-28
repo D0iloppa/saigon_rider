@@ -1899,6 +1899,7 @@ async def get_listing_offers(
                 conversation_id=offer.conversation_id,
                 counterpart_id=offer.proposer_id,
                 counterpart_nickname=counterpart.nickname if counterpart else None,
+                counterpart_avatar_url=resolve_avatar_url(counterpart) if counterpart else None,
                 amount=offer.amount,
                 status=offer.status,
             )

@@ -1677,6 +1677,7 @@ class ListingOfferOut(BaseModel):
     conversation_id: UUID
     counterpart_id: UUID
     counterpart_nickname: str | None = None
+    counterpart_avatar_url: str | None = None
     amount: int
     status: str
 

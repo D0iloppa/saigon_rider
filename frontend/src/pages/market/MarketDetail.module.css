@@ -518,6 +518,7 @@
   font-size: 14px;
   font-weight: 700;
   color: var(--danger);
+  border-bottom: 1px solid var(--line);
 }
 
 .withdrawBtn:active { opacity: .7; }

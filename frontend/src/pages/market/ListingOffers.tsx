@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AlertCircle, Tag } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
+import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
 import { acceptPriceOffer, declinePriceOffer } from '@/api/dm';
 import { fetchListingOffers, type ListingOffer } from '@/api/market';
@@ -77,33 +78,36 @@ export default function ListingOffers() {
           />
         ) : (
           items.map((o) => (
-            <div key={o.id} className={styles.row} onClick={() => navigate(`/dm/${o.conversationId}`)}>
-              <div className={styles.rowMain}>
-                <span className={styles.rowName}>{o.counterpartNickname ?? '—'}</span>
-                <span className={`${styles.rowAmount} num`}>{formatPriceVnd(o.amount, t)}</span>
-              </div>
-              <div className={styles.rowSub}>
-                <span className={styles.rowStatus}>{t(`market.offerStatus_${o.status}`, { defaultValue: o.status })}</span>
-                {o.status === 'PROPOSED' && (
-                  <div className={styles.rowActions} onClick={(e) => e.stopPropagation()}>
-                    <button
-                      className={styles.declineBtn}
-                      type="button"
-                      disabled={actingId === o.id}
-                      onClick={() => void handleDecline(o)}
-                    >
-                      {t('market.offerDecline', { defaultValue: '거절' })}
-                    </button>
-                    <button
-                      className={styles.acceptBtn}
-                      type="button"
-                      disabled={actingId === o.id}
-                      onClick={() => void handleAccept(o)}
-                    >
-                      {t('market.offerAccept', { defaultValue: '수락' })}
-                    </button>
-                  </div>
-                )}
+            <div key={o.id} className={styles.chatRow} onClick={() => navigate(`/dm/${o.conversationId}`)}>
+              <AppImage src={o.counterpartAvatarUrl ?? undefined} alt="" className={styles.chatAvatar} variant="circle" />
+              <div className={styles.chatBody}>
+                <div className={styles.rowMain}>
+                  <span className={styles.rowName}>{o.counterpartNickname ?? '—'}</span>
+                  <span className={`${styles.rowAmount} num`}>{formatPriceVnd(o.amount, t)}</span>
+                </div>
+                <div className={styles.rowSub}>
+                  <span className={styles.rowStatus}>{t(`market.offerStatus_${o.status}`, { defaultValue: o.status })}</span>
+                  {o.status === 'PROPOSED' && (
+                    <div className={styles.rowActions} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className={styles.declineBtn}
+                        type="button"
+                        disabled={actingId === o.id}
+                        onClick={() => void handleDecline(o)}
+                      >
+                        {t('market.offerDecline', { defaultValue: '거절' })}
+                      </button>
+                      <button
+                        className={styles.acceptBtn}
+                        type="button"
+                        disabled={actingId === o.id}
+                        onClick={() => void handleAccept(o)}
+                      >
+                        {t('market.offerAccept', { defaultValue: '수락' })}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))

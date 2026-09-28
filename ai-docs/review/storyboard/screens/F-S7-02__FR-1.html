@@ -959,6 +959,8 @@ body {
 .stageTag { padding: 1px 6px; border-radius: 5px; background: #fff3cd; font-size: 11px; font-weight: 700; color: #b8860b; }
 /* 실기기 피드백 3차(260928): 판매중 매물도 판매 이력에 포함(당근 판매내역 모델) — 3번째 배지 색 */
 .stageTagOnSale { background: #e6f7ee; color: #1f9d55; }
+/* 실기기 피드백 4차(260928): 기간만료 매물도 포함 — 회색 배지(기본 .stageTag 톤과 별개로 명시) */
+.stageTagExpired { background: var(--surface-2); color: var(--text-3); }
 </style>
 </head>
 <body>
@@ -1000,6 +1002,16 @@ body {
           <span class="histTitle">Winner X 튜닝 배기 머플러 미개봉</span>
           <span class="histMeta"><span class="roleTag">판매</span><span class="stageTag stageTagOnSale">판매중</span></span>
           <span class="histPrice num">1.200.000 đ</span>
+        </div>
+        <div class="histAside"></div>
+      </article>
+      <!-- 실기기 피드백 4차(260928): 내 EXPIRED 매물 — 판매중 다음 순서, 회색 기간만료 배지 -->
+      <article class="histRow">
+        <span class="histThumb ph ph--helmet"></span>
+        <div class="histBody">
+          <span class="histTitle">Shark Spartan GT 풀페이스 헬멧</span>
+          <span class="histMeta"><span class="roleTag">판매</span><span class="stageTag stageTagExpired">기간만료</span></span>
+          <span class="histPrice num">2.100.000 đ</span>
         </div>
         <div class="histAside"></div>
       </article>

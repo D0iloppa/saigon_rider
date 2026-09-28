@@ -110,7 +110,7 @@ export default function ProfileMain() {
     if (!uid) return;
     fetchListings({ sellerId: uid, hideSold: false, size: 20 })
       .then((page) => {
-        setSellingListings(page.items.filter((l) => l.status === 'ON_SALE' || l.status === 'RESERVED'));
+        setSellingListings(page.items.filter((l) => l.status === 'ON_SALE' || l.status === 'RESERVED' || l.status === 'EXPIRED'));
       })
       .catch(() => {});
   }, [user?.id]);
@@ -339,10 +339,13 @@ export default function ProfileMain() {
   const u = user;
   const { needed, progress } = expToNextLevel(u.levelExp, u.level);
 
-  // 260928 실기기 피드백 3차: 판매 이력에 판매중 매물도 포함(당근 판매내역 모델).
-  // 예약중(RESERVED)은 이미 trades 의 IN_PROGRESS 행으로 노출되므로 판매 탭에서만, ON_SALE 만 더한다.
+  // 260928 실기기 피드백 3차/4차: 판매 이력에 판매중·기간만료 매물도 포함(당근 판매내역 모델).
+  // 예약중(RESERVED)은 이미 trades 의 IN_PROGRESS 행으로 노출되므로 판매 탭에서만, 판매중→기간만료 순으로 더한다.
   const onSaleTradeRows = tradeTab === 'sold'
-    ? (sellingListings ?? []).filter((l) => l.status === 'ON_SALE').map(listingToTradeRow)
+    ? [
+        ...(sellingListings ?? []).filter((l) => l.status === 'ON_SALE'),
+        ...(sellingListings ?? []).filter((l) => l.status === 'EXPIRED'),
+      ].map(listingToTradeRow)
     : [];
 
 
@@ -640,11 +643,23 @@ export default function ProfileMain() {
                 ? t('profile.myListingsLoading', { defaultValue: '불러오는 중' })
                 : sellingListings.length === 0
                 ? t('profile.myListingsEmpty', { defaultValue: '첫 매물을 올려보세요' })
-                : t('profile.myListingsSummary', {
-                    defaultValue: '판매 중 {{onSale}} · 예약 중 {{reserved}}',
-                    onSale: sellingListings.filter((l) => l.status === 'ON_SALE').length,
-                    reserved: sellingListings.filter((l) => l.status === 'RESERVED').length,
-                  })}
+                : [
+                    sellingListings.filter((l) => l.status === 'ON_SALE').length > 0
+                      && t('profile.myListingsSummaryOnSale', {
+                        defaultValue: '판매 중 {{count}}',
+                        count: sellingListings.filter((l) => l.status === 'ON_SALE').length,
+                      }),
+                    sellingListings.filter((l) => l.status === 'RESERVED').length > 0
+                      && t('profile.myListingsSummaryReserved', {
+                        defaultValue: '예약 중 {{count}}',
+                        count: sellingListings.filter((l) => l.status === 'RESERVED').length,
+                      }),
+                    sellingListings.filter((l) => l.status === 'EXPIRED').length > 0
+                      && t('profile.myListingsSummaryExpired', {
+                        defaultValue: '기간만료 {{count}}',
+                        count: sellingListings.filter((l) => l.status === 'EXPIRED').length,
+                      }),
+                  ].filter(Boolean).join(' · ')}
             </span>
           </span>
           <ChevronRight size={18} className={styles.entryChevron} />

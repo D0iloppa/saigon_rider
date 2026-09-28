@@ -52,14 +52,19 @@ export default function TradeHistory() {
     load();
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 260928 실기기 피드백 3차: 판매 이력에 판매중 매물도 포함(당근 판매내역 모델).
-  // 예약중(RESERVED)은 이미 trades 의 IN_PROGRESS 행으로 노출되므로 여기선 ON_SALE 만 가져온다.
+  // 260928 실기기 피드백 3차/4차: 판매 이력에 판매중·기간만료 매물도 포함(당근 판매내역 모델).
+  // 예약중(RESERVED)은 이미 trades 의 IN_PROGRESS 행으로 노출되므로 여기선 제외한다.
+  // 그룹 순서는 판매중 → 기간만료, 그룹 내부는 최근 끌올순(bumpedAt desc).
   const [onSaleListings, setOnSaleListings] = useState<Trade[]>([]);
   useEffect(() => {
     if (!user?.id) return;
     fetchListings({ sellerId: user.id, hideSold: false, size: 20 })
       .then((page) => {
-        setOnSaleListings(page.items.filter((l) => l.status === 'ON_SALE').map(listingToTradeRow));
+        const byRecent = (a: typeof page.items[number], b: typeof page.items[number]) =>
+          b.bumpedAt.localeCompare(a.bumpedAt);
+        const onSale = page.items.filter((l) => l.status === 'ON_SALE').sort(byRecent);
+        const expired = page.items.filter((l) => l.status === 'EXPIRED').sort(byRecent);
+        setOnSaleListings([...onSale, ...expired].map(listingToTradeRow));
       })
       .catch(() => {});
   }, [user?.id]);

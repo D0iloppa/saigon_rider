@@ -428,15 +428,15 @@ export interface TradeHistory {
   counterpartId: string;
   counterpartNickname: string | null;
   counterpartAvatarUrl: string | null;
-  stage: 'IN_PROGRESS' | 'COMPLETED' | 'ON_SALE';
+  stage: 'IN_PROGRESS' | 'COMPLETED' | 'ON_SALE' | 'EXPIRED';
   completedAt: string | null;
   reviewLeft: boolean;
   myReview: ReviewBrief | null;
 }
 
-/** 260928 실기기 피드백 3차: 판매 이력에 판매중 매물도 포함(당근 판매내역 모델) — 내 ON_SALE
- * 매물을 TradeRow 가 그리는 TradeHistory 형태로 변환. 예약중(RESERVED)은 이미 fetchTrades 가
- * IN_PROGRESS 거래 행으로 내려주므로 여기 대상에서 제외해 중복을 막는다(호출부 책임). */
+/** 260928 실기기 피드백 3차/4차: 판매 이력에 판매중·기간만료 매물도 포함(당근 판매내역 모델) — 내
+ * ON_SALE/EXPIRED 매물을 TradeRow 가 그리는 TradeHistory 형태로 변환. 예약중(RESERVED)은 이미
+ * fetchTrades 가 IN_PROGRESS 거래 행으로 내려주므로 여기 대상에서 제외해 중복을 막는다(호출부 책임). */
 export function listingToTradeRow(l: ListingCard): TradeHistory {
   return {
     appointmentId: `onsale-${l.id}`,
@@ -449,7 +449,7 @@ export function listingToTradeRow(l: ListingCard): TradeHistory {
     counterpartId: '',
     counterpartNickname: null,
     counterpartAvatarUrl: null,
-    stage: 'ON_SALE',
+    stage: l.status === 'EXPIRED' ? 'EXPIRED' : 'ON_SALE',
     completedAt: null,
     reviewLeft: false,
     myReview: null,

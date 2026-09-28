@@ -3186,6 +3186,13 @@ async def accept_price_offer(
     offer, _conv, listing = await _load_price_offer(db, offer_id, session_uid)
     if session_uid == offer.proposer_id:
         raise HTTPException(status_code=403, detail="Proposer cannot accept own offer")
+    # MKT-2 패턴 — 매물 행을 잠그고 원자적으로 재검사한다: 같은 매물에 다른 대화의 두 제안이
+    # 동시에 accept 되는 경합(리뷰 지적, a1a06a5c)을 잠금 없는 read-then-write 로는 못 막는다.
+    listing = (
+        await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == offer.listing_id).with_for_update())
+    ).scalar_one_or_none()
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
     if offer.status != "PROPOSED":
         raise HTTPException(status_code=409, detail=f"Cannot accept offer in status {offer.status}")
     if listing.status != "ON_SALE":

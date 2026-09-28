@@ -1,0 +1,26 @@
+/* F-DM-02 FR-7 — 세트 상태 시트 (260928) */
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  padding: 16px 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.item:disabled {
+  opacity: 0.5;
+}
+
+.itemClose {
+  padding: 16px 4px 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-align: center;
+}

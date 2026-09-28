@@ -247,19 +247,6 @@ export interface DmConversation {
   blockedByMe: boolean;
 }
 
-/** F-DM-02(260928) — 상단 매물바 아코디언 1행. */
-export interface DmConversationListingItem {
-  id: string;
-  title: string;
-  priceVnd: number;
-  thumbnailUrl: string | null;
-  status: string;
-  /** 'IN_PROGRESS'(이 대화에서 ACCEPTED 약속 존재) | 'INQUIRY' */
-  stage: 'IN_PROGRESS' | 'INQUIRY';
-  reservedByOther: boolean;
-  linkedAt: string;
-}
-
 export interface DmNotice {
   messageId: string;
   content: string | null;

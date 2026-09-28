@@ -18,13 +18,16 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { CardMessage } from '@/components/dm/CardMessage';
 import cardStyles from '@/components/dm/CardMessage.module.css';
+import { TradeSetBar } from '@/components/dm/TradeSetBar';
+import { TradeSetChips } from '@/components/dm/TradeSetChips';
+import { TradeSetPicker } from '@/components/dm/TradeSetPicker';
+import { TradeSetStatusSheet } from '@/components/dm/TradeSetStatusSheet';
+import { tradeSetErrorMessage } from '@/components/dm/tradeSetErrors';
 import {
   fetchMessages,
   sendMessage,
   markRead,
   fetchConversation,
-  fetchConversationListings,
-  sendListingCard,
   proposeAppointment,
   acceptAppointment,
   completeAppointment,
@@ -47,14 +50,15 @@ import {
   addReaction,
   removeReaction,
   fetchMarketplaceTransaction,
+  fetchTradeSet,
   updateTradeSetStatus,
   DM_REACTION_EMOJIS,
   DM_REPORT_REASONS,
   type DmReportReason,
 } from '@/api/dm';
 import { loadCachedMessages, saveCachedMessages } from '@/lib/dmCache';
-import type { Appointment, DmConversationListingItem, MarketplaceTransaction, PriceOffer } from '@/api/types';
-import type { AppointmentNavigationDestination } from '@/api/dm';
+import type { Appointment, MarketplaceTransaction, PriceOffer } from '@/api/types';
+import type { AppointmentNavigationDestination, TradeSet } from '@/api/dm';
 import { native } from '@/lib/native';
 import type { DealStatusKind } from '@/lib/plugins/liveActivity';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
@@ -259,14 +263,20 @@ export default function DmDetail() {
     fetchConversation(conversationId).then(setConv).catch(() => {});
   }, [conversationId]);
 
-  // F-DM-02(260928) — 상단 매물바 아코디언. 대표 매물은 로컬 선택(새로고침 시 기본값으로 재계산).
-  const [convListings, setConvListings] = useState<DmConversationListingItem[]>([]);
-  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
-  const [listingBarExpanded, setListingBarExpanded] = useState(false);
-  const refreshListings = useCallback(() => {
+  // F-DM-02(260928) — 방 상단 거래 세트 바/칩/피커/상태시트(아코디언 대체). 세트는 첫 [+ 물품추가]
+  // 전엔 없다(null) — 그동안은 기존 단일 매물 컨텍스트 카드(conv.contextListing)를 그대로 보여준다.
+  const [tradeSet, setTradeSet] = useState<TradeSet | null>(null);
+  const [tradeSetPickerOpen, setTradeSetPickerOpen] = useState(false);
+  const [tradeSetStatusOpen, setTradeSetStatusOpen] = useState(false);
+  const refreshTradeSet = useCallback(() => {
     if (!conversationId) return;
-    fetchConversationListings(conversationId).then(setConvListings).catch(() => {});
+    fetchTradeSet(conversationId).then(setTradeSet).catch(() => {});
   }, [conversationId]);
+  // 약속·가격제안의 매물 앵커 — 세트의 첫(활성) 항목, 세트가 없으면 방 컨텍스트 매물(260928 설계 §3.5 유지 항목).
+  const selectedListingId = useMemo(() => {
+    const first = tradeSet?.items.find((it) => it.status !== 'REMOVED' && it.status !== 'CANCELLED');
+    return first?.listingId ?? conv?.contextId ?? null;
+  }, [tradeSet, conv?.contextId]);
 
   // 초기 로드 — 로컬 캐시 즉시 렌더 → 워터마크 증분 동기화. 캐시가 없으면 최근 페이지부터.
   // 실패 시 loadError 로 구분해 재시도를 제공 (P1-6: 500/timeout 이 빈 대화로 보이던 버그)
@@ -338,18 +348,9 @@ export default function DmDetail() {
     if (!conversationId) return;
     fetchConversation(conversationId).then(setConv).catch(() => {});
     loadMessages();
-    refreshListings();
+    refreshTradeSet();
     return () => { refreshUnread(); };
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 대표 매물 기본값 — 거래중 1건이 있으면 그것, 없으면 최근 문의 매물(contextListing), 그마저 없으면 첫 항목
-  useEffect(() => {
-    if (selectedListingId && convListings.some((it) => it.id === selectedListingId)) return;
-    const inProgress = convListings.find((it) => it.stage === 'IN_PROGRESS');
-    const fallback = convListings.find((it) => it.id === conv?.contextId) ?? convListings[0];
-    setSelectedListingId(inProgress?.id ?? fallback?.id ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [convListings]);
 
   // 워키토키 플로팅 버블(A-7) — 대표 지시 2026-08-27: 대화방 입장만으로 자동 참여시키지 않는다.
   // 참여는 (a) 헤더 메뉴 "워키토키" 탭, (b) 초대카드 "참여하기" 탭, (c) 캡슐 컨텍스트메뉴 "채널 변경" 3가지
@@ -394,6 +395,8 @@ export default function DmDetail() {
           if (fresh.some((m) => m.senderId !== uid)) playSound('dm_receive');
           // 남이 등록한 공지는 이 시스템 메시지로만 알 수 있다 — 배너가 낡지 않게 conv 만 재조회
           if (fresh.some((m) => m.messageType === 'system' && m.meta?.kind === 'notice_set')) refreshConv();
+          // F-DM-02(260928) — 상대가 세트를 바꾼(담기/제거/상태변경) 시스템·묶음카드가 도착하면 세트 재조회.
+          if (fresh.some((m) => (typeof m.meta?.kind === 'string' && m.meta.kind.startsWith('trade_set')) || m.meta?.kind === 'reserve_prompt' || m.meta?.subtype === 'bundle')) refreshTradeSet();
           if (fresh.length > 0) markRead(conversationId).then(() => refreshUnread()).catch(() => {});
           else skipAutoScrollRef.current = true; // 수정/공감만 온 폴링은 바닥 스냅을 유발하지 않는다
         }
@@ -815,10 +818,23 @@ export default function DmDetail() {
     if (!conversationId || sending) return;
     setSending(true);
     try {
-      await updateTradeSetStatus(conversationId, 'RESERVED');
+      setTradeSet(await updateTradeSetStatus(conversationId, 'RESERVED'));
       setDismissedPromptIds((prev) => new Set(prev).add(msgId));
-    } catch {
-      toast.error(t('common.errorUnexpected'));
+    } catch (err) {
+      toast.error(tradeSetErrorMessage(err, t));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // F-DM-02 — 약속 확정 후 칩 행의 판매자 [예약] 지름길(상태 시트를 거치지 않고 바로 예약중).
+  const handleReserveShortcut = async () => {
+    if (!conversationId || sending) return;
+    setSending(true);
+    try {
+      setTradeSet(await updateTradeSetStatus(conversationId, 'RESERVED'));
+    } catch (err) {
+      toast.error(tradeSetErrorMessage(err, t));
     } finally {
       setSending(false);
     }
@@ -830,7 +846,7 @@ export default function DmDetail() {
   // 봐야 한다 — 아니면 매물 B 를 보는 중에 매물 A 의 거래 배너/세션바가 뜬다. 매물이 하나뿐이거나
   // 아직 선택이 없으면(구조가 단순한 방) 종전 동작(최신 약속 메시지)을 그대로 유지한다.
   const currentAppointment = useMemo<Appointment | null>(() => {
-    const scoped = convListings.length > 1 && selectedListingId != null;
+    const scoped = (tradeSet?.items.length ?? 0) > 1 && selectedListingId != null;
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const appt = messages[i].appointment;
       if (messages[i].messageType !== 'appointment' || !appt) continue;
@@ -838,7 +854,7 @@ export default function DmDetail() {
       return appt;
     }
     return null;
-  }, [messages, convListings.length, selectedListingId]);
+  }, [messages, tradeSet?.items.length, selectedListingId]);
   const currentAppointmentId = currentAppointment?.id ?? null;
 
   // ①: 진행상태 배너 — payment_qr 메시지가 있을 때만 거래 결제상태를 1회 조회한다(폴링 없음).
@@ -982,7 +998,7 @@ export default function DmDetail() {
       patchAppointment(await action(appointmentId));
       // 약속 상태 변경이 매물 상태(RESERVED/SOLD/ON_SALE)를 바꾸므로 컨텍스트 갱신
       if (conversationId) fetchConversation(conversationId).then(setConv).catch(() => {});
-      refreshListings();
+      refreshTradeSet();
     } catch {
       // 카드가 stale(이미 변경된 약속) → 메시지 재동기화로 카드 상태 교정
       if (conversationId) fetchMessages(conversationId).then((res) => applyIncoming(res.items)).catch(() => {});
@@ -1295,19 +1311,8 @@ export default function DmDetail() {
 
   const myId = session?.userId ?? user?.id;
   const listing = conv?.contextListing ?? null;
-  // F-DM-02(260928) — 방 상단바의 대표 매물. convListings 가 있으면 그걸 우선(다:다 연결),
-  // 없으면(구버전/조회 실패) 기존 contextListing 으로 폴백한다.
-  const selectedListing = convListings.find((it) => it.id === selectedListingId) ?? null;
-
-  const handleSendListingCard = async (listingId: string) => {
-    if (!conversationId) return;
-    try {
-      const msg = await sendListingCard(conversationId, listingId);
-      applyIncoming([msg]);
-    } catch {
-      toast.error(t('common.errorUnexpected'));
-    }
-  };
+  // F-DM-02(260928) — 물품 피커 대상 판매자. 세트가 있으면 그 판매자, 없으면(첫 담기 전) 방 컨텍스트 매물의 판매자.
+  const pickerSellerId = tradeSet?.sellerId ?? listing?.sellerId ?? null;
 
   // 그룹방은 말풍선마다 발신자를 표시해야 하므로 진입 시 1회 멤버 목록을 받는다(답장바 이름도 이걸 쓴다).
   // 5초 폴링에는 태우지 않는다 — 멤버 변동은 방 재진입 시 반영된다.
@@ -1677,71 +1682,73 @@ export default function DmDetail() {
         </div>
       )}
 
-      {/* 매물 컨텍스트 카드 — direct 전용 (마켓 문의 대화). 260928 실기기 피드백: 방 하나에
-          여러 매물이 얽히는 경우가 있어, 대표 매물(로컬 선택)만 바에 보이고 "외 N건" 으로
-          아코디언을 in-flow 펼친다(바텀시트 아님). F-DM-02. */}
-      {isDirect && (selectedListing ?? listing) && (
+      {/* 매물 컨텍스트 카드 — direct 전용, 세트가 아직 없을 때(첫 문의, 아무도 안 담음)만.
+          담기가 한 번이라도 있으면 아래 TradeSetBar 가 이 역할을 대신한다. F-DM-02. */}
+      {isDirect && !tradeSet && listing && (
         <div className={styles.contextCardRow}>
           <button
             className={styles.contextCard}
             type="button"
-            onClick={() => navigate(`/market/${(selectedListing ?? listing)!.id}`)}
+            onClick={() => navigate(`/market/${listing.id}`)}
           >
-            <AppImage src={(selectedListing ?? listing)!.thumbnailUrl ?? undefined} alt="" className={styles.contextThumb} />
+            <AppImage src={listing.thumbnailUrl ?? undefined} alt="" className={styles.contextThumb} />
             <div className={styles.contextInfo}>
-              <span className={styles.contextTitle}>{(selectedListing ?? listing)!.title}</span>
-              <span className={styles.contextPrice}>{formatPriceVnd((selectedListing ?? listing)!.priceVnd, t)}</span>
+              <span className={styles.contextTitle}>{listing.title}</span>
+              <span className={styles.contextPrice}>{formatPriceVnd(listing.priceVnd, t)}</span>
             </div>
           </button>
-          {convListings.length > 1 && (
-            <button
-              className={styles.listingBarToggle}
-              type="button"
-              onClick={() => setListingBarExpanded((v) => !v)}
-              aria-expanded={listingBarExpanded}
-            >
-              {t('dm.otherListingsCount', { count: convListings.length - 1, defaultValue: '외 {{count}}건' })}
-              <ChevronDown size={14} className={listingBarExpanded ? styles.listingBarChevronOpen : undefined} />
-            </button>
-          )}
           {/* 약속 잡기 칩(260919 리뷰킷 F-S4-01 FR-1) — 서비스 차별점의 입구를 "+" 메뉴 6항목
               동열에서 매물 카드 옆으로 승격. 기존 핸들러(handleOpenAppt) 재사용, "+" 메뉴 항목은 유지 */}
-          {conv?.appointmentUnlocked && (selectedListing ?? listing)!.status !== 'SOLD' && !selectedListing?.reservedByOther && (
+          {conv?.appointmentUnlocked && listing.status !== 'SOLD' && (
             <button className={styles.contextApptChip} type="button" onClick={handleOpenAppt}>
               {t('dm.makeAppointment', { defaultValue: '약속잡기' })}
+            </button>
+          )}
+          {/* 세트 생성 진입점(260928 설계 §3.1) — 구매자가 첫 [+ 물품추가]를 눌러야 세트가 생긴다. */}
+          {myId !== listing.sellerId && (
+            <button className={styles.contextApptChip} type="button" onClick={() => setTradeSetPickerOpen(true)}>
+              {t('dm.tradeSetAddItems', { defaultValue: '+ 물품추가' })}
             </button>
           )}
         </div>
       )}
 
-      {isDirect && listingBarExpanded && convListings.length > 1 && (
-        <div className={styles.listingAccordion}>
-          {convListings.map((it) => (
-            <div key={it.id} className={styles.listingAccordionRow}>
-              <button
-                type="button"
-                className={styles.listingAccordionMain}
-                onClick={() => { setSelectedListingId(it.id); setListingBarExpanded(false); }}
-              >
-                <AppImage src={it.thumbnailUrl ?? undefined} alt="" className={styles.contextThumb} />
-                <div className={styles.contextInfo}>
-                  <span className={styles.contextTitle}>{it.title}</span>
-                  <span className={styles.contextPrice}>{formatPriceVnd(it.priceVnd, t)}</span>
-                </div>
-                <span className={styles.listingStageBadge} data-stage={it.reservedByOther ? 'reserved' : it.stage}>
-                  {it.reservedByOther
-                    ? t('dm.stageReservedByOther', { defaultValue: '예약중' })
-                    : it.stage === 'IN_PROGRESS'
-                      ? t('dm.stageInProgress', { defaultValue: '거래중' })
-                      : t('dm.stageInquiry', { defaultValue: '문의중' })}
-                </span>
-              </button>
-              <button type="button" className={styles.listingSendCardBtn} onClick={() => handleSendListingCard(it.id)}>
-                {t('dm.sendListingCard', { defaultValue: '카드 보내기' })}
-              </button>
-            </div>
-          ))}
-        </div>
+      {/* F-DM-02 FR-1 — 거래 세트 바 + 단계별 칩 행(아코디언 대체, 260928 설계 §3.3). */}
+      {isDirect && tradeSet && (
+        <>
+          <TradeSetBar
+            tradeSet={tradeSet}
+            isSeller={myId === tradeSet.sellerId}
+            onOpenFirstItem={() => selectedListingId && navigate(`/market/${selectedListingId}`)}
+            onStatusTap={() => setTradeSetStatusOpen(true)}
+          />
+          <TradeSetChips
+            tradeSet={tradeSet}
+            isSeller={myId === tradeSet.sellerId}
+            acceptedAppointment={currentAppointment?.status === 'ACCEPTED' ? currentAppointment : null}
+            onAddOrEditItems={() => setTradeSetPickerOpen(true)}
+            onOpenAppointment={() => {
+              const mid = messages.find((m) => m.appointment?.id === currentAppointment?.id)?.id;
+              if (mid) scrollToMessage(mid);
+            }}
+            onShareLocation={() => {
+              if (!currentAppointment) return;
+              const hasCoords = currentAppointment.placeLat != null && currentAppointment.placeLng != null;
+              startLiveLocation({
+                appointmentId: currentAppointment.id,
+                dest: hasCoords
+                  ? {
+                      lat: currentAppointment.placeLat!,
+                      lng: currentAppointment.placeLng!,
+                      ...(currentAppointment.placeName ? { name: currentAppointment.placeName } : {}),
+                    }
+                  : undefined,
+                sendInvite: true,
+              });
+            }}
+            onReserveShortcut={handleReserveShortcut}
+          />
+        </>
       )}
 
       {/* 거래완료 시: 내 후기 있으면 표시, 없으면 후기 보내기 (REF-05) — direct 전용 */}
@@ -2735,6 +2742,36 @@ export default function DmDetail() {
           targetId={conv?.otherUserId ?? ''}
           listingId={conv?.contextId ?? undefined}
           onSubmitted={handleReviewSubmitted}
+        />
+      )}
+
+      {/* F-DM-02 FR-5/FR-6 — 물품 선택·편집 피커. 세트가 아직 없으면(첫 담기) sellerId 는 방 컨텍스트 매물에서 얻는다. */}
+      {isDirect && conversationId && pickerSellerId && (
+        <TradeSetPicker
+          open={tradeSetPickerOpen}
+          onClose={() => setTradeSetPickerOpen(false)}
+          conversationId={conversationId}
+          sellerId={pickerSellerId}
+          sellerNickname={myId === pickerSellerId ? user?.nickname ?? '' : otherName}
+          tradeSet={tradeSet}
+          contextListingId={listing?.id ?? conv?.contextId ?? null}
+          onSaved={setTradeSet}
+        />
+      )}
+
+      {/* F-DM-02 FR-7 — 세트 상태 시트(판매자 전용, TradeSetBar 상태 라벨 탭). */}
+      {isDirect && tradeSet && conversationId && (
+        <TradeSetStatusSheet
+          open={tradeSetStatusOpen}
+          onClose={() => setTradeSetStatusOpen(false)}
+          conversationId={conversationId}
+          tradeSet={tradeSet}
+          counterpartNickname={otherName}
+          onChanged={setTradeSet}
+          onCompleted={() => {
+            refreshConv();
+            setReviewOpen(true);
+          }}
         />
       )}
 

@@ -41,6 +41,18 @@ test('selected listing (representative) is local state, and reserved-by-other bl
   assert.match(detail, /!selectedListing\?\.reservedByOther/);
 });
 
+test('currentAppointment is scoped to the selected listing when the room has more than one', () => {
+  const detail = read('DmDetail.tsx');
+  const fn = detail.slice(
+    detail.indexOf('const currentAppointment = useMemo'),
+    detail.indexOf('const currentAppointmentId ='),
+  );
+  assert.match(fn, /convListings\.length > 1 && selectedListingId != null/);
+  assert.match(fn, /appt\.listingId !== selectedListingId/);
+  // 매물이 하나뿐이거나 아직 선택이 없으면 종전 동작(최신 약속 메시지)을 그대로 유지한다
+  assert.match(fn, /if \(scoped && appt\.listingId !== selectedListingId\) continue;/);
+});
+
 test('sendListingCard does not send title/price — server re-fetches the listing snapshot', () => {
   const apiDm = read('../../api/dm.ts');
   const fn = apiDm.slice(apiDm.indexOf('export async function sendListingCard'));

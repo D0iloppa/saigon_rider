@@ -169,6 +169,46 @@ class ProposeAppointmentListingIdTest(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(ctx.exception.status_code, 409)
 
+    async def _capture_supersede_update(self, body_listing_id, resolved_listing_id):
+        """propose_appointment 를 supersede UPDATE 직후( `db.flush()` )에서 멈추고 그 UPDATE 문을
+        돌려준다 — 메시지/약속 DB 부수효과 전체를 재현하지 않고도 실제 바인드값을 검증한다."""
+        listing = SimpleNamespace(id=resolved_listing_id, seller_id=self.seller, status="ON_SALE")
+
+        async def _get(model, pk):
+            return self.conv if pk == self.conv_id else listing
+
+        results = []
+        if resolved_listing_id != self.context_listing_id:
+            linked_result = MagicMock()
+            linked_result.scalar_one_or_none.return_value = resolved_listing_id
+            results.append(linked_result)
+        results.append(MagicMock())  # dm_conversation_listings pg_insert
+
+        db = MagicMock()
+        db.get = AsyncMock(side_effect=_get)
+        db.execute = AsyncMock(side_effect=[*results, MagicMock()])  # last = supersede update
+        db.flush = AsyncMock(side_effect=RuntimeError("stop-after-supersede"))
+
+        with self.assertRaises(RuntimeError):
+            await market.propose_appointment(
+                self._body(listing_id=body_listing_id), db=db, session_uid=self.buyer, tracking_ids=(None, None)
+            )
+        return db.execute.await_args_list[-1].args[0]
+
+    async def test_supersede_update_scoped_to_a_different_selected_listing(self):
+        # 리뷰 지적(HIGH): 매물 B 에 제안하면 매물 A 의 PROPOSED 를 건드리면 안 된다.
+        other_listing_id = uuid.uuid4()
+        stmt = await self._capture_supersede_update(other_listing_id, other_listing_id)
+        sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+        self.assertIn(f"listing_id = '{other_listing_id.hex}'", sql)
+        self.assertNotIn(self.context_listing_id.hex, sql)
+
+    async def test_supersede_update_scoped_to_the_default_context_listing(self):
+        # listing_id 생략(하위호환 폴백) 시에도 그 매물 하나로만 좁혀져야 한다.
+        stmt = await self._capture_supersede_update(None, self.context_listing_id)
+        sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+        self.assertIn(f"listing_id = '{self.context_listing_id.hex}'", sql)
+
 
 class CardMessageSendTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -196,9 +236,91 @@ class CardMessageSendTest(unittest.IsolatedAsyncioTestCase):
             await dm.send_message(self.conv_id, self._body(subtype="item"), db=db, _session_uid=self.me)
         self.assertEqual(ctx.exception.status_code, 400)
 
+    async def test_card_rejects_listing_from_a_third_party_seller(self):
+        # 결정(대표): 이 방 참가자 누구의 매물도 아니면(제3자/무관 매물) 카드를 못 보낸다.
+        listing_id = uuid.uuid4()
+        stranger_id = uuid.uuid4()
+        listing = SimpleNamespace(id=listing_id, seller_id=stranger_id, status="ON_SALE", images=[])
+
+        async def _get(model, pk):
+            return self.conv if pk == self.conv_id else listing
+
+        db = MagicMock()
+        db.get = AsyncMock(side_effect=_get)
+        with self.assertRaises(HTTPException) as ctx:
+            await dm.send_message(
+                self.conv_id, self._body(subtype="item", listingId=str(listing_id)), db=db, _session_uid=self.me
+            )
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    async def test_card_rejects_sold_listing(self):
+        # 결정(대표): SOLD(또는 그 외 ON_SALE/RESERVED 가 아닌 상태)는 문의중 티어로 새지 않는다.
+        listing_id = uuid.uuid4()
+        listing = SimpleNamespace(id=listing_id, seller_id=self.other, status="SOLD", images=[])
+
+        async def _get(model, pk):
+            return self.conv if pk == self.conv_id else listing
+
+        db = MagicMock()
+        db.get = AsyncMock(side_effect=_get)
+        with self.assertRaises(HTTPException) as ctx:
+            await dm.send_message(
+                self.conv_id, self._body(subtype="item", listingId=str(listing_id)), db=db, _session_uid=self.me
+            )
+        self.assertEqual(ctx.exception.status_code, 409)
+
+    async def test_card_allows_seller_sharing_own_reserved_listing(self):
+        # 결정(대표): 판매자가 자기 다른 매물(RESERVED 포함, 아직 거래 가능)을 공유하는 건 허용.
+        listing_id = uuid.uuid4()
+        listing = SimpleNamespace(
+            id=listing_id, seller_id=self.me, status="RESERVED", images=[], title="t", price_vnd=1
+        )
+
+        async def _get(model, pk):
+            name = getattr(model, "__name__", "")
+            if name == "DmConversation":
+                return self.conv
+            if name == "MarketplaceListing":
+                return listing
+            if name == "DmConversationMember":
+                return SimpleNamespace(left_at=None)
+            if name == "User":
+                return SimpleNamespace(nickname="me")
+            return None
+
+        insert_result = MagicMock()
+        select_result = MagicMock()
+        now = datetime.now(UTC)
+        select_result.scalar_one.return_value = SimpleNamespace(
+            id=uuid.uuid4(),
+            conversation_id=self.conv_id,
+            sender_id=self.me,
+            content=None,
+            message_type="card",
+            meta={"subtype": "item", "listingId": str(listing_id), "title": "t", "priceVnd": 1, "thumbnailUrl": None},
+            image_content=None,
+            audio_content=None,
+            read_at=None,
+            created_at=now,
+            updated_at=now,
+            reply_to_message_id=None,
+            reply_preview=None,
+        )
+        db = MagicMock()
+        db.get = AsyncMock(side_effect=_get)
+        db.execute = AsyncMock(side_effect=[insert_result, select_result])
+        db.commit = AsyncMock()
+
+        out = await dm.send_message(
+            self.conv_id, self._body(subtype="item", listingId=str(listing_id)), db=db, _session_uid=self.me
+        )
+        self.assertEqual(out.meta["listingId"], str(listing_id))
+
     async def test_card_snapshot_ignores_client_payload(self):
         listing_id = uuid.uuid4()
-        listing = SimpleNamespace(id=listing_id, title="실제 제목", price_vnd=999, images=[])
+        listing = SimpleNamespace(
+            id=listing_id, seller_id=self.other, status="ON_SALE", title="실제 제목", price_vnd=999, images=[]
+        )
 
         async def _get(model, pk):
             name = getattr(model, "__name__", "")

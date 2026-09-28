@@ -918,6 +918,12 @@ async def send_message(
         card_listing = await db.get(MarketplaceListing, card_listing_id)
         if card_listing is None:
             raise HTTPException(status_code=404, detail="Listing not found")
+        # 이 방과 무관한 제3자 매물이나 이미 팔린 매물이 문의중 티어로 새 나가지 않게 — 판매자가
+        # 이 대화 참가자 중 하나(자기 다른 매물 공유 포함) + 아직 거래 가능한 상태만 허용.
+        if card_listing.seller_id not in (conv.participant_1, conv.participant_2):
+            raise HTTPException(status_code=403, detail="Invalid conversation context")
+        if card_listing.status not in ("ON_SALE", "RESERVED"):
+            raise HTTPException(status_code=409, detail="Listing is no longer available")
         await _link_conversation_listing(db, conv_id, card_listing.id, source="card")
         # 메타 키는 appointmentId/priceOfferId 와 같은 기존 관례(camelCase) 를 따른다 —
         # 이 JSONB 는 프론트가 그대로 소비하는 뷰 전용 스냅샷이다.

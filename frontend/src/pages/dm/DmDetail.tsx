@@ -808,13 +808,19 @@ export default function DmDetail() {
 
   // P6: 실시간 위치공유 채널을 약속에 연결할 때 넘길 "현재 약속" — 대화 내 가장 최근 약속 메시지 기준.
   // 약속이 없는 대화면 null → 위치공유는 이제 그래도 켜진다(약속 독립, 2026-08-29), 정밀도 창 정책만 빠진다.
+  // F-DM-02(리뷰 지적 MEDIUM, 260928): 매물이 둘 이상 얽힌 방에서는 선택된 대표 매물의 약속만
+  // 봐야 한다 — 아니면 매물 B 를 보는 중에 매물 A 의 거래 배너/세션바가 뜬다. 매물이 하나뿐이거나
+  // 아직 선택이 없으면(구조가 단순한 방) 종전 동작(최신 약속 메시지)을 그대로 유지한다.
   const currentAppointment = useMemo<Appointment | null>(() => {
+    const scoped = convListings.length > 1 && selectedListingId != null;
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const appt = messages[i].appointment;
-      if (messages[i].messageType === 'appointment' && appt) return appt;
+      if (messages[i].messageType !== 'appointment' || !appt) continue;
+      if (scoped && appt.listingId !== selectedListingId) continue;
+      return appt;
     }
     return null;
-  }, [messages]);
+  }, [messages, convListings.length, selectedListingId]);
   const currentAppointmentId = currentAppointment?.id ?? null;
 
   // ①: 진행상태 배너 — payment_qr 메시지가 있을 때만 거래 결제상태를 1회 조회한다(폴링 없음).

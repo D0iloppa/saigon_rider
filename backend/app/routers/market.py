@@ -1914,11 +1914,13 @@ async def propose_appointment(
         raise HTTPException(status_code=403, detail="Appointment locked until the seller moves the deal forward")
 
     now = datetime.now(UTC)
-    # 대화당 활성 제안 1건 — 직전 PROPOSED 들은 무효화
+    # 매물당 활성 제안 1건 — 직전 PROPOSED 들은 무효화. F-DM-02: 대화 하나에 매물이 여럿
+    # 얽힐 수 있어 listing_id 로도 좁혀야 한다 — 아니면 매물 B 제안이 매물 A의 PROPOSED를 지운다.
     await db.execute(
         update(MarketplaceAppointment)
         .where(
             MarketplaceAppointment.conversation_id == conv.id,
+            MarketplaceAppointment.listing_id == listing_id,
             MarketplaceAppointment.status == "PROPOSED",
         )
         .values(status="CANCELLED", updated_at=now)

@@ -52,6 +52,7 @@ _notification_type_enum = ENUM(
     "TITLE_TRANSFER",
     "DEAL_RESULT_PING",
     "PRICE_DROP",
+    "LISTING_AVAILABLE",
     name="notification_type",
     create_type=False,
 )
@@ -2052,6 +2053,64 @@ class MarketplacePriceOffer(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="PROPOSED")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class TradeSet(Base):
+    """거래 세트(241_trade_sets.sql) — 한 방에서 구매자 1명이 판매자 1명과 한 번에 거래하는
+    물품 묶음. 방당 ACTIVE 1개(부분 유니크), 완료·취소 후 [물품추가]는 새 세트를 만든다."""
+
+    __tablename__ = "trade_sets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    buyer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    seller_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ACTIVE")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class TradeSetItem(Base):
+    """세트 항목 — 세트 안의 매물 하나. 유니크: listing_id WHERE status IN (RESERVED, COMPLETED)
+    가 이중 판매를 막는다."""
+
+    __tablename__ = "trade_set_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    set_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("trade_sets.id", ondelete="CASCADE"), nullable=False
+    )
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="INQUIRY")
+    added_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ListingAvailabilitySubscription(Base):
+    """d1(260928) — 예약중 매물 상세에서 [취소되면 알림 받기]를 누른 opt-in 구독.
+    매물이 RESERVED→ON_SALE 로 돌아가면 구독자 전원에게 통지하고 notified_at 을 찍는다."""
+
+    __tablename__ = "listing_availability_subscriptions"
+
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ── __DEV: 프로젝트 컨텍스트 관리 ────────────────────────────────

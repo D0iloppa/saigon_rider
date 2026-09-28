@@ -739,6 +739,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 핵심 컴포넌트: `AppointmentLocationPicker.tsx`(약속 잡기 시트, §3.12), 워키토키·실시간위치 둘 다 **`components/shell/ActiveSessionBar.tsx`**(단일 세션바, 2026-09-21부터 구 `WalkieTalkieFloatingButton`/`LiveLocationFloatingButton` 대체) + 실시간위치 모달 `components/location/LiveLocationModal.tsx` — 이 둘의 진입점·전역 오버레이 서술은 §3.8 표(709-712행)에 이미 있음, 이 절은 화면 자체(대화 목록·상세·게시판)만 다룬다.
 
+> **🔧 방-매물 다:다(실기기 피드백, 260928, F-DM-02 FR-1)**: `DmDetail.tsx` 상단 매물 컨텍스트 카드가 **대표 매물(로컬 선택) + "외 N건" 토글**로 바뀌었다 — 탭하면 바 바로 아래 in-flow 아코디언(거래중 먼저, 그다음 문의중; 타인 예약중 행은 "예약중" 배지 + 약속잡기 비활성)을 펼친다. 백엔드는 `dm_conversation_listings` 다:다 테이블(`database/init/240_dm_conversation_listings.sql`) + `GET /dm/conversations/:id/listings`(`backend/app/routers/dm.py`)를 신설했고, `dm_conversations.context_id`는 "최근 문의" 폴백 포인터로 하위호환만 유지한다. 각 행의 [카드 보내기]는 신규 메시지 타입 `card`(subtype=`item`, 서버가 전송 시점에 매물을 재조회한 스냅샷 — 클라이언트 입력 불신)를 보낸다. 신규 공용 렌더 컴포넌트 **`components/dm/CardBubble.tsx`**(카카오톡 알림톡풍: 헤더 스트립→소제목→제목→구분선→본문→버튼)를 `card`(subtype=`item`)와 기존 `walkie_invite`(subtype=`walkie`, DB 메시지 타입명은 그대로)가 공유한다. 약속잡기는 바에서 선택된 대표 매물로 제안된다(`AppointmentProposeRequest.listing_id`).
+
 ### 3.10 설정 (`/settings`)
 
 > 📋 **스토리보드**: [F-SET-01 FR-1](../review/storyboard/index.html#F-SET-01__FR-1)~[FR-8](../review/storyboard/index.html#F-SET-01__FR-8)(설정메인/계정/프로필편집/알림/언어/차단/약관/공지·FAQ) — 설계 근거·제안·판정은 스토리보드 참조.

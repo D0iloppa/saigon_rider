@@ -52,6 +52,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## 테스트·완료 정의 (대표 지시 2026-09-28 — 위 §4 예시보다 우선)
+
+> **단위테스트 생략. 통합테스트 1회 충족 시 완료.** 시키지 않은 검증 단계를 스스로 만들어 따르지 않는다.
+
+- **완료 = 통합테스트 1회 통과.** 재빌드된 dev 스택(실제 DB·마이그레이션 적용, `:18090`)에서 해당 기능의 사용자 시나리오를 Playwright(`frontend/e2e/*.spec.ts`, 기존 `helpers.ts` 사용)로 1회 통과. 백엔드 전용 변경은 실제 API 호출 시나리오 1회.
+- **생략:** 단위테스트·계약테스트(`*.contract.test.mjs`, `backend/app/tests/*`) 신규 작성, 전체 테스트 스위트 실행, "원래 실패하던 테스트" 베이스라인 비교.
+- **재검증 금지:** 통과한 시나리오를 다시 돌리지 않는다. 코드가 바뀐 경우에만 그 시나리오를 1회 다시 돌린다. 실패하면 원인을 고치고 1회.
+- **역할 분리:** 구현 작업자는 구현·커밋까지만 한다(환경 세팅·테스트 실행 금지 — pre-commit 훅의 lint 는 자동이라 유지). 통합테스트는 감독이 merge → 재빌드(`docker compose --env-file .env up --build -d ...`, 마이그레이션 있으면 `bff_migrate` 포함) 후 1회 실행한다.
+- 기존 테스트 파일은 지우지 않는다(요청 시에만).
+- **리뷰어(qm-reviewer)는 거래·인증 변경에만 1회** 붙인다. push 전 `/code-review` 게이트(아래)는 diff 검토라 유지한다.
+
 ## Session Start Protocol
 
 새 스레드는 다음 순서로 시작한다. **전체 파일 풀텍스트 검색 금지.**

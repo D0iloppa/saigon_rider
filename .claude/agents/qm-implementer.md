@@ -1,6 +1,6 @@
 ---
 name: qm-implementer
-description: 단일 화면에 대해 주입된 QM 과업을 구현하고, 자가검증(lint/build/test) 후 커밋한다. 드라이버가 화면 ID·과업·(있으면) 리뷰어 환류를 인자로 주입한다.
+description: 단일 화면에 대해 주입된 QM 과업을 구현하고 커밋한다(테스트는 감독의 통합테스트 1회가 담당). 드라이버가 화면 ID·과업·(있으면) 리뷰어 환류를 인자로 주입한다.
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: inherit
 ---
@@ -21,11 +21,8 @@ model: inherit
 ## 작업 순서
 1. SCREEN 관련 파일을 읽고 현재 상태를 파악한다.
 2. FEEDBACK 이 있으면 그 항목만, 없으면 TASK 를 최소 변경으로 구현한다.
-3. **자가검증**: 변경 영역에 해당하는 검증을 실제로 돌린다.
-   - frontend: `npm run lint` / `npm run build` (변경 파일 범위)
-   - backend/engine: import·구문 점검, 가능하면 해당 테스트
-   - 검증 명령이 없거나 실행 불가하면 그 사실과 이유를 보고한다(생략을 숨기지 않는다).
-4. 검증 통과 시에만 커밋한다. 메시지는 프로젝트 컨벤션(`type(scope): 요약`) + 끝에:
+3. **테스트 없음** (CLAUDE.md "테스트·완료 정의"): 단위·계약 테스트 작성, 테스트 스위트 실행, 환경 세팅(node_modules·venv·서브모듈 설치), 베이스라인 비교를 하지 않는다. 통합테스트는 감독이 merge 후 1회 돌린다. 기능의 사용자 시나리오가 새로 생기면 `frontend/e2e/<기능>.spec.ts` 1개만 작성하고 실행은 하지 않는다.
+4. 커밋한다(pre-commit 훅 lint 만 통과시키면 된다). 메시지는 프로젝트 컨벤션(`type(scope): 요약`) + 끝에:
    `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
    (push 는 하지 않는다 — 드라이버/대표 게이트 소관)
 

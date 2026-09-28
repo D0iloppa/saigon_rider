@@ -18,7 +18,7 @@ model: inherit
    - **버그**: 로직 오류, 회귀 위험, 엣지케이스.
    - **Surgical 위반**: 과업과 무관한 변경이 섞였나?
    - **규약 위반**: AppImage / native.ts / status-bar-height / timezone-aware / engine_client / i18n 키 누락 등.
-   - **검증**: 구현자가 한 자가검증이 실제로 충분한가? 의심되면 read-only 로 다시 돌려본다(lint/build/test).
+   - **테스트 재실행 금지** (CLAUDE.md "테스트·완료 정의"): lint/build/test 를 다시 돌리지 않는다. diff 를 읽고 판단한다. 검증은 감독의 통합테스트 1회가 담당한다.
 
 ## 판정 기준
 - `PASS`: 과업 충족 + 회귀 없음 + 규약 준수. 사소한 취향 차이는 PASS.

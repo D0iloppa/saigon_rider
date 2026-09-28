@@ -3088,7 +3088,7 @@ async def propose_price_offer(
         raise HTTPException(status_code=400, detail="Amount must be positive")
     await db.execute(
         pg_insert(DmConversationListing)
-        .values(conversation_id=conv.id, listing_id=listing_id, source="price_offer")
+        .values(conversation_id=conv.id, listing_id=listing_id, source="inquiry")
         .on_conflict_do_nothing(index_elements=["conversation_id", "listing_id"])
     )
 

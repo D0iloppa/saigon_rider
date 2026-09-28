@@ -826,6 +826,95 @@ export async function clearConversationNotice(conversationId: string): Promise<D
   return transformConversation(raw);
 }
 
+// ── 거래 세트 (Trade Set, 260928_trade-request-flow-design.md §3/§6) ──────
+
+export interface TradeSetItem {
+  listingId: string;
+  title: string;
+  priceVnd: number;
+  thumbnailUrl: string | null;
+  status: 'INQUIRY' | 'RESERVED' | 'COMPLETED' | 'REMOVED' | 'CANCELLED';
+  agreedPriceVnd: number | null;
+}
+
+export interface TradeSet {
+  id: string;
+  conversationId: string;
+  buyerId: string;
+  sellerId: string;
+  status: 'ACTIVE' | 'CLOSED';
+  items: TradeSetItem[];
+  totalVnd: number;
+}
+
+function transformTradeSet(raw: any): TradeSet {
+  return {
+    id: raw.id,
+    conversationId: raw.conversation_id,
+    buyerId: raw.buyer_id,
+    sellerId: raw.seller_id,
+    status: raw.status,
+    totalVnd: raw.total_vnd,
+    items: (raw.items ?? []).map((it: any) => ({
+      listingId: it.listing_id,
+      title: it.title,
+      priceVnd: it.price_vnd,
+      thumbnailUrl: it.thumbnail_url ?? null,
+      status: it.status,
+      agreedPriceVnd: it.agreed_price_vnd ?? null,
+    })),
+  };
+}
+
+/** 이 방의 거래 세트 조회. 세트가 없으면(아직 아무도 담지 않음) null. */
+export async function fetchTradeSet(conversationId: string): Promise<TradeSet | null> {
+  try {
+    const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}/trade-set`, {}, 'bff', {
+      rethrow: true,
+    });
+    return raw ? transformTradeSet(raw) : null;
+  } catch (error: any) {
+    if (error?.status === 404) return null;
+    throw error;
+  }
+}
+
+/** 세트에 물품 추가 — 구매자가 담으면 묶음 요청 카드가, 판매자가 담으면 안내 메시지가 방에 남는다. */
+export async function addTradeSetItems(conversationId: string, listingIds: string[]): Promise<TradeSet> {
+  const raw = await api.realFetch<any>(
+    `/dm/conversations/${conversationId}/trade-set/items`,
+    { method: 'POST', body: JSON.stringify({ listing_ids: listingIds }) },
+    'bff',
+    { rethrow: true },
+  );
+  return transformTradeSet(raw);
+}
+
+/** 세트에서 물품 제거 — 예약중이었으면 예약 해제(매물 판매중 복귀)까지 함께 처리된다. */
+export async function removeTradeSetItem(conversationId: string, listingId: string): Promise<TradeSet> {
+  const raw = await api.realFetch<any>(
+    `/dm/conversations/${conversationId}/trade-set/items/${listingId}`,
+    { method: 'DELETE' },
+    'bff',
+    { rethrow: true },
+  );
+  return transformTradeSet(raw);
+}
+
+/** 세트 상태 일괄 변경(판매중/예약중/거래완료) — 판매자 전용, F-DM-02 FR-7 상태 시트. */
+export async function updateTradeSetStatus(
+  conversationId: string,
+  status: 'ON_SALE' | 'RESERVED' | 'COMPLETED',
+): Promise<TradeSet> {
+  const raw = await api.realFetch<any>(
+    `/dm/conversations/${conversationId}/trade-set/status`,
+    { method: 'PATCH', body: JSON.stringify({ status }) },
+    'bff',
+    { rethrow: true },
+  );
+  return transformTradeSet(raw);
+}
+
 /** 방 제목·사진 변경. */
 export async function patchConversation(
   conversationId: string,

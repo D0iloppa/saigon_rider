@@ -26,6 +26,8 @@ from ..models import (
     MarketplacePriceOffer,
     MarketplaceTransaction,
     Report,
+    TradeSet,
+    TradeSetItem,
     User,
     UserBlock,
 )
@@ -55,6 +57,9 @@ from ..schemas import (
     DmRecordingUserOut,
     FunnelEventType,
     ReportCreateRequest,
+    TradeSetItemsAddRequest,
+    TradeSetOut,
+    TradeSetStatusUpdateRequest,
 )
 from ..services import funnel_events, location_channel_membership, noti_events, walkie_recording_presence
 from ..services.banned_keywords import banned_keywords as _banned_keywords
@@ -66,6 +71,17 @@ from ..services.dm_policy import (
     require_participant,
     require_unblocked,
     require_unblocked_for_join,
+)
+from ..services.listing_state import log_transition
+from ..services.trade_sets import (
+    find_accepted_appointment,
+    get_active_set,
+    get_or_create_active_set,
+    release_listing_to_on_sale,
+    reserve_listing_for_set,
+    set_total_vnd,
+    trade_set_out,
+    upsert_item,
 )
 from ..utils import build_imgproxy_url, resolve_avatar_url
 from ._report_guard import guard_duplicate_report
@@ -395,6 +411,12 @@ async def get_conversations(
             appt = await db.get(MarketplaceAppointment, uuid.UUID(last_msg.meta["appointmentId"]))
             if appt:
                 last_message_meta = {"when": appt.when_at.isoformat(), "place": appt.place_name}
+        # 260928 거래 세트 — 묶음 카드/시스템 메시지도 같은 원칙(DM-5): content 를 하드코딩하지 않고
+        # meta 를 그대로 내려 프론트가 dm.tradeSet* i18n 키로 미리보기를 조립한다.
+        elif (
+            last_msg and last_msg.message_type == "card" and last_msg.meta and last_msg.meta.get("subtype") == "bundle"
+        ) or (last_msg and last_msg.message_type == "text" and last_msg.meta and last_msg.meta.get("kind")):
+            last_message_meta = last_msg.meta
 
         result.append(
             DmConversationOut(
@@ -572,6 +594,23 @@ async def create_conversation(
         listing = await db.get(MarketplaceListing, body.context_id)
         if listing is None or listing.seller_id != body.other_user_id or listing.status in ("HIDDEN", "REMOVED"):
             raise HTTPException(status_code=404, detail="Listing not found")
+        # d1(260928) — 다른 사람에게 예약중인 매물은 새로 채팅을 걸 수 없다. 그 매물로 이미
+        # RESERVED 된 세트의 구매자 본인이면 자기 방이므로 허용.
+        if listing.status == "RESERVED":
+            reserved_for_me = (
+                await db.execute(
+                    select(TradeSetItem.id)
+                    .join(TradeSet, TradeSet.id == TradeSetItem.set_id)
+                    .where(
+                        TradeSetItem.listing_id == listing.id,
+                        TradeSetItem.status == "RESERVED",
+                        TradeSet.buyer_id == _session_uid,
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none() is not None
+            if not reserved_for_me:
+                raise HTTPException(status_code=409, detail={"code": "LISTING_RESERVED"})
 
     p1, p2 = sorted([_session_uid, body.other_user_id])
 
@@ -2194,3 +2233,304 @@ async def toggle_mute(
     member.muted_at = None if member.muted_at is not None else datetime.now(UTC)
     await db.commit()
     return {"muted": member.muted_at is not None}
+
+
+# ── 거래 세트 (Trade Set, 260928_trade-request-flow-design.md §3/§6) ──────
+# 방 안 세트 바(F-DM-02 FR-1)·상태 시트(FR-7)가 쓰는 API. 매물 상세 예약자 선택(F-S0-02
+# FR-6)은 market.py 에 있고, 같은 서비스 헬퍼(services/trade_sets.py)를 공유한다.
+
+
+async def _load_conversation_for_set(db: AsyncSession, conv_id: uuid.UUID, session_uid: uuid.UUID) -> DmConversation:
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    counterpart_id = require_participant(conv, session_uid)
+    await require_unblocked(db, session_uid, counterpart_id)
+    return conv
+
+
+async def _payment_locked(db: AsyncSession, conversation_id: uuid.UUID, listing_id: uuid.UUID) -> bool:
+    """송금 신고 이후 세트 편집 잠금 — appointment/transaction 을 이 (대화, 매물) 로 좁혀 조회."""
+    row = (
+        await db.execute(
+            select(MarketplaceTransaction.payment_status)
+            .join(MarketplaceAppointment, MarketplaceAppointment.id == MarketplaceTransaction.appointment_id)
+            .where(
+                MarketplaceAppointment.conversation_id == conversation_id,
+                MarketplaceAppointment.listing_id == listing_id,
+            )
+        )
+    ).scalar_one_or_none()
+    return row in ("PAYMENT_REPORTED", "PAYMENT_CONFIRMED")
+
+
+@router.get("/conversations/{conv_id}/trade-set", response_model=TradeSetOut, summary="이 방의 거래 세트 조회")
+async def get_trade_set(
+    conv_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _load_conversation_for_set(db, conv_id, session_uid)
+    ts = await get_active_set(db, conv_id)
+    if ts is None:
+        raise HTTPException(status_code=404, detail="No active trade set")
+    return await trade_set_out(db, ts)
+
+
+@router.post(
+    "/conversations/{conv_id}/trade-set/items",
+    response_model=TradeSetOut,
+    status_code=201,
+    summary="세트에 물품 추가",
+)
+async def add_trade_set_items(
+    conv_id: uuid.UUID,
+    body: TradeSetItemsAddRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    conv = await _load_conversation_for_set(db, conv_id, session_uid)
+
+    listings: list[MarketplaceListing] = []
+    for listing_id in body.listing_ids:
+        listing = await db.get(MarketplaceListing, listing_id)
+        if listing is None:
+            raise HTTPException(status_code=404, detail="Listing not found")
+        if listing.seller_id not in (conv.participant_1, conv.participant_2):
+            raise HTTPException(status_code=403, detail="Invalid conversation context")
+        if listing.status != "ON_SALE":
+            if listing.status == "RESERVED":
+                raise HTTPException(status_code=409, detail={"code": "LISTING_RESERVED"})
+            raise HTTPException(status_code=409, detail="Listing is no longer available")
+        listings.append(listing)
+
+    seller_id = listings[0].seller_id
+    if any(listing.seller_id != seller_id for listing in listings):
+        raise HTTPException(status_code=400, detail="All listings must share the same seller")
+    buyer_id = conv.participant_2 if conv.participant_1 == seller_id else conv.participant_1
+
+    ts = await get_or_create_active_set(db, conv_id, buyer_id, seller_id)
+    now = datetime.now(UTC)
+    for listing in listings:
+        await upsert_item(db, ts.id, listing.id, session_uid)
+        await _link_conversation_listing(db, conv_id, listing.id, source="inquiry")
+
+    total = await set_total_vnd(db, ts)
+    # DM-5 원칙(위 conversations 목록 주석 참조): content 에 한국어를 하드코딩하지 않고 meta 를
+    # 내려 프론트가 dm.tradeSetBundleRequest / dm.tradeSetItemAddedBySeller 로 렌더한다.
+    if session_uid == buyer_id:
+        titles = [listing.title for listing in listings]
+        msg = DmMessage(
+            conversation_id=conv_id,
+            sender_id=session_uid,
+            content=None,
+            message_type="card",
+            meta={
+                "subtype": "bundle",
+                "listingIds": [str(listing.id) for listing in listings],
+                "titles": titles,
+                "totalVnd": total,
+            },
+            created_at=now,
+        )
+    else:
+        titles = [listing.title for listing in listings]
+        msg = DmMessage(
+            conversation_id=conv_id,
+            sender_id=session_uid,
+            content=None,
+            message_type="text",
+            meta={"kind": "trade_set_item_added_by_seller", "titles": titles},
+            created_at=now,
+        )
+    db.add(msg)
+    conv.last_message_at = now
+    await db.commit()
+    return await trade_set_out(db, ts)
+
+
+@router.delete(
+    "/conversations/{conv_id}/trade-set/items/{listing_id}",
+    response_model=TradeSetOut,
+    summary="세트에서 물품 제거",
+)
+async def remove_trade_set_item(
+    conv_id: uuid.UUID,
+    listing_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _load_conversation_for_set(db, conv_id, session_uid)
+    ts = await get_active_set(db, conv_id)
+    if ts is None:
+        raise HTTPException(status_code=404, detail="No active trade set")
+    item = (
+        await db.execute(
+            select(TradeSetItem).where(TradeSetItem.set_id == ts.id, TradeSetItem.listing_id == listing_id)
+        )
+    ).scalar_one_or_none()
+    if item is None or item.status in ("REMOVED", "CANCELLED"):
+        raise HTTPException(status_code=404, detail="Item not found")
+    if await _payment_locked(db, conv_id, listing_id):
+        raise HTTPException(status_code=409, detail={"code": "payment_reported"})
+
+    listing = await db.get(MarketplaceListing, listing_id)
+    now = datetime.now(UTC)
+    was_reserved = item.status == "RESERVED"
+    item.status = "REMOVED"
+    item.updated_at = now
+    # DM-5 원칙: content 대신 meta.kind + 파라미터를 내려 프론트가 dm.tradeSetItem* i18n 키로 렌더한다.
+    if was_reserved and listing is not None:
+        listing = (
+            await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id).with_for_update())
+        ).scalar_one_or_none()
+        await release_listing_to_on_sale(db, listing, actor_id=session_uid, reason="trade_set_item_removed")
+        msg_meta = {
+            "kind": "trade_set_item_reservation_cancelled",
+            "listingId": str(listing_id),
+            "listingTitle": listing.title,
+        }
+    else:
+        total = await set_total_vnd(db, ts)
+        msg_meta = {
+            "kind": "trade_set_item_removed",
+            "listingId": str(listing_id),
+            "listingTitle": listing.title if listing else "",
+            "totalVnd": total,
+        }
+
+    db.add(
+        DmMessage(
+            conversation_id=conv_id,
+            sender_id=session_uid,
+            content=None,
+            message_type="text",
+            meta=msg_meta,
+            created_at=now,
+        )
+    )
+    conv = await db.get(DmConversation, conv_id)
+    conv.last_message_at = now
+    await db.commit()
+    return await trade_set_out(db, ts)
+
+
+@router.patch(
+    "/conversations/{conv_id}/trade-set/status",
+    response_model=TradeSetOut,
+    summary="세트 상태 변경 (판매중/예약중/거래완료, 판매자 전용)",
+)
+async def update_trade_set_status(
+    conv_id: uuid.UUID,
+    body: TradeSetStatusUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _load_conversation_for_set(db, conv_id, session_uid)
+    ts = await get_active_set(db, conv_id)
+    if ts is None:
+        raise HTTPException(status_code=404, detail="No active trade set")
+    if session_uid != ts.seller_id:
+        raise HTTPException(status_code=403, detail="Only the seller can change the trade set status")
+
+    now = datetime.now(UTC)
+    if body.status == "ON_SALE":
+        items = (
+            (
+                await db.execute(
+                    select(TradeSetItem).where(TradeSetItem.set_id == ts.id, TradeSetItem.status == "RESERVED")
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for item in items:
+            if await _payment_locked(db, conv_id, item.listing_id):
+                raise HTTPException(status_code=409, detail={"code": "payment_reported"})
+        for item in items:
+            listing = (
+                await db.execute(
+                    select(MarketplaceListing).where(MarketplaceListing.id == item.listing_id).with_for_update()
+                )
+            ).scalar_one_or_none()
+            if listing is None:
+                continue
+            await release_listing_to_on_sale(db, listing, actor_id=session_uid, reason="trade_set_on_sale")
+            item.status = "INQUIRY"
+            item.updated_at = now
+
+    elif body.status == "RESERVED":
+        items = (
+            (
+                await db.execute(
+                    select(TradeSetItem).where(TradeSetItem.set_id == ts.id, TradeSetItem.status == "INQUIRY")
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for item in items:
+            listing = (
+                await db.execute(
+                    select(MarketplaceListing).where(MarketplaceListing.id == item.listing_id).with_for_update()
+                )
+            ).scalar_one_or_none()
+            if listing is None or listing.status == "SOLD":
+                raise HTTPException(status_code=409, detail="Listing already sold")
+            await reserve_listing_for_set(db, listing, ts, actor_id=session_uid)
+
+    else:  # COMPLETED
+        items = (
+            (
+                await db.execute(
+                    select(TradeSetItem).where(
+                        TradeSetItem.set_id == ts.id, TradeSetItem.status.in_(["INQUIRY", "RESERVED"])
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for item in items:
+            listing = (
+                await db.execute(
+                    select(MarketplaceListing).where(MarketplaceListing.id == item.listing_id).with_for_update()
+                )
+            ).scalar_one_or_none()
+            if listing is None:
+                continue
+            offer_amount = (
+                await db.execute(
+                    select(MarketplacePriceOffer.amount)
+                    .where(
+                        MarketplacePriceOffer.listing_id == listing.id,
+                        MarketplacePriceOffer.status == "ACCEPTED",
+                    )
+                    .order_by(MarketplacePriceOffer.updated_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            prev_status = listing.status
+            listing.status = "SOLD"
+            listing.agreed_price_vnd = offer_amount if offer_amount is not None else listing.price_vnd
+            listing.updated_at = now
+            log_transition(
+                db,
+                listing.id,
+                prev_status,
+                "SOLD",
+                actor_type="user",
+                actor_id=session_uid,
+                reason="trade_set_completed",
+            )
+            item.status = "COMPLETED"
+            item.updated_at = now
+            appt = await find_accepted_appointment(db, conv_id, listing.id)
+            if appt is not None:
+                appt.status = "COMPLETED"
+                appt.updated_at = now
+        ts.status = "CLOSED"
+        ts.updated_at = now
+
+    await db.commit()
+    return await trade_set_out(db, ts)

@@ -418,7 +418,8 @@ export interface ReviewBrief {
 }
 
 export interface TradeHistory {
-  appointmentId: string;
+  /** 260928 거래 세트 모델: 약속 없이 방 안/매물 상세에서 예약중·거래완료된 건도 이력에 뜨므로 null 가능. */
+  appointmentId: string | null;
   conversationId: string;
   listingId: string;
   listingTitle: string;
@@ -428,7 +429,8 @@ export interface TradeHistory {
   counterpartId: string;
   counterpartNickname: string | null;
   counterpartAvatarUrl: string | null;
-  stage: 'IN_PROGRESS' | 'COMPLETED' | 'ON_SALE' | 'EXPIRED';
+  // 260928: 서버 stage 값이 'IN_PROGRESS' → 'RESERVED' 로 개명(trade-request-flow-design.md §6 E).
+  stage: 'RESERVED' | 'COMPLETED' | 'ON_SALE' | 'EXPIRED';
   completedAt: string | null;
   reviewLeft: boolean;
   myReview: ReviewBrief | null;
@@ -672,4 +674,86 @@ export async function removeKeywordAlert(id: string, userId: string): Promise<vo
     method: 'DELETE',
     body: JSON.stringify({ user_id: userId }),
   }, 'bff', { rethrow: true });
+}
+
+// ── 매물 상세 예약자/구매자 선택 (F-S0-02 FR-5/FR-6, 260928) ────────────
+
+export interface ListingOffer {
+  id: string;
+  conversationId: string;
+  counterpartId: string;
+  counterpartNickname: string | null;
+  amount: number;
+  status: string;
+}
+
+/** 이 매물에 들어온 가격 제안 목록 — 판매자 전용 (F-S0-02 FR-5). */
+export async function fetchListingOffers(listingId: string): Promise<ListingOffer[]> {
+  const raw = await api.realFetch<any[]>(`/market/listings/${listingId}/offers`, {}, 'bff', { rethrow: true });
+  return (raw ?? []).map((r) => ({
+    id: r.id,
+    conversationId: r.conversation_id,
+    counterpartId: r.counterpart_id,
+    counterpartNickname: r.counterpart_nickname ?? null,
+    amount: r.amount,
+    status: r.status,
+  }));
+}
+
+export interface ListingChatCounterpart {
+  conversationId: string;
+  counterpartId: string;
+  counterpartNickname: string | null;
+  counterpartAvatarUrl: string | null;
+  lastMessageAt: string | null;
+  setSummary: string | null;
+  hasOffer: boolean;
+  hasAppointment: boolean;
+  itemStatus: string | null;
+}
+
+/** 이 매물로 대화중인 채팅 목록 — 판매자 전용, 예약자/구매자 선택 화면의 기반 (F-S0-02 FR-6). */
+export async function fetchListingChats(listingId: string): Promise<ListingChatCounterpart[]> {
+  const raw = await api.realFetch<any[]>(`/market/listings/${listingId}/chats`, {}, 'bff', { rethrow: true });
+  return (raw ?? []).map((r) => ({
+    conversationId: r.conversation_id,
+    counterpartId: r.counterpart_id,
+    counterpartNickname: r.counterpart_nickname ?? null,
+    counterpartAvatarUrl: r.counterpart_avatar_url ?? null,
+    lastMessageAt: r.last_message_at ?? null,
+    setSummary: r.set_summary ?? null,
+    hasOffer: !!r.has_offer,
+    hasAppointment: !!r.has_appointment,
+    itemStatus: r.item_status ?? null,
+  }));
+}
+
+/** 예약자 선택 — 이 매물을 골라 그 대화의 세트를 예약중으로 바꾼다. */
+export async function reserveListingFor(listingId: string, conversationId: string) {
+  return api.realFetch(
+    `/market/listings/${listingId}/reserve`,
+    { method: 'POST', body: JSON.stringify({ conversation_id: conversationId }) },
+    'bff',
+    { rethrow: true },
+  );
+}
+
+/** 구매자 선택 거래완료. conversationId 를 생략하면 "앱 밖에서 팔았어요" — 상대·후기 없이 종결. */
+export async function completeListingFor(listingId: string, conversationId: string | null) {
+  return api.realFetch(
+    `/market/listings/${listingId}/complete`,
+    { method: 'POST', body: JSON.stringify({ conversation_id: conversationId }) },
+    'bff',
+    { rethrow: true },
+  );
+}
+
+/** d1(260928 §3.6 #14) — 예약중이라 [채팅하기]·[가격제안]이 막힌 매물의 "취소되면 알림 받기" 구독. */
+export async function subscribeListingAvailability(listingId: string): Promise<void> {
+  await api.realFetch(
+    `/market/listings/${listingId}/notify-when-available`,
+    { method: 'POST' },
+    'bff',
+    { rethrow: true },
+  );
 }

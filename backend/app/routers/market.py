@@ -23,6 +23,7 @@ from ..models import (
     DmConversation,
     DmConversationListing,
     DmMessage,
+    ListingAvailabilitySubscription,
     ListingPriceLog,
     MarketplaceAd,
     MarketplaceAppointment,
@@ -39,6 +40,8 @@ from ..models import (
     Report,
     ReportImage,
     SupportTicket,
+    TradeSet,
+    TradeSetItem,
     User,
     UserBlock,
     UserFollow,
@@ -61,6 +64,10 @@ from ..schemas import (
     DmMessageOut,
     FunnelEventType,
     IssueCategory,
+    ListingChatCounterpartOut,
+    ListingCompleteRequest,
+    ListingOfferOut,
+    ListingReserveRequest,
     MarketplaceAdOut,
     MarketplaceBumpResult,
     MarketplaceCategoryOut,
@@ -87,6 +94,7 @@ from ..schemas import (
     ReviewBrief,
     SellerBrief,
     TradeHistoryItem,
+    TradeSetOut,
     TransactionCancelRequestCreate,
     TransactionCancelRequestOut,
     TransactionCancelRequestRespond,
@@ -102,6 +110,15 @@ from ..services.location_privacy import resolve_nearest_ward, resolve_precision_
 from ..services.search_index import immediate_blob
 from ..services.search_norm import norm
 from ..services.service_area import in_service_area
+from ..services.trade_sets import (
+    find_accepted_appointment,
+    get_active_set,
+    get_or_create_active_set,
+    reserve_listing_for_set,
+    set_total_vnd,
+    trade_set_out,
+    upsert_item,
+)
 from ..services.translate import lookup_lang_batch, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, find_nearest_ward_id, mask_phone, resolve_avatar_url
 from ._report_guard import guard_duplicate_report
@@ -1001,6 +1018,11 @@ async def update_status(
     # MKT-3: SOLD 는 거래 완료(complete_appointment) 경로로만 전이 — 수동 PATCH 금지
     if body.status == "SOLD":
         raise HTTPException(status_code=400, detail={"code": "sold_via_appointment"})
+    # 260928 §3.2: 예약중은 상대가 있어야 한다 — 이 엔드포인트는 상대를 모르므로 항상 거부한다.
+    # 판매자는 방 안 상태 시트(/dm/conversations/{id}/trade-set/status) 또는 매물 상세 예약자
+    # 선택(/market/listings/{id}/reserve)으로만 예약중으로 바꿀 수 있다.
+    if body.status == "RESERVED":
+        raise HTTPException(status_code=409, detail={"code": "counterpart_required"})
 
     listing = (
         await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
@@ -1792,6 +1814,288 @@ async def delete_keyword_alert(
     await db.commit()
 
 
+# ── 매물 상세 예약자/구매자 선택 (F-S0-02 FR-5/FR-6, 260928) ────────────
+# 방 안 상태 시트(dm.py trade-set status)와 같은 서비스 헬퍼를 공유한다.
+
+
+async def _require_listing_seller(
+    db: AsyncSession, listing_id: uuid.UUID, session_uid: uuid.UUID
+) -> MarketplaceListing:
+    listing = await db.get(MarketplaceListing, listing_id)
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.seller_id != session_uid:
+        raise HTTPException(status_code=403, detail="Not the seller")
+    return listing
+
+
+@router.get(
+    "/listings/{listing_id}/offers",
+    response_model=list[ListingOfferOut],
+    summary="매물별 가격 제안 목록 (판매자, FR-5)",
+)
+async def get_listing_offers(
+    listing_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _require_listing_seller(db, listing_id, session_uid)
+    rows = (
+        (
+            await db.execute(
+                select(MarketplacePriceOffer)
+                .where(MarketplacePriceOffer.listing_id == listing_id)
+                .order_by(MarketplacePriceOffer.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    out: list[ListingOfferOut] = []
+    for offer in rows:
+        counterpart = await db.get(User, offer.proposer_id)
+        out.append(
+            ListingOfferOut(
+                id=offer.id,
+                conversation_id=offer.conversation_id,
+                counterpart_id=offer.proposer_id,
+                counterpart_nickname=counterpart.nickname if counterpart else None,
+                amount=offer.amount,
+                status=offer.status,
+            )
+        )
+    return out
+
+
+@router.get(
+    "/listings/{listing_id}/chats",
+    response_model=list[ListingChatCounterpartOut],
+    summary="매물로 대화중인 채팅 목록 (판매자, FR-6)",
+)
+async def get_listing_chats(
+    listing_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _require_listing_seller(db, listing_id, session_uid)
+    conv_ids: set[uuid.UUID] = set(
+        (
+            await db.execute(
+                select(DmConversationListing.conversation_id).where(DmConversationListing.listing_id == listing_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    conv_ids.update(
+        (
+            await db.execute(
+                select(TradeSet.conversation_id)
+                .join(TradeSetItem, TradeSetItem.set_id == TradeSet.id)
+                .where(TradeSetItem.listing_id == listing_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    out: list[ListingChatCounterpartOut] = []
+    for conv_id in conv_ids:
+        conv = await db.get(DmConversation, conv_id)
+        if conv is None:
+            continue
+        counterpart_id = conv.participant_2 if conv.participant_1 == session_uid else conv.participant_1
+        if counterpart_id is None:
+            continue
+        counterpart = await db.get(User, counterpart_id)
+        ts = await get_active_set(db, conv_id)
+        set_summary = None
+        item_status = None
+        if ts is not None:
+            items = (
+                (
+                    await db.execute(
+                        select(TradeSetItem).where(
+                            TradeSetItem.set_id == ts.id, TradeSetItem.status.in_(["INQUIRY", "RESERVED", "COMPLETED"])
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if items:
+                first_listing = await db.get(MarketplaceListing, items[0].listing_id)
+                total = await set_total_vnd(db, ts)
+                extra = f" 외 {len(items) - 1}" if len(items) > 1 else ""
+                set_summary = f"{first_listing.title if first_listing else ''}{extra} · {total:,}원"
+            this_item = next((it for it in items if it.listing_id == listing_id), None)
+            item_status = this_item.status if this_item else None
+        has_offer = (
+            await db.execute(
+                select(MarketplacePriceOffer.id)
+                .where(MarketplacePriceOffer.conversation_id == conv_id, MarketplacePriceOffer.listing_id == listing_id)
+                .limit(1)
+            )
+        ).scalar_one_or_none() is not None
+        has_appointment = (
+            await db.execute(
+                select(MarketplaceAppointment.id)
+                .where(
+                    MarketplaceAppointment.conversation_id == conv_id,
+                    MarketplaceAppointment.listing_id == listing_id,
+                    MarketplaceAppointment.status == "ACCEPTED",
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none() is not None
+        out.append(
+            ListingChatCounterpartOut(
+                conversation_id=conv_id,
+                counterpart_id=counterpart_id,
+                counterpart_nickname=counterpart.nickname if counterpart else None,
+                counterpart_avatar_url=resolve_avatar_url(counterpart) if counterpart else None,
+                last_message_at=conv.last_message_at,
+                set_summary=set_summary,
+                has_offer=has_offer,
+                has_appointment=has_appointment,
+                item_status=item_status,
+            )
+        )
+    out.sort(key=lambda c: c.last_message_at or datetime.min.replace(tzinfo=UTC), reverse=True)
+    return out
+
+
+@router.post("/listings/{listing_id}/reserve", response_model=TradeSetOut, summary="예약자 선택 (매물 상세)")
+async def reserve_listing(
+    listing_id: uuid.UUID,
+    body: ListingReserveRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _require_listing_seller(db, listing_id, session_uid)
+    conv = await db.get(DmConversation, body.conversation_id)
+    if conv is None or session_uid not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    buyer_id = conv.participant_2 if conv.participant_1 == session_uid else conv.participant_1
+    ts = await get_or_create_active_set(db, conv.id, buyer_id, session_uid)
+    await upsert_item(db, ts.id, listing_id, session_uid)
+    listing = (
+        await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id).with_for_update())
+    ).scalar_one_or_none()
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.status == "SOLD":
+        raise HTTPException(status_code=409, detail="Listing already sold")
+    await reserve_listing_for_set(db, listing, ts, actor_id=session_uid)
+    await db.commit()
+    return await trade_set_out(db, ts)
+
+
+@router.post(
+    "/listings/{listing_id}/complete",
+    response_model=TradeSetOut | None,
+    summary="거래완료 (매물 상세, 상대 선택 또는 앱 밖 판매)",
+)
+async def complete_listing(
+    listing_id: uuid.UUID,
+    body: ListingCompleteRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _require_listing_seller(db, listing_id, session_uid)
+    now = datetime.now(UTC)
+    listing = (
+        await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id).with_for_update())
+    ).scalar_one_or_none()
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.status == "SOLD":
+        raise HTTPException(status_code=409, detail="Listing already sold")
+
+    if body.conversation_id is None:
+        # "앱 밖에서 팔았어요" — 상대·후기 없음, 세트 없이 매물만 종결.
+        prev_status = listing.status
+        listing.status = "SOLD"
+        listing.agreed_price_vnd = listing.price_vnd
+        listing.updated_at = now
+        log_transition(
+            db, listing.id, prev_status, "SOLD", actor_type="user", actor_id=session_uid, reason="sold_outside_app"
+        )
+        await db.commit()
+        return None
+
+    conv = await db.get(DmConversation, body.conversation_id)
+    if conv is None or session_uid not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    buyer_id = conv.participant_2 if conv.participant_1 == session_uid else conv.participant_1
+    ts = await get_or_create_active_set(db, conv.id, buyer_id, session_uid)
+    await upsert_item(db, ts.id, listing_id, session_uid)
+
+    offer_amount = (
+        await db.execute(
+            select(MarketplacePriceOffer.amount)
+            .where(MarketplacePriceOffer.listing_id == listing.id, MarketplacePriceOffer.status == "ACCEPTED")
+            .order_by(MarketplacePriceOffer.updated_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    prev_status = listing.status
+    listing.status = "SOLD"
+    listing.agreed_price_vnd = offer_amount if offer_amount is not None else listing.price_vnd
+    listing.updated_at = now
+    log_transition(
+        db, listing.id, prev_status, "SOLD", actor_type="user", actor_id=session_uid, reason="trade_set_completed"
+    )
+
+    item = (
+        await db.execute(
+            select(TradeSetItem).where(TradeSetItem.set_id == ts.id, TradeSetItem.listing_id == listing_id)
+        )
+    ).scalar_one_or_none()
+    if item is not None:
+        item.status = "COMPLETED"
+        item.updated_at = now
+    appt = await find_accepted_appointment(db, conv.id, listing.id)
+    if appt is not None:
+        appt.status = "COMPLETED"
+        appt.updated_at = now
+    # 이 매물 하나만 완료 — 세트의 다른 항목이 아직 활성이면 세트는 열어 둔다.
+    remaining = (
+        await db.execute(
+            select(TradeSetItem.id).where(
+                TradeSetItem.set_id == ts.id, TradeSetItem.status.in_(["INQUIRY", "RESERVED"])
+            )
+        )
+    ).first()
+    if remaining is None:
+        ts.status = "CLOSED"
+        ts.updated_at = now
+    await db.commit()
+    return await trade_set_out(db, ts)
+
+
+@router.post(
+    "/listings/{listing_id}/notify-when-available",
+    status_code=201,
+    summary="예약중 매물 - 취소되면 알림 받기 (opt-in, d1)",
+)
+async def subscribe_listing_availability(
+    listing_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    listing = await db.get(MarketplaceListing, listing_id)
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    await db.execute(
+        pg_insert(ListingAvailabilitySubscription)
+        .values(listing_id=listing_id, user_id=session_uid)
+        .on_conflict_do_nothing(index_elements=["listing_id", "user_id"])
+    )
+    await db.commit()
+    return {"subscribed": True}
+
+
 # ── 거래 약속 (Appointments, SGR-287) ─────────────────────────────
 # DM 메시지 meta → 도메인 엔티티 승격. 거래 1건의 만남 = 단일 진실.
 # 생명주기: PROPOSED → ACCEPTED(listing RESERVED) → COMPLETED(listing SOLD) / CANCELLED
@@ -2428,7 +2732,9 @@ async def accept_appointment(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    """제안 상대(제안자가 아닌 참여자)가 수락 → ACCEPTED, 매물 ON_SALE→RESERVED."""
+    """제안 상대(제안자가 아닌 참여자)가 수락 → ACCEPTED. 매물 상태는 바꾸지 않는다 — 예약중
+    전환은 판매자의 명시적 상태 변경(trade-set status)만 한다(260928 설계 §3.1, d3).
+    대신 판매자에게 "예약중으로 변경할까요?" 프롬프트 메시지를 남긴다."""
     appt, conv, listing = await _load_appointment(db, appointment_id, session_uid)
     if session_uid == appt.proposer_id:
         raise HTTPException(status_code=403, detail="Proposer cannot accept own appointment")
@@ -2441,12 +2747,26 @@ async def accept_appointment(
     now = datetime.now(UTC)
     appt.status = "ACCEPTED"
     appt.updated_at = now
-    listing.status = "RESERVED"
-    listing.updated_at = now
-    log_transition(
-        db, listing.id, "ON_SALE", "RESERVED", actor_type="user", actor_id=session_uid, reason="appointment_accepted"
-    )
     await _ensure_marketplace_transaction(db, appt, conv, listing)
+    buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1
+    buyer = await db.get(User, buyer_id) if buyer_id else None
+    # 프론트가 dm.tradeSetReservePrompt(nickname) 로 렌더 — content 는 원문을 저장하지 않는다(i18n).
+    db.add(
+        DmMessage(
+            conversation_id=conv.id,
+            sender_id=listing.seller_id,
+            content=None,
+            message_type="text",
+            meta={
+                "kind": "reserve_prompt",
+                "listingId": str(listing.id),
+                "appointmentId": str(appt.id),
+                "counterpartNickname": buyer.nickname if buyer else None,
+            },
+            created_at=now,
+        )
+    )
+    conv.last_message_at = now
     _enqueue_live_activity(db, appt)
     await db.commit()
     return await _appt_out(db, appt, listing.seller_id)
@@ -2480,7 +2800,7 @@ async def confirm_marketplace_item_inspection(
     transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
     if session_uid != transaction.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can confirm item inspection")
-    if appt.status != "ACCEPTED" or listing.status != "RESERVED" or transaction.payment_status != "AWAITING_PAYMENT":
+    if appt.status != "ACCEPTED" or transaction.payment_status != "AWAITING_PAYMENT":
         raise HTTPException(status_code=409, detail="Item inspection is no longer available for this transaction")
     if getattr(transaction, "buyer_inspected_at", None) is None:
         now = datetime.now(UTC)
@@ -2511,7 +2831,7 @@ async def report_marketplace_payment(
     transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
     if session_uid != transaction.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can report payment")
-    if appt.status != "ACCEPTED" or listing.status != "RESERVED":
+    if appt.status != "ACCEPTED":
         raise HTTPException(status_code=409, detail="Payment can only be reported for an active transaction")
     if transaction.payment_status == "AWAITING_PAYMENT":
         if await _current_payment_qr_message_id(db, transaction) is None:
@@ -2544,7 +2864,7 @@ async def confirm_marketplace_payment(
     transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
     if session_uid != transaction.seller_id:
         raise HTTPException(status_code=403, detail="Only the seller can confirm receipt")
-    if appt.status != "ACCEPTED" or listing.status != "RESERVED":
+    if appt.status != "ACCEPTED":
         raise HTTPException(status_code=409, detail="Receipt can only be confirmed for an active transaction")
     if transaction.payment_status == "AWAITING_PAYMENT":
         raise HTTPException(status_code=409, detail="The buyer has not reported payment")
@@ -2577,7 +2897,7 @@ async def cancel_marketplace_payment_report(
     transaction, appt, conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
     if session_uid != transaction.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can cancel their own payment report")
-    if appt.status != "ACCEPTED" or listing.status != "RESERVED":
+    if appt.status != "ACCEPTED":
         raise HTTPException(status_code=409, detail="Payment report can only be cancelled for an active transaction")
     if transaction.payment_status != "PAYMENT_REPORTED":
         raise HTTPException(status_code=409, detail="No payment report to cancel")
@@ -2903,7 +3223,8 @@ async def cancel_appointment(
     session_uid: uuid.UUID = Depends(verify_user_session),
     body: AppointmentCancelRequestBody | None = None,
 ):
-    """참여자 누구나 취소 → CANCELLED. 수락 상태였으면 매물 RESERVED→ON_SALE 복귀.
+    """참여자 누구나 취소 → CANCELLED. 매물 예약 상태는 건드리지 않는다 — 예약중 해제는 판매자가
+    직접 하기 전까지 유지된다(260928 설계 §3.1, d3). 판매자가 방치하면 FR-3 핑이 재질문한다.
 
     F-X-01 FR-1(260924 승인안): 사유 칩은 선택이다 — 기존 호출부(제안/거절 단계, 손실 없는 취소)는
     사유 없이도 그대로 동작한다."""
@@ -2925,22 +3246,9 @@ async def cancel_appointment(
         raise HTTPException(status_code=409, detail="Cannot cancel after payment is reported")
 
     now = datetime.now(UTC)
-    was_accepted = appt.status == "ACCEPTED"
     appt.status = "CANCELLED"
     appt.cancel_reason = body.reason if body else None
     appt.updated_at = now
-    if was_accepted and listing.status == "RESERVED":
-        listing.status = "ON_SALE"
-        listing.updated_at = now
-        log_transition(
-            db,
-            listing.id,
-            "RESERVED",
-            "ON_SALE",
-            actor_type="user",
-            actor_id=session_uid,
-            reason="appointment_cancelled",
-        )
     # F-S5-01 FR-1: 취소는 상대가 이동 중일 수 있는 즉시 영향 행위다. 상태 변경과 같은
     # 트랜잭션에 상대방 한 명 대상 outbox를 적재해, 커밋된 취소만 통지한다.
     counterpart_id = require_participant(conv, session_uid)
@@ -3080,6 +3388,8 @@ async def propose_price_offer(
         raise HTTPException(status_code=403, detail="Listing does not accept price offers")
     # 소유자 결정(260928 d1) — RESERVED/SOLD 매물은 제안 차단. 판매 진행 중인 매물에
     # 다른 대화방에서 새 제안이 들어오는 걸 막는다.
+    if listing.status == "RESERVED":
+        raise HTTPException(status_code=409, detail={"code": "LISTING_RESERVED"})
     if listing.status != "ON_SALE":
         raise HTTPException(status_code=409, detail="Listing is no longer available")
     if session_uid == listing.seller_id:
@@ -3262,42 +3572,58 @@ async def cancel_price_offer(
     return _offer_out(offer, listing.seller_id)
 
 
-@router.get("/trades", response_model=list[TradeHistoryItem], summary="거래 이력 (완료된 거래)")
+@router.get("/trades", response_model=list[TradeHistoryItem], summary="거래 이력 (예약중/완료된 거래)")
 async def get_trades(
     user_id: uuid.UUID = Query(..., description="대상 사용자"),
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    """내가 참여한 진행중(ACCEPTED)/완료(COMPLETED) 약속 = 거래 목록. 역할(판매/구매)·상대·후기여부·단계(stage) 포함.
+    """내가 참여한 세트 항목(RESERVED/COMPLETED) = 거래 목록. 역할(판매/구매)·상대·후기여부·단계 포함.
 
-    260928 실기기 피드백: 완료 건만 보이던 것에 진행중 거래도 함께 노출 — 취소/거절 건은 제외."""
+    260928 세트 모델(trade-request-flow-design.md §6 E): 소스를 약속(marketplace_appointments)
+    에서 trade_set_items 로 옮겨, 매물 상세·방 안 상태 시트로 만든 수동 예약중/거래완료도 이력에
+    뜨게 한다. "IN_PROGRESS" 단계명은 "RESERVED" 로 바뀌었다."""
     if user_id != session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
     rows = (
         await db.execute(
-            select(MarketplaceAppointment, DmConversation)
-            .join(DmConversation, DmConversation.id == MarketplaceAppointment.conversation_id)
+            select(TradeSetItem, TradeSet)
+            .join(TradeSet, TradeSet.id == TradeSetItem.set_id)
             .where(
-                MarketplaceAppointment.status.in_(["ACCEPTED", "COMPLETED"]),
-                or_(DmConversation.participant_1 == user_id, DmConversation.participant_2 == user_id),
+                TradeSetItem.status.in_(["RESERVED", "COMPLETED"]),
+                or_(TradeSet.buyer_id == user_id, TradeSet.seller_id == user_id),
             )
-            .order_by(MarketplaceAppointment.updated_at.desc())
+            .order_by(TradeSetItem.updated_at.desc())
         )
     ).all()
 
     out: list[TradeHistoryItem] = []
-    for appt, conv in rows:
-        listing = await db.get(MarketplaceListing, appt.listing_id)
+    for item, ts in rows:
+        listing = await db.get(MarketplaceListing, item.listing_id)
         if listing is None:
             continue
-        counterpart_id = conv.participant_2 if conv.participant_1 == user_id else conv.participant_1
+        counterpart_id = ts.buyer_id if ts.seller_id == user_id else ts.seller_id
         counterpart = await db.get(User, counterpart_id)
+        appt = (
+            (
+                await db.execute(
+                    select(MarketplaceAppointment)
+                    .where(
+                        MarketplaceAppointment.conversation_id == ts.conversation_id,
+                        MarketplaceAppointment.listing_id == listing.id,
+                    )
+                    .order_by(MarketplaceAppointment.updated_at.desc())
+                )
+            )
+            .scalars()
+            .first()
+        )
         review = (
             (
                 await db.execute(
                     select(MarketplaceReview).where(
                         MarketplaceReview.reviewer_id == user_id,
-                        MarketplaceReview.listing_id == appt.listing_id,
+                        MarketplaceReview.listing_id == item.listing_id,
                     )
                 )
             )
@@ -3306,19 +3632,19 @@ async def get_trades(
         )
         out.append(
             TradeHistoryItem(
-                appointment_id=appt.id,
-                conversation_id=conv.id,
+                appointment_id=appt.id if appt else None,
+                conversation_id=ts.conversation_id,
                 listing_id=listing.id,
                 listing_title=listing.title,
                 thumbnail_url=_thumbnail_url(listing),
                 # MKT-7: 합의가 스냅샷 우선(과거 완료건은 미기록 → 현재가 폴백)
                 price_vnd=listing.agreed_price_vnd if listing.agreed_price_vnd is not None else listing.price_vnd,
-                role="sold" if listing.seller_id == user_id else "bought",
+                role="sold" if ts.seller_id == user_id else "bought",
                 counterpart_id=counterpart_id,
                 counterpart_nickname=counterpart.nickname if counterpart else None,
                 counterpart_avatar_url=resolve_avatar_url(counterpart) if counterpart else None,
-                stage="COMPLETED" if appt.status == "COMPLETED" else "IN_PROGRESS",
-                completed_at=appt.updated_at if appt.status == "COMPLETED" else None,
+                stage="COMPLETED" if item.status == "COMPLETED" else "RESERVED",
+                completed_at=item.updated_at if item.status == "COMPLETED" else None,
                 review_left=review is not None,
                 my_review=ReviewBrief(
                     rating=review.rating,

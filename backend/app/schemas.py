@@ -1610,7 +1610,7 @@ class ReviewBrief(BaseModel):
 
 
 class TradeHistoryItem(BaseModel):
-    appointment_id: UUID
+    appointment_id: UUID | None = None
     conversation_id: UUID
     listing_id: UUID
     listing_title: str
@@ -1620,10 +1620,71 @@ class TradeHistoryItem(BaseModel):
     counterpart_id: UUID
     counterpart_nickname: str | None = None
     counterpart_avatar_url: str | None = None
-    stage: Literal["IN_PROGRESS", "COMPLETED"]
+    # 260928: 세트 항목 기반 — 약속 없는 수동 예약중/거래완료도 이력에 뜬다. "IN_PROGRESS" →
+    # "RESERVED" 로 개명(프론트 배지 재라벨은 별도 작업).
+    stage: Literal["RESERVED", "COMPLETED"]
     completed_at: datetime | None = None
     review_left: bool
     my_review: ReviewBrief | None = None
+
+
+# ── 거래 세트(Trade Set, 260928) ────────────────────────────────────
+
+
+class TradeSetItemOut(BaseModel):
+    listing_id: UUID
+    title: str
+    price_vnd: int
+    thumbnail_url: str | None = None
+    status: Literal["INQUIRY", "RESERVED", "COMPLETED", "REMOVED", "CANCELLED"]
+    agreed_price_vnd: int | None = None
+
+
+class TradeSetOut(BaseModel):
+    id: UUID
+    conversation_id: UUID
+    buyer_id: UUID
+    seller_id: UUID
+    status: Literal["ACTIVE", "CLOSED"]
+    items: list[TradeSetItemOut]
+    total_vnd: int
+
+
+class TradeSetItemsAddRequest(BaseModel):
+    listing_ids: list[UUID] = Field(min_length=1)
+
+
+class TradeSetStatusUpdateRequest(BaseModel):
+    status: Literal["ON_SALE", "RESERVED", "COMPLETED"]
+
+
+class ListingChatCounterpartOut(BaseModel):
+    conversation_id: UUID
+    counterpart_id: UUID
+    counterpart_nickname: str | None = None
+    counterpart_avatar_url: str | None = None
+    last_message_at: datetime | None = None
+    set_summary: str | None = None  # "캐리어 외 1 · 55,000원"
+    has_offer: bool = False
+    has_appointment: bool = False
+    item_status: str | None = None
+
+
+class ListingOfferOut(BaseModel):
+    id: UUID
+    conversation_id: UUID
+    counterpart_id: UUID
+    counterpart_nickname: str | None = None
+    amount: int
+    status: str
+
+
+class ListingReserveRequest(BaseModel):
+    conversation_id: UUID
+
+
+class ListingCompleteRequest(BaseModel):
+    conversation_id: UUID | None = None  # None = "앱 밖에서 팔았어요"
 
 
 class DmReactionOut(BaseModel):

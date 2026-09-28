@@ -77,8 +77,8 @@ test('trade-set room UI: buyer builds a set via picker, seller reserves via stat
     await expect(page.getByText(titleB, { exact: false }).last()).toBeVisible();
 
     // B 행의 [물품 정보 보내기] → B 제목의 물품 카드가 새로 생긴다.
-    const rowB = page.locator('text=' + titleB).locator('..');
-    await rowB.getByRole('button', { name: '물품 정보 보내기' }).click();
+    // 시트 행 순서 = 세트 항목 순서(A, B) — 두 번째 [물품 정보 보내기] 가 B 행이다.
+    await page.getByRole('button', { name: '물품 정보 보내기' }).nth(1).click();
     await expect(page.getByText('매물', { exact: true }).last()).toBeVisible();
 
     // 다시 열어 [묶음 정보 보내기] → 묶음 카드가 새로 생긴다.

@@ -713,12 +713,15 @@ export default function DmDetail() {
     if (!conversationId) return;
     const msg = await sendListingCard(conversationId, listingId);
     applyIncoming([msg]);
+    // 보낸 카드가 대화에 보이도록 시트를 닫는다(실렌더 260928 — 시트가 방금 보낸 카드를 가렸다).
+    setTradeSetListOpen(false);
   };
 
   const handleSendBundleCard = async () => {
     if (!conversationId) return;
     const msg = await sendBundleCard(conversationId);
     applyIncoming([msg]);
+    setTradeSetListOpen(false);
   };
 
   // 워키토키 헤더메뉴 "워키토키" 탭 — 이 대화방으로 참여 + 상대방에게 초대카드 전송(채널 존재를 모를 수 있으므로).

@@ -1797,12 +1797,16 @@ async def delete_keyword_alert(
 # 생명주기: PROPOSED → ACCEPTED(listing RESERVED) → COMPLETED(listing SOLD) / CANCELLED
 
 
-async def _appointment_unlocked(db: AsyncSession, conv: DmConversation, user_id: uuid.UUID) -> bool:
+async def _appointment_unlocked(
+    db: AsyncSession, conv: DmConversation, user_id: uuid.UUID, listing_id: uuid.UUID | None = None
+) -> bool:
     """약속잡기 게이트 — 판매자는 항상 가능. 구매자는 판매자의 거래진행 액션 이후에만:
-    ① 이 대화에 ACCEPTED 가격제안 존재, 또는 ② 판매자가 제안한 약속 존재."""
+    ① 이 (대화, 매물)에 ACCEPTED 가격제안 존재, 또는 ② 판매자가 제안한 약속 존재.
+    F-DM-02(260928): 방에 매물이 여럿 얽힐 수 있어 listing_id 로 좁힌다 — 생략 시 conv.context_id."""
     if conv.context_type != "listing" or conv.context_id is None:
         return False
-    listing = await db.get(MarketplaceListing, conv.context_id)
+    listing_id = listing_id or conv.context_id
+    listing = await db.get(MarketplaceListing, listing_id)
     if listing is None:
         return False
     if user_id == listing.seller_id:
@@ -1812,6 +1816,7 @@ async def _appointment_unlocked(db: AsyncSession, conv: DmConversation, user_id:
             select(MarketplacePriceOffer.id)
             .where(
                 MarketplacePriceOffer.conversation_id == conv.id,
+                MarketplacePriceOffer.listing_id == listing_id,
                 MarketplacePriceOffer.status == "ACCEPTED",
             )
             .limit(1)
@@ -1824,6 +1829,7 @@ async def _appointment_unlocked(db: AsyncSession, conv: DmConversation, user_id:
             select(MarketplaceAppointment.id)
             .where(
                 MarketplaceAppointment.conversation_id == conv.id,
+                MarketplaceAppointment.listing_id == listing_id,
                 MarketplaceAppointment.proposer_id == listing.seller_id,
             )
             .limit(1)
@@ -1910,7 +1916,7 @@ async def propose_appointment(
     )
 
     # 구매자 게이팅 — 판매자의 거래진행 액션(가격제안 수락 or 판매자 약속 제안) 전에는 제안 불가
-    if not await _appointment_unlocked(db, conv, session_uid):
+    if not await _appointment_unlocked(db, conv, session_uid, listing_id):
         raise HTTPException(status_code=403, detail="Appointment locked until the seller moves the deal forward")
 
     now = datetime.now(UTC)
@@ -2745,7 +2751,7 @@ async def complete_appointment(
     tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
     """판매자만 거래 완료 처리 → COMPLETED, 매물 SOLD. (제안은 누가 했든 완료는 판매자)"""
-    appt, conv, listing = await _load_appointment(db, appointment_id, session_uid)
+    appt, _conv, listing = await _load_appointment(db, appointment_id, session_uid)
     if listing.seller_id != session_uid:
         raise HTTPException(status_code=403, detail="Only the seller can complete the deal")
     if appt.status != "ACCEPTED":
@@ -2756,11 +2762,13 @@ async def complete_appointment(
 
     # MKT-7: 합의가 스냅샷 — 수락된 가격제안이 있으면 그 금액, 없으면 완료 시점의 매물가.
     # 이후 판매자가 가격을 바꿔도 거래 이력에는 합의가가 보존된다.
+    # F-DM-02(260928): 방에 매물이 여럿 얽힐 수 있어 conversation_id 가 아니라 이 약속의
+    # listing_id 로 좁힌다 — 아니면 같은 방 다른 매물의 제안가가 엉뚱하게 합의가로 쓰인다.
     accepted_offer_amount = (
         await db.execute(
             select(MarketplacePriceOffer.amount)
             .where(
-                MarketplacePriceOffer.conversation_id == conv.id,
+                MarketplacePriceOffer.listing_id == appt.listing_id,
                 MarketplacePriceOffer.status == "ACCEPTED",
             )
             .order_by(MarketplacePriceOffer.updated_at.desc())
@@ -3038,7 +3046,7 @@ async def propose_price_offer(
     session_uid: uuid.UUID = Depends(verify_user_session),
     tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
-    """가격을 제안한다. 같은 대화의 기존 PROPOSED 제안은 supersede(CANCELLED).
+    """가격을 제안한다. 같은 (대화, 매물)의 기존 PROPOSED 제안은 supersede(CANCELLED).
     채팅 타임라인 유지를 위해 message_type='price_offer' DM 메시지도 함께 생성해 반환한다."""
     conv = await db.get(DmConversation, body.conversation_id)
     if conv is None:
@@ -3048,34 +3056,57 @@ async def propose_price_offer(
     if conv.context_type != "listing" or conv.context_id is None:
         raise HTTPException(status_code=400, detail="Conversation is not linked to a listing")
 
-    listing = await db.get(MarketplaceListing, conv.context_id)
+    # F-DM-02(260928) — 방에 여러 매물이 얽힐 수 있어 프론트가 선택한 대표 매물을 받는다.
+    # 생략 시 conv.context_id(최근 문의 매물) 로 폴백해 하위호환을 유지한다.
+    listing_id = body.listing_id or conv.context_id
+    if listing_id != conv.context_id:
+        linked = (
+            await db.execute(
+                select(DmConversationListing.listing_id).where(
+                    DmConversationListing.conversation_id == conv.id,
+                    DmConversationListing.listing_id == listing_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if linked is None:
+            raise HTTPException(status_code=400, detail="Listing is not linked to this conversation")
+
+    listing = await db.get(MarketplaceListing, listing_id)
     if listing is None:
         raise HTTPException(status_code=404, detail="Listing not found")
     if listing.seller_id not in (conv.participant_1, conv.participant_2):
         raise HTTPException(status_code=403, detail="Invalid conversation context")
     if not listing.is_negotiable:
         raise HTTPException(status_code=403, detail="Listing does not accept price offers")
-    # RESERVED 는 허용 (약속 수락 후에도 같은 대화에서 가격 협상 여지) — 판매 종결만 차단
-    if listing.status == "SOLD":
-        raise HTTPException(status_code=409, detail="Listing already sold")
+    # 소유자 결정(260928 d1) — RESERVED/SOLD 매물은 제안 차단. 판매 진행 중인 매물에
+    # 다른 대화방에서 새 제안이 들어오는 걸 막는다.
+    if listing.status != "ON_SALE":
+        raise HTTPException(status_code=409, detail="Listing is no longer available")
     if session_uid == listing.seller_id:
         raise HTTPException(status_code=403, detail="Seller cannot make an offer")
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
+    await db.execute(
+        pg_insert(DmConversationListing)
+        .values(conversation_id=conv.id, listing_id=listing_id, source="price_offer")
+        .on_conflict_do_nothing(index_elements=["conversation_id", "listing_id"])
+    )
 
     now = datetime.now(UTC)
-    # 대화당 활성 제안 1건 — 직전 PROPOSED 들은 무효화
+    # 매물당 활성 제안 1건 — 직전 PROPOSED 들은 무효화. F-DM-02: 대화 하나에 매물이 여럿
+    # 얽힐 수 있어 listing_id 로도 좁혀야 한다 — 아니면 매물 B 제안이 매물 A의 PROPOSED를 지운다.
     await db.execute(
         update(MarketplacePriceOffer)
         .where(
             MarketplacePriceOffer.conversation_id == conv.id,
+            MarketplacePriceOffer.listing_id == listing_id,
             MarketplacePriceOffer.status == "PROPOSED",
         )
         .values(status="CANCELLED", updated_at=now)
     )
 
     offer = MarketplacePriceOffer(
-        listing_id=conv.context_id,
+        listing_id=listing_id,
         conversation_id=conv.id,
         proposer_id=session_uid,
         amount=body.amount,
@@ -3134,9 +3165,10 @@ async def _load_price_offer(
     listing = await db.get(MarketplaceListing, offer.listing_id)
     if listing is None:
         raise HTTPException(status_code=404, detail="Listing not found")
+    # F-DM-02(260928) — 방에 매물이 여럿 얽힐 수 있어 conv.context_id 와의 일치는 더 이상
+    # 요구하지 않는다(propose_price_offer 가 이미 매물-대화 연결을 검증해 offer 를 만든다).
     if (
         conv.context_type != "listing"
-        or conv.context_id != offer.listing_id
         or listing.seller_id not in (conv.participant_1, conv.participant_2)
         or offer.proposer_id not in (conv.participant_1, conv.participant_2)
     ):
@@ -3156,6 +3188,22 @@ async def accept_price_offer(
         raise HTTPException(status_code=403, detail="Proposer cannot accept own offer")
     if offer.status != "PROPOSED":
         raise HTTPException(status_code=409, detail=f"Cannot accept offer in status {offer.status}")
+    if listing.status != "ON_SALE":
+        raise HTTPException(status_code=409, detail="Listing is no longer available")
+    # F-DM-02(260928) — 같은 매물에 (다른 대화방 포함) 이미 ACCEPTED 제안이 있으면 중복 수락 차단.
+    other_accepted = (
+        await db.execute(
+            select(MarketplacePriceOffer.id)
+            .where(
+                MarketplacePriceOffer.listing_id == offer.listing_id,
+                MarketplacePriceOffer.status == "ACCEPTED",
+                MarketplacePriceOffer.id != offer.id,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if other_accepted is not None:
+        raise HTTPException(status_code=409, detail="Listing already has an accepted offer")
 
     now = datetime.now(UTC)
     offer.status = "ACCEPTED"

@@ -759,7 +759,7 @@ export default function DmDetail() {
     if (!conversationId || sending) return;
     setSending(true);
     try {
-      const msg = await proposePriceOffer(conversationId, amount);
+      const msg = await proposePriceOffer(conversationId, amount, selectedListingId);
       // 서버가 직전 PROPOSED 제안을 supersede(CANCELLED) 하므로 로컬 카드도 즉시 갱신 (DM-2)
       setMessages((prev) =>
         upsertMessages(

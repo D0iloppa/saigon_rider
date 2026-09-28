@@ -1591,6 +1591,9 @@ class PriceOfferProposeRequest(BaseModel):
     conversation_id: UUID
     # Q-2/D-21(감사 260817): 매물 price_vnd 와 같은 상한 — 가격 제안도 같은 자릿수 오입력 리스크.
     amount: int = Field(le=_MAX_PRICE_VND)
+    # F-DM-02(260928) — 방에 여러 매물이 얽힐 수 있어 프론트가 선택한 대표 매물을 명시할 수
+    # 있다. 생략 시 conv.context_id(최근 문의 매물) 로 폴백해 하위호환을 유지한다.
+    listing_id: UUID | None = None
 
 
 class BlockedUserOut(BaseModel):

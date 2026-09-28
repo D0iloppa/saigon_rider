@@ -156,7 +156,7 @@ export default function MarketDetail() {
     setOfferSending(true);
     try {
       const conv = await createConversation(detail.seller.id, { type: 'listing', id: detail.id });
-      await proposePriceOffer(conv.id, amount);
+      await proposePriceOffer(conv.id, amount, detail.id);
       navigate(`/dm/${conv.id}`);
     } catch {
       toast.error(t('market.offerError', { defaultValue: '가격제안을 보낼 수 없습니다' }));

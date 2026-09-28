@@ -625,11 +625,16 @@ export async function fetchMarketplacePaymentQr(conversationId: string, messageI
 
 
 // ── 가격제안 — 약속(SGR-287)과 동일하게 DM 메시지 + 도메인 엔티티 ────
-/** 가격제안. 채팅 타임라인용 price_offer 메시지를 반환한다. 기존 PROPOSED 제안은 서버가 supersede. */
-export async function proposePriceOffer(conversationId: string, amount: number): Promise<DmMessage> {
+/** 가격제안. 채팅 타임라인용 price_offer 메시지를 반환한다. 기존 PROPOSED 제안은 서버가 supersede.
+ * F-DM-02(260928) — listingId 는 방 상단에서 선택한 대표 매물. 생략 시 서버가 최근 문의 매물로 폴백. */
+export async function proposePriceOffer(
+  conversationId: string,
+  amount: number,
+  listingId?: string | null,
+): Promise<DmMessage> {
   const raw = await api.realFetch<any>('/market/price-offers', {
     method: 'POST',
-    body: JSON.stringify({ conversation_id: conversationId, amount }),
+    body: JSON.stringify({ conversation_id: conversationId, amount, listing_id: listingId ?? null }),
   });
   return transformMessage(raw);
 }

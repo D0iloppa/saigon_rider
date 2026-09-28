@@ -37,7 +37,7 @@ test('trade-set core flow: bundle add, seller reserve, d1 guard, listing-detail 
     const makeListing = async (title: string) => {
       const res = await request.post(`${BASE_URL}/api/bff/market/listings`, {
         headers: sessionHeaders(seller),
-        data: { seller_id: seller.userId, title, price_vnd: 100000, image_content_ids: [] },
+        data: { seller_id: seller.userId, title, price_vnd: 100000, image_content_ids: [], is_negotiable: true },
       });
       expect(res.ok()).toBeTruthy();
       return (await res.json()).id as string;
@@ -134,7 +134,7 @@ test('trade-set core flow: bundle add, seller reserve, d1 guard, listing-detail 
     // 매물 상세 수동 PATCH 로 예약중 시도 → 상대 미지정이라 409
     const manualReserve = await request.patch(`${BASE_URL}/api/bff/market/listings/${listingA}/status`, {
       headers: sessionHeaders(seller),
-      data: { status: 'RESERVED' },
+      data: { seller_id: seller.userId, status: 'RESERVED' },
     });
     expect(manualReserve.status()).toBe(409);
 

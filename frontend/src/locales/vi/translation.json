@@ -970,6 +970,11 @@
     "cardItemLabel": "Tin đăng",
     "cardItemButton": "Xem tin đăng",
     "cardWalkieLabel": "Bộ đàm",
+    "cardLocationLabel": "Vị trí hiện tại",
+    "cardLocationShareLabel": "Chia sẻ vị trí",
+    "cardChange": "Đổi",
+    "cardLater": "Để sau",
+    "cardViewDetails": "Xem chi tiết",
     "laStatus": {
       "accepted": "Đã chốt hẹn",
       "completionRequested": "Đã yêu cầu hoàn tất",

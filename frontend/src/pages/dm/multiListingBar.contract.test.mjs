@@ -8,18 +8,18 @@ const here = dirname(fileURLToPath(import.meta.url));
 const read = (path) => readFileSync(join(here, path), 'utf8');
 
 // F-DM-02(260928) 방 상단 매물바 다:다 아코디언 계약 —
-// (1) 'card' 와 'walkie_invite' 메시지는 같은 CardBubble 렌더 셸을 공유한다.
+// (1) 'card' 와 'walkie_invite' 메시지는 같은 CardMessage 렌더 셸을 공유한다.
 // (2) "외 N건" 토글은 in-flow 아코디언(바텀시트 아님)이고, 거래중이 먼저 온다(서버 정렬을 그대로 씀).
 // (3) 대표 매물(선택) 은 로컬 상태이고, 예약중(타인) 행은 약속잡기가 막힌다.
 // (4) 카드전송 helper 는 title/price 를 클라이언트가 보내지 않는다(서버 스냅샷 신뢰).
 
-test('card and walkie_invite messages both render through CardBubble', () => {
+test('card and walkie_invite messages both render through CardMessage', () => {
   const detail = read('DmDetail.tsx');
-  assert.match(detail, /import \{ CardBubble \} from '@\/components\/dm\/CardBubble';/);
+  assert.match(detail, /import \{ CardMessage \} from '@\/components\/dm\/CardMessage';/);
   assert.match(detail, /m\.messageType === 'card' && m\.meta\?\.subtype === 'item'/);
-  assert.match(detail, /<CardBubble[\s\S]*?subtype="item"/);
+  assert.match(detail, /<CardMessage[\s\S]*?type="item"/);
   assert.match(detail, /m\.messageType === 'walkie_invite'/);
-  assert.match(detail, /<CardBubble[\s\S]*?subtype="walkie"/);
+  assert.match(detail, /<CardMessage[\s\S]*?type="walkie_invite"/);
 });
 
 test('the listing bar accordion is in-flow (not a BottomSheet) and toggled by a chevron', () => {

@@ -480,21 +480,7 @@
   padding: 4px 8px;
 }
 
-/* ── 약속/가격제안 시스템 카드 (공용 골격) ── */
-.apptCard {
-  align-self: center;
-  width: min(92%, 380px);
-  margin: 6px auto;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-card);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  text-align: left;
-}
+/* ── 약속/가격제안 카드 내부 구성요소 (셸은 CardMessage 가 담당, F-DM-02 260928) ── */
 /* 종결 상태는 카드 전체를 은은하게 — 상태 구분은 헤더 상태필이 담당 */
 .appt_CANCELLED,
 .appt_DECLINED { opacity: .6; }
@@ -540,6 +526,17 @@
 .offerCompare {
   font-size: 12px;
   color: var(--text-3);
+}
+
+/* 묶음요청 카드(F-DM-02 260928) — 담긴 매물 제목 목록 */
+.bundleItemList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 /* 라벨 행 (날짜/시간/장소) — 라벨 열은 로케일별 최장 라벨에 맞춰 자동 정렬 */
@@ -669,14 +666,6 @@
 /* aria-disabled: 탭을 받아 사유를 토스트로 알리는 잠금(2026-08-13) */
 .apptBtnGhost[aria-disabled='true'] { opacity: .5; }
 
-.apptTime {
-  align-self: flex-end;
-  font-size: 11px;
-  color: var(--text-3);
-  margin-top: -2px;
-}
-
-/* ── 워키토키 채널 초대 카드 — 시스템/액션 카드 (apptCard 문법 계승, 좌우 정렬은 버블 관례 유지) ── */
 /* 병합 경계 매물 구분자 (init/214) — 발신자 버블이 아니라 가운데 정렬 구분선. */
 .systemDivider {
   align-self: center;
@@ -701,56 +690,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.walkieInviteCard {
-  max-width: 75%;
-  min-width: 210px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-card);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.walkieInviteMine {
-  align-self: flex-end;
-  border-bottom-right-radius: 4px;
-}
-
-.walkieInviteTheirs {
-  align-self: flex-start;
-  border-bottom-left-radius: 4px;
-}
-
-.walkieInviteHead {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.walkieInviteIcon {
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--brand-50);
-  color: var(--brand-500);
-}
-
-.walkieInviteText {
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--text);
-  word-break: break-word;
 }
 
 .walkieInviteJoinBtn {
@@ -785,13 +724,6 @@
   height: 6px;
   border-radius: 50%;
   background: currentColor;
-}
-
-.walkieInviteTime {
-  align-self: flex-end;
-  font-size: 11px;
-  color: var(--text-3);
-  margin-top: -2px;
 }
 
 /* ── 약속잡기 시트 ── */

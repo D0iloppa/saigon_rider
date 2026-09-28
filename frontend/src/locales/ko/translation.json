@@ -970,6 +970,11 @@
     "cardItemLabel": "매물",
     "cardItemButton": "매물 정보",
     "cardWalkieLabel": "워키토키",
+    "cardLocationLabel": "현재위치",
+    "cardLocationShareLabel": "위치공유",
+    "cardChange": "변경",
+    "cardLater": "나중에",
+    "cardViewDetails": "자세히 보기",
     "laStatus": {
       "accepted": "약속 확정",
       "completionRequested": "완료 요청됨",

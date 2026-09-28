@@ -16,7 +16,8 @@ import { type PickedLocation } from '../market/LocationPickerSheet';
 import AppointmentLocationPicker from './AppointmentLocationPicker';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
-import { CardBubble } from '@/components/dm/CardBubble';
+import { CardMessage } from '@/components/dm/CardMessage';
+import cardStyles from '@/components/dm/CardMessage.module.css';
 import {
   fetchMessages,
   sendMessage,
@@ -46,6 +47,7 @@ import {
   addReaction,
   removeReaction,
   fetchMarketplaceTransaction,
+  updateTradeSetStatus,
   DM_REACTION_EMOJIS,
   DM_REPORT_REASONS,
   type DmReportReason,
@@ -801,6 +803,22 @@ export default function DmDetail() {
       // 카드가 stale(이미 변경된 제안) → 메시지 재동기화로 카드 상태 교정
       if (conversationId) fetchMessages(conversationId).then((res) => applyIncoming(res.items)).catch(() => {});
       toast.error(t('dm.priceOfferOutdated', { defaultValue: '제안 상태가 변경되어 새로고침했어요' }));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // F-DM-02(260928) — 판매자에게 "예약중으로 변경할까요?" 를 묻는 reserve_prompt 카드의 로컬 무시 상태.
+  // 서버에 저장하지 않는 UI 상태(다음 방문 시 다시 보여도 무방한 안내)라 대화별로 재조회할 필요가 없다.
+  const [dismissedPromptIds, setDismissedPromptIds] = useState<Set<string>>(new Set());
+  const handleReservePromptChange = async (msgId: string) => {
+    if (!conversationId || sending) return;
+    setSending(true);
+    try {
+      await updateTradeSetStatus(conversationId, 'RESERVED');
+      setDismissedPromptIds((prev) => new Set(prev).add(msgId));
+    } catch {
+      toast.error(t('common.errorUnexpected'));
     } finally {
       setSending(false);
     }
@@ -1808,12 +1826,19 @@ export default function DmDetail() {
           const nextMsg = neighbors?.next ?? null;
           if (m.messageType === 'payment_qr' && m.meta?.appointmentId) {
             return (
-              <div key={m.id} className={styles.apptCard}>
-                <div className={styles.apptHeader}>
-                  <span className={styles.apptTitle}>
-                    <CreditCard size={15} /> {t('dm.tradePaymentGuide')}
-                  </span>
-                </div>
+              <CardMessage
+                key={m.id}
+                type="payment"
+                isMine={isMine}
+                header={
+                  <div className={styles.apptHeader}>
+                    <span className={styles.apptTitle}>
+                      <CreditCard size={15} /> {t('dm.tradePaymentGuide')}
+                    </span>
+                  </div>
+                }
+                timeLabel={formatRelativeTime(m.createdAt)}
+              >
                 <p className={styles.apptNote}>{t('dm.tradeQrCardNotice')}</p>
                 {!isMine && <p className={styles.apptNote}>{t('dm.tradeSafetyNotice')}</p>}
                 <div className={styles.apptActions}>
@@ -1828,8 +1853,7 @@ export default function DmDetail() {
                     </button>
                   )}
                 </div>
-                <div className={styles.apptTime}>{formatRelativeTime(m.createdAt)}</div>
-              </div>
+              </CardMessage>
             );
           }
           if (m.messageType === 'appointment') {
@@ -1895,19 +1919,27 @@ export default function DmDetail() {
                 ? t('dm.apptCancelOffer', { defaultValue: '제안 취소' })
                 : t('dm.apptReject', { defaultValue: '거절' });
             return (
-              <div key={m.id} className={`${styles.apptCard} ${(status && styles[`appt_${status}`]) || ''}`}>
-                <div className={styles.apptHeader}>
-                  <span className={styles.apptTitle}>
-                    <CalendarPlus size={15} /> {t('dm.appointment', { defaultValue: '약속' })}
-                  </span>
-                  {status && (
-                    <span className={styles.apptStatusPill} data-status={status}>
-                      {completionPending
-                        ? t('dm.apptCompletionRequested', { defaultValue: '완료 요청됨' })
-                        : statusLabel[status]}
+              <CardMessage
+                key={m.id}
+                type="appointment"
+                isMine={isMine}
+                className={(status && styles[`appt_${status}`]) || ''}
+                header={
+                  <div className={styles.apptHeader}>
+                    <span className={styles.apptTitle}>
+                      <CalendarPlus size={15} /> {t('dm.appointment', { defaultValue: '약속' })}
                     </span>
-                  )}
-                </div>
+                    {status && (
+                      <span className={styles.apptStatusPill} data-status={status}>
+                        {completionPending
+                          ? t('dm.apptCompletionRequested', { defaultValue: '완료 요청됨' })
+                          : statusLabel[status]}
+                      </span>
+                    )}
+                  </div>
+                }
+                timeLabel={formatRelativeTime(m.createdAt)}
+              >
                 <div className={styles.apptInfo}>
                   <div className={styles.apptRow}>
                     <span className={styles.apptRowLabel}>{t('dm.apptDate', { defaultValue: '날짜' })}</span>
@@ -2059,8 +2091,7 @@ export default function DmDetail() {
                     )}
                   </div>
                 )}
-                <div className={styles.apptTime}>{formatRelativeTime(m.createdAt)}</div>
-              </div>
+              </CardMessage>
             );
           }
           // 임베드가 없으면(위조/삭제된 제안) 일반 버블로 폴백 — content에 요약 텍스트가 있다
@@ -2075,14 +2106,21 @@ export default function DmDetail() {
               CANCELLED: t('dm.offerCancelled', { defaultValue: '취소됨' }),
             };
             return (
-              // 약속 카드(.apptCard) 공용 골격 재사용 — 가격제안 전용은 금액 표시뿐
-              <div key={m.id} className={`${styles.apptCard} ${styles[`appt_${status}`] || ''}`}>
-                <div className={styles.apptHeader}>
-                  <span className={styles.apptTitle}>
-                    <HandCoins size={15} /> {t('dm.priceOffer', { defaultValue: '가격제안' })}
-                  </span>
-                  <span className={styles.apptStatusPill} data-status={status}>{statusLabel[status]}</span>
-                </div>
+              <CardMessage
+                key={m.id}
+                type="price_offer"
+                isMine={isMine}
+                className={styles[`appt_${status}`] || ''}
+                header={
+                  <div className={styles.apptHeader}>
+                    <span className={styles.apptTitle}>
+                      <HandCoins size={15} /> {t('dm.priceOffer', { defaultValue: '가격제안' })}
+                    </span>
+                    <span className={styles.apptStatusPill} data-status={status}>{statusLabel[status]}</span>
+                  </div>
+                }
+                timeLabel={formatRelativeTime(m.createdAt)}
+              >
                 <div className={styles.offerBody}>
                   <div className={styles.offerAmount}>{formatPriceVnd(offer.amount, t)}</div>
                   {listing && offer.amount !== listing.priceVnd && (
@@ -2113,8 +2151,7 @@ export default function DmDetail() {
                     )}
                   </div>
                 )}
-                <div className={styles.apptTime}>{formatRelativeTime(m.createdAt)}</div>
-              </div>
+              </CardMessage>
             );
           }
           // 소프트 삭제 — 콘텐츠 대신 플레이스홀더 (서버도 content/image 를 내리지 않는다)
@@ -2207,18 +2244,94 @@ export default function DmDetail() {
                 return null;
             }
           }
+          // F-DM-02(260928) — 거래 세트(trade_sets) 시스템 알림. content 는 저장하지 않고 meta.kind +
+          // 파라미터만 내려와(DM-5) i18n 문구로 렌더한다. 이전엔 이 분기가 없어 빈 말풍선으로 보였다.
+          if (m.messageType === 'text' && !m.content && m.meta?.kind) {
+            switch (m.meta.kind) {
+              case 'reserve_prompt': {
+                // 판매자에게만 "예약중으로 변경할까요?" 를 묻는다 — 구매자에겐 카드가 없다(F-DM-02 FR-1 r6).
+                if (!isMine || dismissedPromptIds.has(m.id)) return null;
+                return (
+                  <CardMessage
+                    key={m.id}
+                    type="prompt"
+                    isMine={isMine}
+                    timeLabel={formatRelativeTime(m.createdAt)}
+                  >
+                    <div className={cardStyles.cardTitle}>
+                      {t('dm.tradeSetReservePrompt', { nickname: m.meta?.counterpartNickname ?? '' })}
+                    </div>
+                    <div className={styles.apptActions}>
+                      <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                        onClick={() => handleReservePromptChange(m.id)}>
+                        {t('dm.cardChange', { defaultValue: '변경' })}
+                      </button>
+                      <button className={styles.apptBtnGhost} type="button"
+                        onClick={() => setDismissedPromptIds((prev) => new Set(prev).add(m.id))}>
+                        {t('dm.cardLater', { defaultValue: '나중에' })}
+                      </button>
+                    </div>
+                  </CardMessage>
+                );
+              }
+              case 'trade_set_item_removed_competing':
+                return (
+                  <div key={m.id} className={styles.systemDivider}>
+                    <span className={styles.systemDividerText}>
+                      {t('dm.tradeSetItemRemovedCompeting', { listingTitle: m.meta?.listingTitle ?? '' })}
+                    </span>
+                  </div>
+                );
+              case 'trade_set_item_added_by_seller':
+                return (
+                  <div key={m.id} className={styles.systemDivider}>
+                    <span className={styles.systemDividerText}>
+                      {t('dm.tradeSetItemAddedBySeller', { titles: (m.meta?.titles ?? []).join(', ') })}
+                    </span>
+                  </div>
+                );
+              case 'trade_set_item_reservation_cancelled':
+                return (
+                  <div key={m.id} className={styles.systemDivider}>
+                    <span className={styles.systemDividerText}>
+                      {t('dm.tradeSetItemReservationCancelled', { listingTitle: m.meta?.listingTitle ?? '' })}
+                    </span>
+                  </div>
+                );
+              case 'trade_set_item_removed':
+                return (
+                  <div key={m.id} className={styles.systemDivider}>
+                    <span className={styles.systemDividerText}>
+                      {t('dm.tradeSetItemRemoved', {
+                        listingTitle: m.meta?.listingTitle ?? '',
+                        totalVnd: typeof m.meta?.totalVnd === 'number' ? m.meta.totalVnd.toLocaleString('vi-VN') : '',
+                      })}
+                    </span>
+                  </div>
+                );
+              default:
+                return null;
+            }
+          }
           if (m.messageType === 'card' && m.meta?.subtype === 'item') {
             // F-DM-02(260928) — [카드 보내기]. 렌더만 하는 스냅샷(title/priceVnd/thumbnailUrl) — 서버가 전송 시점에 채운다.
             return (
-              <CardBubble
+              <CardMessage
                 key={m.id}
-                subtype="item"
+                type="item"
                 isMine={isMine}
                 headerLabel={t('dm.cardItemLabel', { defaultValue: '매물' })}
-                title={m.meta?.title ?? ''}
-                subtitle={typeof m.meta?.priceVnd === 'number' ? formatPriceVnd(m.meta.priceVnd, t) : undefined}
-                body={<AppImage src={m.meta?.thumbnailUrl ?? undefined} alt="" className={styles.contextThumb} />}
-                button={
+                timeLabel={formatRelativeTime(m.createdAt)}
+              >
+                {typeof m.meta?.priceVnd === 'number' && (
+                  <div className={cardStyles.cardSubtitle}>{formatPriceVnd(m.meta.priceVnd, t)}</div>
+                )}
+                <div className={cardStyles.cardTitle}>{m.meta?.title ?? ''}</div>
+                <div className={cardStyles.cardDivider} />
+                <div className={cardStyles.cardBody}>
+                  <AppImage src={m.meta?.thumbnailUrl ?? undefined} alt="" className={styles.contextThumb} />
+                </div>
+                <div className={cardStyles.cardButtonSlot}>
                   <button
                     type="button"
                     className={styles.walkieInviteJoinBtn}
@@ -2226,22 +2339,55 @@ export default function DmDetail() {
                   >
                     {t('dm.cardItemButton', { defaultValue: '매물 정보' })}
                   </button>
-                }
+                </div>
+              </CardMessage>
+            );
+          }
+          if (m.messageType === 'card' && m.meta?.subtype === 'bundle') {
+            // F-DM-02(260928) — 구매자가 세트에 여러 매물을 담으면 남는 묶음 요청 카드(readonly 스냅샷).
+            const titles: string[] = m.meta?.titles ?? [];
+            const totalVnd = typeof m.meta?.totalVnd === 'number' ? m.meta.totalVnd : null;
+            const firstListingId: string | undefined = m.meta?.listingIds?.[0];
+            return (
+              <CardMessage
+                key={m.id}
+                type="bundle"
+                isMine={isMine}
+                headerLabel={t('dm.tradeSetBundleTitle')}
                 timeLabel={formatRelativeTime(m.createdAt)}
-              />
+              >
+                <div className={cardStyles.cardSubtitle}>{t('dm.tradeSetBundleSubtitle')}</div>
+                <ul className={styles.bundleItemList}>
+                  {titles.map((title, i) => <li key={i}>{title}</li>)}
+                </ul>
+                {totalVnd != null && <div className={cardStyles.cardTitle}>{formatPriceVnd(totalVnd, t)}</div>}
+                <div className={cardStyles.cardButtonSlot}>
+                  <button
+                    type="button"
+                    className={styles.walkieInviteJoinBtn}
+                    onClick={() => { if (firstListingId) navigate(`/market/${firstListingId}`); }}
+                  >
+                    {t('dm.cardViewDetails', { defaultValue: '자세히 보기' })}
+                  </button>
+                </div>
+              </CardMessage>
             );
           }
           if (m.messageType === 'walkie_invite') {
             const joined = walkieActiveConversationId === conversationId;
             return (
-              <CardBubble
+              <CardMessage
                 key={m.id}
-                subtype="walkie"
+                type="walkie_invite"
                 isMine={isMine}
                 headerLabel={t('dm.cardWalkieLabel', { defaultValue: '워키토키' })}
-                title={t('walkieTalkie.inviteCardText', { name: m.meta?.invitedByName ?? '', defaultValue: '{{name}}님이 워키토키 채널을 열었어요' })}
-                button={
-                  joined ? (
+                timeLabel={formatRelativeTime(m.createdAt)}
+              >
+                <div className={cardStyles.cardTitle}>
+                  {t('walkieTalkie.inviteCardText', { name: m.meta?.invitedByName ?? '', defaultValue: '{{name}}님이 워키토키 채널을 열었어요' })}
+                </div>
+                <div className={cardStyles.cardButtonSlot}>
+                  {joined ? (
                     <span className={styles.walkieInviteJoined}>{t('walkieTalkie.inviteJoined', { defaultValue: '참여 중' })}</span>
                   ) : (
                     <button
@@ -2251,10 +2397,9 @@ export default function DmDetail() {
                     >
                       {t('walkieTalkie.inviteJoinBtn', { defaultValue: '참여하기' })}
                     </button>
-                  )
-                }
-                timeLabel={formatRelativeTime(m.createdAt)}
-              />
+                  )}
+                </div>
+              </CardMessage>
             );
           }
           if (m.messageType === 'location_pin') {
@@ -2265,50 +2410,58 @@ export default function DmDetail() {
             const pinLng = m.meta?.placeLng ?? null;
             if (pinLat == null || pinLng == null) return null;
             return (
-              <div key={m.id} className={`${styles.walkieInviteCard} ${isMine ? styles.walkieInviteMine : styles.walkieInviteTheirs}`}>
-                <div className={styles.walkieInviteHead}>
-                  <span className={styles.walkieInviteIcon}><LocateFixed size={17} /></span>
-                  <span className={styles.walkieInviteText}>
-                    {isMine
-                      ? t('dm.locationPinMine', { defaultValue: '내 현재 위치를 보냈어요' })
-                      : t('dm.locationPinTheirs', { defaultValue: '현재 위치를 보냈어요' })}
-                  </span>
+              <CardMessage
+                key={m.id}
+                type="location_pin"
+                isMine={isMine}
+                headerLabel={t('dm.cardLocationLabel', { defaultValue: '현재위치' })}
+                timeLabel={formatRelativeTime(m.createdAt)}
+              >
+                <div className={cardStyles.cardTitle}>
+                  {isMine
+                    ? t('dm.locationPinMine', { defaultValue: '내 현재 위치를 보냈어요' })
+                    : t('dm.locationPinTheirs', { defaultValue: '현재 위치를 보냈어요' })}
                 </div>
-                <button
-                  type="button"
-                  className={styles.walkieInviteJoinBtn}
-                  onClick={() => setPinPreview({ lat: pinLat, lng: pinLng })}
-                >
-                  {t('dm.locationPinView', { defaultValue: '지도에서 보기' })}
-                </button>
-                <div className={styles.walkieInviteTime}>{formatRelativeTime(m.createdAt)}</div>
-              </div>
-            );
-          }
-          if (m.messageType === 'location_share_invite') {
-            // 워키토키 초대카드와 같은 골격 재사용(styles.walkieInvite*). "참여하기" → 동의 → 채널 참가(2026-08-29 채널 모델).
-            const liveJoined = liveChannelConversationId === conversationId;
-            return (
-              <div key={m.id} className={`${styles.walkieInviteCard} ${isMine ? styles.walkieInviteMine : styles.walkieInviteTheirs}`}>
-                <div className={styles.walkieInviteHead}>
-                  <span className={styles.walkieInviteIcon}><MapPin size={17} /></span>
-                  <span className={styles.walkieInviteText}>
-                    {t('locationShare.inviteCardText', { name: m.meta?.invitedByName ?? '', defaultValue: '{{name}}님이 위치공유를 시작했어요' })}
-                  </span>
-                </div>
-                {liveJoined ? (
-                  <span className={styles.walkieInviteJoined}>{t('liveLocation.inviteJoined', { defaultValue: '참여 중' })}</span>
-                ) : (
+                <div className={cardStyles.cardButtonSlot}>
                   <button
                     type="button"
                     className={styles.walkieInviteJoinBtn}
-                    onClick={() => startLiveLocation({ sendInvite: false })}
+                    onClick={() => setPinPreview({ lat: pinLat, lng: pinLng })}
                   >
-                    {t('liveLocation.inviteJoinBtn', { defaultValue: '참여하기' })}
+                    {t('dm.locationPinView', { defaultValue: '지도에서 보기' })}
                   </button>
-                )}
-                <div className={styles.walkieInviteTime}>{formatRelativeTime(m.createdAt)}</div>
-              </div>
+                </div>
+              </CardMessage>
+            );
+          }
+          if (m.messageType === 'location_share_invite') {
+            // 워키토키 초대카드와 같은 골격(CardMessage) 재사용. "참여하기" → 동의 → 채널 참가(2026-08-29 채널 모델).
+            const liveJoined = liveChannelConversationId === conversationId;
+            return (
+              <CardMessage
+                key={m.id}
+                type="location_share_invite"
+                isMine={isMine}
+                headerLabel={t('dm.cardLocationShareLabel', { defaultValue: '위치공유' })}
+                timeLabel={formatRelativeTime(m.createdAt)}
+              >
+                <div className={cardStyles.cardTitle}>
+                  {t('locationShare.inviteCardText', { name: m.meta?.invitedByName ?? '', defaultValue: '{{name}}님이 위치공유를 시작했어요' })}
+                </div>
+                <div className={cardStyles.cardButtonSlot}>
+                  {liveJoined ? (
+                    <span className={styles.walkieInviteJoined}>{t('liveLocation.inviteJoined', { defaultValue: '참여 중' })}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className={styles.walkieInviteJoinBtn}
+                      onClick={() => startLiveLocation({ sendInvite: false })}
+                    >
+                      {t('liveLocation.inviteJoinBtn', { defaultValue: '참여하기' })}
+                    </button>
+                  )}
+                </div>
+              </CardMessage>
             );
           }
           // 이미지 첨부(캡션 없음) 메시지 — 버블 배경/패딩 없이 이미지만 (스티커와 동일 패턴)

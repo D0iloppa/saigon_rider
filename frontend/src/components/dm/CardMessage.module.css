@@ -1,7 +1,6 @@
-/* F-DM-02(260928) — 알림톡풍 제네릭 카드 (매물 카드 / 워키토키 초대 공용 셸) */
+/* F-DM-02(260928) — 채팅방 카드형 메시지 공용 셸(CardMessage). alignBySender 값에 따라
+ * 발신자 기준 말풍선(cardMine/cardTheirs)이거나 중립 공유 카드(cardNeutral)가 된다. */
 .card {
-  max-width: 75%;
-  min-width: 210px;
   border-radius: 16px;
   overflow: hidden;
   background: var(--surface);
@@ -12,16 +11,28 @@
 }
 
 .cardMine {
+  max-width: 75%;
+  min-width: 210px;
   align-self: flex-end;
   border-bottom-right-radius: 4px;
 }
 
 .cardTheirs {
+  max-width: 75%;
+  min-width: 210px;
   align-self: flex-start;
   border-bottom-left-radius: 4px;
 }
 
-.cardHeader {
+/* 중립 카드(가격제안/약속/결제/묶음요청/시스템 프롬프트) — 양쪽이 함께 다루는 카드라 가운데
+ * 공유 폭으로 둔다("내 것/네 것"처럼 안 보이게). */
+.cardNeutral {
+  align-self: center;
+  width: min(92%, 380px);
+  margin: 6px auto;
+}
+
+.cardHeaderStrip {
   padding: 6px 14px;
   font-size: 11px;
   font-weight: 700;
@@ -33,7 +44,7 @@
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .cardSubtitle {
@@ -63,9 +74,11 @@
   margin-top: 4px;
 }
 
+/* 시간 라벨 — 카드 본문 패딩 안 우하단(다른 카드 종류와 동일한 기준선). 패딩 밖에 두면
+ * 카드 모서리와 겹쳐 보이는 문제가 있었다(260928 지적). */
 .cardTime {
   align-self: flex-end;
   font-size: 11px;
   color: var(--text-3);
-  margin: 4px 4px 0 0;
+  margin-top: -2px;
 }

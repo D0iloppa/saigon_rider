@@ -998,6 +998,19 @@ B  메시지 목록 (FR-2)
 - **근거** `DmDetail.tsx:483-493`(날짜 경계 — 일반 말풍선만), `:452-479`(발신자 묶음, 카드/음성이 끊음), `:1293-1309`(읽음 표시 — 워터마크 시각 비교), `:1318-1331`(그룹 발신자 행·나간 멤버 폴백), `:1334-1348`(답장 인용 스냅샷), `:1363-1370,1977-1982`(삭제 플레이스홀더), `:1664-2229`(타입별 분기 전량), `:2058-2135`(초대 3종이 같은 클래스 집합 공유), `:370`(진입·폴링 시 `markRead`), `:442-449`(dm+음성 병합 피드).
 - **판정(r1)** ☐
   - **AI 기본안(대표 확인 대기)**: 제안 ①(안 읽음 구분선)·②(카드 2계열 규칙 명문화)·③(그 외 렌더 규칙 불변)를 모두 채택한다. ①은 실패 시나리오(안읽음 12건 시작점 불명)를 직접 해소하고 기존 날짜 구분선 문법을 재사용하므로 우선 반영하며, ②는 이 라운드에서는 이름·규칙 문장만 확정하고(클래스 rename 등 구현은 별도), ③은 이미 예외 케이스를 반영한 견고한 구현이라 그대로 둔다.
+- **구현(260928) — 카드 공통화** 대표 지시로 제안 ②(`apptCard`/`inviteCard` 2계열)보다 한 단계 더 통합했다 — 카드형 메시지 **9종 전부**(`item`·`bundle`·`walkie_invite`·`location_share_invite`·`location_pin`·`price_offer`·`appointment`·`payment`·`prompt`)가 **`CardMessage`**(`frontend/src/components/dm/CardMessage.tsx`, 구 `CardBubble`) 셸 하나를 공유한다. 추가되는 카드 종류는 `CARD_TYPES` 맵에 한 항목만 넣으면 된다. `alignBySender`(기본 `true`) 로 정렬 축을 결정한다 — 사람이 공유하는 콘텐츠(매물 카드·워키토키/위치공유 초대·현재위치)는 발신자 기준 좌/우 말풍선, 양쪽이 함께 다루는 협상/상태 카드(가격제안·약속·결제·묶음요청·시스템 프롬프트)는 중립 중앙 공유 카드다. 시간 라벨은 모든 카드가 본문 패딩 안 우하단에 통일(이전 매물 카드는 패딩 밖이라 모서리와 겹쳐 보였다). 같은 작업에서 거래 세트(`trade_sets`) 시스템 메시지(`reserve_prompt`·묶음요청 등, 09cb41da)가 빈 말풍선으로 새던 것도 이 셸/시스템 라인으로 렌더하게 막았다.
+
+| 메시지 타입 | CardMessage type | alignBySender |
+|---|---|---|
+| `card`(subtype=`item`) | `item` | true |
+| `card`(subtype=`bundle`) | `bundle` | false |
+| `walkie_invite` | `walkie_invite` | true |
+| `location_share_invite` | `location_share_invite` | true |
+| `location_pin` | `location_pin` | true |
+| `price_offer` | `price_offer` | false |
+| `appointment` | `appointment` | false |
+| `payment_qr` | `payment` | false |
+| `text` + `meta.kind='reserve_prompt'`(판매자만) | `prompt` | false |
 
 ##### FR-3 로드·스크롤·과거분 — 방의 시간축을 다루는 규칙
 - **조건** 방 진입(초기 로드) / 위로 스크롤(과거분) / 5초 폴링(신규분) / 키보드 표시 / 진행 중 바 높이 변화.

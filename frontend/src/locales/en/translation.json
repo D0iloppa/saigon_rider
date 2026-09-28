@@ -970,6 +970,11 @@
     "cardItemLabel": "Listing",
     "cardItemButton": "View listing",
     "cardWalkieLabel": "Walkie-talkie",
+    "cardLocationLabel": "Current location",
+    "cardLocationShareLabel": "Location share",
+    "cardChange": "Change",
+    "cardLater": "Later",
+    "cardViewDetails": "View details",
     "laStatus": {
       "accepted": "Meetup confirmed",
       "completionRequested": "Completion requested",

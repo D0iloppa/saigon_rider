@@ -103,7 +103,7 @@ export default function TradeSetItems() {
     <div className={styles.page}>
       <TopBar
         showBack={false}
-        title={t('dm.tradeSetListSheetTitle', { nickname: otherNickname, defaultValue: '{{nickname}}님과 한 번에 거래하는 물품이에요' })}
+        title={t('dm.tradeSetItemsTitle', { defaultValue: '거래 물품' })}
         leftContent={
           <button type="button" className={styles.headerBtn} onClick={() => navigate(`/dm/${conversationId}`)} aria-label={t('common.close')}>
             <X size={22} strokeWidth={2} />
@@ -124,29 +124,38 @@ export default function TradeSetItems() {
         ) : failed || !tradeSet ? (
           <StateBlock icon={AlertCircle} tone="error" title={t('common.errorUnexpected')} />
         ) : (
-          <div className={styles.grid}>
-            {rows.map((it) => (
-              <div key={it.listingId} className={styles.cell}>
-                <button type="button" className={styles.cellMain} onClick={() => navigate(`/market/${it.listingId}`)}>
-                  <div className={styles.cellThumbWrap}>
-                    <AppImage src={it.thumbnailUrl ?? undefined} alt="" className={styles.cellThumb} />
+          <>
+            {/* 당근 레퍼런스(260928): 헤더는 짧은 대표 제목, 본문 상단에 큰 좌측 정렬 2줄 안내 */}
+            <h2 className={styles.heading}>
+              {t('dm.tradeSetItemsHeading', { nickname: otherNickname, defaultValue: '{{nickname}}님과\n한 번에 거래하는 물품이에요' })}
+            </h2>
+            <div className={styles.grid}>
+              {rows.map((it) => (
+                <div key={it.listingId} className={styles.cell}>
+                  <div className={styles.thumbArea}>
+                    <button type="button" className={styles.cellThumbBtn} onClick={() => navigate(`/market/${it.listingId}`)}>
+                      <AppImage src={it.thumbnailUrl ?? undefined} alt="" className={styles.cellThumb} />
+                    </button>
+                    {/* 전송 아이콘은 썸네일 우하단에 겹쳐 카드 일부로 둔다(카드 아래 따로 떠 있지 않게) */}
+                    <button
+                      type="button"
+                      className={styles.sendBtn}
+                      disabled={sendingItemId === it.listingId || sendingBundle}
+                      onClick={() => handleSendItem(it.listingId)}
+                      aria-label={t('dm.tradeSetListSheetSendItem', { defaultValue: '물품 정보 보내기' })}
+                    >
+                      <Send size={15} strokeWidth={2.2} />
+                    </button>
                   </div>
-                  <span className={styles.cellTitle}>{it.title}</span>
-                  <span className={styles.cellPrice}>{formatPriceVnd(it.agreedPriceVnd ?? it.priceVnd, t)}</span>
-                  <span className={styles.cellBadge}>{t(statusLabelKey(it.status))}</span>
-                </button>
-                <button
-                  type="button"
-                  className={styles.sendBtn}
-                  disabled={sendingItemId === it.listingId || sendingBundle}
-                  onClick={() => handleSendItem(it.listingId)}
-                  aria-label={t('dm.tradeSetListSheetSendItem', { defaultValue: '물품 정보 보내기' })}
-                >
-                  <Send size={16} strokeWidth={2.2} />
-                </button>
-              </div>
-            ))}
-          </div>
+                  <button type="button" className={styles.cellMain} onClick={() => navigate(`/market/${it.listingId}`)}>
+                    <span className={styles.cellTitle}>{it.title}</span>
+                    <span className={styles.cellPrice}>{formatPriceVnd(it.agreedPriceVnd ?? it.priceVnd, t)}</span>
+                    <span className={styles.cellBadge}>{t(statusLabelKey(it.status))}</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

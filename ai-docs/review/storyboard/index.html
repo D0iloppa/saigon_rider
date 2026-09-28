@@ -19400,37 +19400,37 @@ K  탭바</pre></div>
 <div class="field field-prose"><div class="field-label">판정(r6, 260928)</div> 승인(대표 확정) — 구현 완료 · MVP는 이 화면 대신 FR-5 피커 재진입으로 대체(d5 절단 순서 ①). 별도 편집 시트는 만들지 않고 <code>TradeSetPicker</code> 재진입 시 현재 세트 항목이 선기입되어 체크 해제로 제거가 된다.</div>
 <div class="field field-prose"><div class="field-label">구현(260928) — 목록 시트(회귀 복구)</div> 세트 바 탭으로 여는 <code>components/dm/TradeSetListSheet.tsx</code>: 제목 "{{판매자}}님과 한 번에 거래하는 물품이에요" · 행(썸네일·제목·가격·상태 배지, 활성 항목 + 세트 CLOSED 시 완료 항목도 노출) · 행별 <strong>[물품 정보 보내기]</strong>(<code>card</code> subtype=<code>item</code> 전송) · 하단 <strong>[묶음 정보 보내기]</strong>(활성 항목 2건 이상일 때, <code>card</code> subtype=<code>bundle</code> — 서버가 세트의 활성 항목에서 스냅샷을 재조회)·구매자 전용 <strong>[물품편집]</strong>(→ <code>TradeSetPicker</code> 재진입) · 총액. "카드 보내기"는 개발 용어일 뿐 사용자 노출 라벨은 위 두 문구로 통일했다.</div>
 <div class="field field-prose"><div class="field-label">실기기 피드백(260928) — 페이지 전환</div> 오너가 바텀시트 대신 당근의 "{상대}님과 한 번에 거래하는 물품이에요" <strong>전체 페이지</strong>(2열 그리드 + 우상단 [물품 편집])를 참조로 지목 — 시트를 페이지로 교체했다. <code>TradeSetListSheet</code> 삭제, <code>pages/dm/TradeSetItems.tsx</code>(<code>/dm/:conversationId/items</code>) 신설: 헤더 좌측 [✕](방으로), 우측 텍스트 [물품편집](구매자만 — 방으로 돌아가 <code>TradeSetPicker</code>를 여는 딥링크), 제목은 그대로. 본문은 <code>TradeSetPicker</code>와 같은 2열 그리드(정사각 썸네일·제목 말줄임·가격·상태 배지)이고 헤더/하단 요약은 고정, 그리드 영역만 스크롤. 카드 탭 → 매물 상세. 각 카드의 전송 버튼은 텍스트가 아니라 <strong>아이콘 전용</strong>(lucide <code>Send</code>, aria-label "물품 정보 보내기")으로 축소해 2열 그리드에 맞췄고, 하단 고정 요약 바의 묶음 전송도 같은 아이콘 버튼(aria-label "묶음 정보 보내기", 활성 항목 2건 이상만 노출)이다. 전송 후에는 방으로 돌아가(<code>replace</code>) 새 카드가 바로 보이게 한다. 판매자·구매자 모두 이 페이지를 열 수 있다(편집 버튼만 구매자 전용).</div>
+<div class="field field-prose"><div class="field-label">실기기 피드백 2차(260928) — 당근 레퍼런스 정합</div> ① 헤더 제목은 짧은 대표 제목 <strong>"거래 물품"</strong>(<code>dm.tradeSetItemsTitle</code>)으로, "{상대}님과 한 번에 거래하는 물품이에요"는 <strong>본문 상단 큰 좌측 정렬 2줄 안내</strong>(<code>dm.tradeSetItemsHeading</code>)로 옮겼다(헤더에서 2줄로 꺾이던 문제). 이름은 항상 <strong>상대</strong> 닉네임. ② 물품별 전송 아이콘을 카드 아래 따로 두지 않고 <strong>썸네일 우하단에 겹친 원형 버튼</strong>으로 — 카드 본문은 레퍼런스처럼 제목·가격·상태만. 묶음 전송 아이콘은 하단 요약 바 유지.</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!doctype html>
 <html lang=&quot;ko&quot;>
 <head>
 <meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;>
 <title>세트 목록 전체 페이지 · 물품 정보/묶음 정보 보내기(아이콘)</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#eef1f4;font-family:-apple-system,BlinkMacSystemFont,&quot;Noto Sans KR&quot;,sans-serif;color:#17191c}.phone{width:390px;height:844px;background:#f5f6f8;position:relative;overflow:hidden;display:flex;flex-direction:column}.status{height:44px;padding:14px 20px 0;display:flex;justify-content:space-between;font-size:12px;font-weight:700;flex:none}.header{display:flex;align-items:center;gap:8px;padding:8px 12px 12px;flex:none}.closeBtn{width:32px;height:32px;border:0;background:none;color:#17191c;flex:none}.headerTitle{flex:1;min-width:0;font-size:15px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.editBtn{border:0;background:none;color:#ff7a1a;font-size:14px;font-weight:800;padding:6px 4px;flex:none}.body{flex:1;overflow:hidden;padding:8px 16px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.cell{display:flex;flex-direction:column;gap:6px}.cellThumb{width:100%;aspect-ratio:1;border-radius:12px}.cellThumb.a{background:#ffd5ba}.cellThumb.b{background:#c9e6d8}.cellTitle{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cellPrice{font-size:14px;font-weight:800}.cellBadge{font-size:11px;font-weight:700;color:#676c73}.cellBadge.reserved{color:#bd560c}.sendIcon{align-self:flex-end;width:32px;height:32px;border-radius:50%;border:0;background:#f1f2f4;color:#3c4147;display:flex;align-items:center;justify-content:center}.footer{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 24px;border-top:1px solid #eceef1;background:white}.summary{font-size:13px;font-weight:700;color:#676c73}.bundleSendIcon{width:40px;height:40px;border-radius:50%;border:0;background:#ff7a1a;color:white;display:flex;align-items:center;justify-content:center}
+*{box-sizing:border-box}body{margin:0;background:#eef1f4;font-family:-apple-system,BlinkMacSystemFont,&quot;Noto Sans KR&quot;,sans-serif;color:#17191c}.phone{width:390px;height:844px;background:#f5f6f8;position:relative;overflow:hidden;display:flex;flex-direction:column}.status{height:44px;padding:14px 20px 0;display:flex;justify-content:space-between;font-size:12px;font-weight:700;flex:none}.header{display:flex;align-items:center;gap:8px;padding:8px 12px 12px;flex:none}.closeBtn{width:32px;height:32px;border:0;background:none;color:#17191c;flex:none}.headerTitle{flex:1;min-width:0;text-align:center;font-size:15px;font-weight:800}.heading{margin:8px 0 20px;font-size:20px;font-weight:800;line-height:1.4}.thumbArea{position:relative}.editBtn{border:0;background:none;color:#ff7a1a;font-size:14px;font-weight:800;padding:6px 4px;flex:none}.body{flex:1;overflow:hidden;padding:8px 16px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.cell{display:flex;flex-direction:column;gap:6px}.cellThumb{width:100%;aspect-ratio:1;border-radius:12px}.cellThumb.a{background:#ffd5ba}.cellThumb.b{background:#c9e6d8}.cellTitle{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cellPrice{font-size:14px;font-weight:800}.cellBadge{font-size:11px;font-weight:700;color:#676c73}.cellBadge.reserved{color:#bd560c}.sendIcon{position:absolute;right:8px;bottom:8px;width:32px;height:32px;border-radius:50%;border:0;background:white;box-shadow:0 1px 4px rgba(11,13,20,.2);color:#3c4147;display:flex;align-items:center;justify-content:center}.footer{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 24px;border-top:1px solid #eceef1;background:white}.summary{font-size:13px;font-weight:700;color:#676c73}.bundleSendIcon{width:40px;height:40px;border-radius:50%;border:0;background:#ff7a1a;color:white;display:flex;align-items:center;justify-content:center}
 </style>
 </head>
 <body><div class=&quot;phone&quot;>
   <div class=&quot;status&quot;><span>14:32</span><span>5G&amp;nbsp;&amp;nbsp;92%</span></div>
   <div class=&quot;header&quot;>
     <button class=&quot;closeBtn&quot; type=&quot;button&quot;>✕</button>
-    <div class=&quot;headerTitle&quot;>Minh Tuấn님과 한 번에 거래하는 물품이에요</div>
+    <div class=&quot;headerTitle&quot;>거래 물품</div>
     <button class=&quot;editBtn&quot; type=&quot;button&quot;>물품편집</button>
   </div>
   <div class=&quot;body&quot;>
+    <h2 class=&quot;heading&quot;>Minh Tuấn님과<br>한 번에 거래하는 물품이에요</h2>
     <div class=&quot;grid&quot;>
       <div class=&quot;cell&quot;>
-        <span class=&quot;cellThumb a&quot;></span>
+        <div class=&quot;thumbArea&quot;><span class=&quot;cellThumb a&quot; style=&quot;display:block&quot;></span><button class=&quot;sendIcon&quot; type=&quot;button&quot; aria-label=&quot;물품 정보 보내기&quot;>➤</button></div>
         <span class=&quot;cellTitle&quot;>Honda Vision 2021</span>
         <span class=&quot;cellPrice&quot;>3.000.000 đ</span>
         <span class=&quot;cellBadge&quot;>판매중</span>
-        <button class=&quot;sendIcon&quot; type=&quot;button&quot; aria-label=&quot;물품 정보 보내기&quot;>➤</button>
       </div>
       <div class=&quot;cell&quot;>
-        <span class=&quot;cellThumb b&quot;></span>
+        <div class=&quot;thumbArea&quot;><span class=&quot;cellThumb b&quot; style=&quot;display:block&quot;></span><button class=&quot;sendIcon&quot; type=&quot;button&quot; aria-label=&quot;물품 정보 보내기&quot;>➤</button></div>
         <span class=&quot;cellTitle&quot;>오토바이 헬멧</span>
         <span class=&quot;cellPrice&quot;>100.000 đ</span>
         <span class=&quot;cellBadge reserved&quot;>예약중</span>
-        <button class=&quot;sendIcon&quot; type=&quot;button&quot; aria-label=&quot;물품 정보 보내기&quot;>➤</button>
       </div>
     </div>
   </div>

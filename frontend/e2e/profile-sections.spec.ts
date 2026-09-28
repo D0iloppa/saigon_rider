@@ -51,8 +51,9 @@ test.describe('프로필 — 내 매물 / 거래 이력 섹션', () => {
     await expect(page.getByRole('button', { name: '판매 중', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: '판매 완료', exact: true })).toHaveCount(0);
 
+    // 신규 유저는 거래가 없으므로 '전체 보기'는 숨고 빈 상태 문구가 보인다.
     await page.getByRole('button', { name: '판매', exact: true }).click();
-    await page.getByText('전체 보기').click();
-    await expect(page).toHaveURL(/\/trades\?role=sold/);
+    await expect(page.getByText('판매 내역이 없어요')).toBeVisible();
+    await expect(page.getByText('전체 보기')).toHaveCount(0);
   });
 });

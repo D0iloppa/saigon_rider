@@ -72,6 +72,7 @@ from ..services.dm_policy import (
     require_unblocked_for_join,
 )
 from ..services.listing_state import log_transition
+from ..services.push_i18n import t
 from ..services.trade_sets import (
     bundle_snapshot_meta,
     find_accepted_appointment,
@@ -1059,20 +1060,33 @@ async def send_message(
             .all()
         )
     sender = await db.get(User, _session_uid)
+    # 수신자 언어로 렌더링할 수 있게 preview_key/params 를 함께 싣는다(noti_worker 가 localize).
+    # preview 자체는 하위호환용 ko 폴백(다른 소비자가 이 필드를 직접 읽는 경우 대비).
+    preview_key: str | None = None
+    preview_params: dict = {}
     if body.content:
         preview = body.content[:50]
     elif body.audio_content_id is not None:
-        preview = "음성 메시지를 보냈습니다"
+        preview_key = "dm_preview.voice"
     elif message_type == "card":
-        preview = f"[매물] {card_listing.title}" if card_listing else "매물 카드를 보냈습니다"
+        if card_subtype == "bundle":
+            preview_key = "dm_preview.bundle"
+            preview_params = {"count": len(body.meta.get("listingIds") or [])}
+        elif card_listing:
+            preview_key = "dm_preview.item"
+            preview_params = {"title": card_listing.title}
+        else:
+            preview_key = "dm_preview.item_generic"
     elif message_type == "walkie_invite":
-        preview = "워키토키 채널을 열었어요"
+        preview_key = "dm_preview.walkie_open"
     elif message_type == "location_share_invite":
-        preview = "위치공유를 시작했어요"
+        preview_key = "dm_preview.location_share"
     elif message_type == "location_pin":
-        preview = "현재 위치를 보냈어요"
+        preview_key = "dm_preview.location_pin"
     else:
-        preview = "사진을 보냈습니다"
+        preview_key = "dm_preview.photo"
+    if preview_key:
+        preview = t("ko", preview_key, **preview_params)
     if recipient_ids:
         noti_payload = {
             "conversation_id": str(conv_id),
@@ -1081,6 +1095,9 @@ async def send_message(
             "sender_nickname": sender.nickname if sender and sender.nickname else "",
             "preview": preview,
         }
+        if preview_key:
+            noti_payload["preview_key"] = preview_key
+            noti_payload["preview_params"] = preview_params
         # B-4: 음성메시지는 수신 알림에 "바로 재생" 액션을 붙이기 위해 재생 URL/메시지 ID 를 동봉한다.
         if message_type == "voice":
             noti_payload["message_type"] = "voice"
@@ -1187,7 +1204,8 @@ async def register_payment_qr(
             "sender_id": str(_session_uid),
             "recipient_ids": [str(_other_user_id(conv, _session_uid))],
             "sender_nickname": "",
-            "preview": "사진을 보냈습니다",
+            "preview": t("ko", "dm_preview.photo"),
+            "preview_key": "dm_preview.photo",
         },
     )
     await db.commit()

@@ -69,6 +69,49 @@ TEXTS: dict[str, dict[str, str]] = {
         "en": "A listing you're watching is back on sale · {title}",
         "vi": "Tin đăng bạn theo dõi đã bán lại · {title}",
     },
+    # DM 푸시 미리보기 — content 없는 메시지 타입(음성/카드/워키토키/위치공유)의 알림 본문.
+    # dm.py send_message/register_payment_qr, services/walkie_module.py 가 preview_key 로
+    # 이 키들을 발행하면 noti_worker 가 수신자 언어로 렌더링한다(발신자 언어로 굳지 않게).
+    "dm_preview.voice": {
+        "ko": "음성 메시지를 보냈습니다",
+        "en": "Sent a voice message",
+        "vi": "Đã gửi tin nhắn thoại",
+    },
+    "dm_preview.item": {
+        "ko": "[물품] {title}",
+        "en": "[Item] {title}",
+        "vi": "[Sản phẩm] {title}",
+    },
+    "dm_preview.item_generic": {
+        "ko": "물품 정보를 보냈어요",
+        "en": "Sent item info",
+        "vi": "Đã gửi thông tin sản phẩm",
+    },
+    "dm_preview.bundle": {
+        "ko": "물품 {count}개를 한 번에 보냈어요",
+        "en": "Sent {count} items together",
+        "vi": "Đã gửi {count} sản phẩm cùng lúc",
+    },
+    "dm_preview.walkie_open": {
+        "ko": "워키토키 채널을 열었어요",
+        "en": "Opened a walkie-talkie channel",
+        "vi": "Đã mở kênh bộ đàm",
+    },
+    "dm_preview.location_share": {
+        "ko": "위치공유를 시작했어요",
+        "en": "Started sharing location",
+        "vi": "Đã bắt đầu chia sẻ vị trí",
+    },
+    "dm_preview.location_pin": {
+        "ko": "현재 위치를 보냈어요",
+        "en": "Sent current location",
+        "vi": "Đã gửi vị trí hiện tại",
+    },
+    "dm_preview.photo": {
+        "ko": "사진을 보냈습니다",
+        "en": "Sent a photo",
+        "vi": "Đã gửi ảnh",
+    },
     "appointment_cancelled.title": {
         "ko": "약속이 취소되었어요",
         "en": "Meetup cancelled",

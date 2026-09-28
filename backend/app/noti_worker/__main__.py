@@ -174,7 +174,11 @@ async def _handle_dm_message(payload: dict, *, source_event_id: str) -> None:
 
     conv_id = payload["conversation_id"]
     title = payload.get("sender_nickname") or "새 메시지"
-    body = payload.get("preview") or ""
+    # preview_key 가 있으면(음성/카드/워키토키/위치공유 등 content 없는 메시지) 수신자 언어로
+    # 렌더링한다 — 없으면(일반 텍스트) payload["preview"] 가 그대로 본문(발신자가 쓴 원문).
+    preview_key = payload.get("preview_key")
+    preview_params = payload.get("preview_params") or {}
+    fallback_body = payload.get("preview") or ""
     link = f"dm&id={conv_id}"
 
     # B-4: 음성메시지 알림에 "바로 재생" 액션(Android) + 딥링크 자동재생 파라미터를 얹는다.
@@ -193,6 +197,11 @@ async def _handle_dm_message(payload: dict, *, source_event_id: str) -> None:
 
     for recipient_id in recipient_ids:
         async with AsyncSessionLocal() as db:
+            if preview_key:
+                lang = (await langs_for_users(db, {recipient_id}))[recipient_id]
+                body = t(lang, preview_key, **preview_params)
+            else:
+                body = fallback_body
             inserted = await _insert_notification(
                 db,
                 source_event_id=source_event_id,

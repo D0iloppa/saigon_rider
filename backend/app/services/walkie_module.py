@@ -211,6 +211,7 @@ class FcmNotifier:
         """
         try:
             from . import noti_events
+            from .push_i18n import t
 
             async with self._session_factory() as db:
                 uid = _as_uuid(sender_ref)
@@ -223,7 +224,8 @@ class FcmNotifier:
                         "sender_id": sender_ref,
                         "recipient_ids": user_refs,
                         "sender_nickname": (sender.nickname if sender and sender.nickname else ""),
-                        "preview": "음성 메시지를 보냈습니다",
+                        "preview": t("ko", "dm_preview.voice"),
+                        "preview_key": "dm_preview.voice",
                         "message_type": "voice",
                         "message_id": message_id,
                         # 워커의 음성 분기는 audio_url 이 있어야 발화한다 — 이게 없으면

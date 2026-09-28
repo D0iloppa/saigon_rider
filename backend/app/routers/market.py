@@ -781,6 +781,9 @@ async def get_listing(
             desc_out, desc_failed = await translate_to(listing.description, lang, db)
         translation_failed = title_failed or desc_failed
 
+    is_reserved_for_me = (
+        session_uid is not None and listing.status == "RESERVED" and await is_reserved_for(db, listing.id, session_uid)
+    )
     detail = MarketplaceListingDetail(
         id=listing.id,
         title=title_out,
@@ -807,6 +810,7 @@ async def get_listing(
         plate_province=listing.plate_province,
         pending_deal_ping=pending_deal_ping,
         is_reported_by_me=is_reported_by_me,
+        is_reserved_for_me=is_reserved_for_me,
         report_cancelled_by_me=report_cancelled_by_me,
     )
     await db.commit()

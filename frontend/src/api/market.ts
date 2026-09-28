@@ -128,6 +128,8 @@ export interface ListingDetail {
   pendingDealPing: boolean;
   /** R-2: 내가 이미 신고한 매물인가 — 신고 버튼 비활성화로 중복신고 409 를 UI 가 먼저 막는다 */
   isReportedByMe: boolean;
+  /** F-S2-01 r6(260928): 예약중 매물이 나와의 예약인지. */
+  isReservedForMe: boolean;
   /** W7-3(260820): isReportedByMe 는 취소된 신고여도 true 라 "신고함" 문구가 거짓이 된다 —
    * 신고가 CANCELLED 면 true, 프론트가 "신고함"/"신고 취소함"을 구분하는 데 쓴다. */
   reportCancelledByMe: boolean;
@@ -620,6 +622,7 @@ export async function fetchListing(id: string, userId?: string): Promise<Listing
     plateProvince: r.plate_province ?? null,
     pendingDealPing: r.pending_deal_ping ?? false,
     isReportedByMe: r.is_reported_by_me ?? false,
+    isReservedForMe: r.is_reserved_for_me ?? false,
     reportCancelledByMe: r.report_cancelled_by_me ?? false,
   };
 }

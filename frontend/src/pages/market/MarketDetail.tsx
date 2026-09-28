@@ -719,9 +719,9 @@ export default function MarketDetail() {
                   </Button>
                 </div>
               )}
-              {/* F-S2-01 FR-1 r6(d1): 예약중 매물 — 상세에 예약자 전용 판별 데이터가 없어(단순화)
-                  타인 매물로 간주해 채팅·가격제안을 막는다. 취소되면 opt-in 알림만 남긴다. */}
-              {detail.status === 'RESERVED' ? (
+              {/* F-S2-01 FR-1 r6(d1): 타인에게 예약중인 매물 — 채팅·가격제안을 막고 취소 시 opt-in 알림만
+                  남긴다. 예약자 본인(isReservedForMe)은 평소처럼 채팅으로 이어간다. */}
+              {detail.status === 'RESERVED' && !detail.isReservedForMe ? (
                 <div className={styles.reservedNotice}>
                   <span className={styles.reservedNoticeText}>
                     {t('market.reservedForOthers', { defaultValue: '예약중이에요 · 취소되면 알려드려요' })}

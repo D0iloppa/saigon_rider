@@ -672,7 +672,6 @@
     "detailTitle": "Feed",
     "postNotFound": "Post not found",
     "noComments": "Be the first to comment",
-    "filterHot": "Hot",
     "filterPopular": "Popular",
     "filterGroupLabel": "Feed filters",
     "emptyTitle": "Waiting for the first check-in",
@@ -686,8 +685,6 @@
     "comments": "Comments",
     "loadError": "Couldn't load the feed",
     "cheerError": "Please try again in a moment",
-    "filterGroups": "My groups",
-    "groupsNav": "Groups",
     "moreActions": "More",
     "report": "Report",
     "reportTitle": "Report reason",
@@ -3038,10 +3035,7 @@
     "roleSeller": "Seller"
   },
   "communityGroup": {
-    "exploreTitle": "Explore groups",
     "createTitle": "Create group",
-    "filterAll": "All",
-    "filterMine": "My groups",
     "empty": "No groups yet",
     "joined": "Joined",
     "namePlaceholder": "Group name",

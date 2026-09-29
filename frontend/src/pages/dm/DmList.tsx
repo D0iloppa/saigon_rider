@@ -15,6 +15,7 @@ import { toast } from '@/components/ui/Toast';
 import styles from './DmList.module.css';
 
 const SWIPE_ACTION_WIDTH = 144;
+const SWIPE_MUTE_ONLY_WIDTH = 72;
 const SWIPE_OPEN_THRESHOLD = 48;
 
 export default function DmList() {
@@ -119,6 +120,9 @@ export default function DmList() {
     );
   };
 
+  const swipeWidthOf = (id: string) =>
+    conversations.find((x) => x.id === id)?.communityGroupId ? SWIPE_MUTE_ONLY_WIDTH : SWIPE_ACTION_WIDTH;
+
   const handleSwipeStart = (e: React.PointerEvent<HTMLDivElement>, id: string) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     gestureRef.current = {
@@ -126,8 +130,8 @@ export default function DmList() {
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
-      startOffset: openSwipeId === id ? -SWIPE_ACTION_WIDTH : 0,
-      currentOffset: openSwipeId === id ? -SWIPE_ACTION_WIDTH : 0,
+      startOffset: openSwipeId === id ? -swipeWidthOf(id) : 0,
+      currentOffset: openSwipeId === id ? -swipeWidthOf(id) : 0,
       axis: 'pending',
     };
   };
@@ -143,7 +147,7 @@ export default function DmList() {
     }
     if (gesture.axis !== 'horizontal') return;
     e.preventDefault();
-    const x = Math.max(-SWIPE_ACTION_WIDTH, Math.min(0, gesture.startOffset + dx));
+    const x = Math.max(-swipeWidthOf(gesture.id), Math.min(0, gesture.startOffset + dx));
     gesture.currentOffset = x;
     setDragOffset({ id: gesture.id, x });
   };
@@ -214,12 +218,13 @@ export default function DmList() {
           <div className={styles.list}>
             {conversations.map((c) => {
               const swipeOpen = openSwipeId === c.id;
+              const actionsWidth = swipeWidthOf(c.id);
               const offset = dragOffset?.id === c.id
                 ? dragOffset.x
-                : swipeOpen ? -SWIPE_ACTION_WIDTH : 0;
+                : swipeOpen ? -actionsWidth : 0;
               return (
                 <div key={c.id} className={styles.row}>
-                <div className={styles.rowActions} aria-hidden={!swipeOpen}>
+                <div className={styles.rowActions} style={{ width: actionsWidth }} aria-hidden={!swipeOpen}>
                   <button
                     type="button"
                     className={styles.muteAction}

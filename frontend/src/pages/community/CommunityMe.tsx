@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Heart, PenLine, UsersRound } from 'lucide-react';
+import { AlertCircle, Heart, PenLine, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { Button } from '@/components/ui/Button';
@@ -20,14 +20,19 @@ export default function CommunityMe() {
   const user = useUserStore((s) => s.user);
   const [groups, setGroups] = useState<CommunityGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const groupsRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const loadGroups = () => {
+    setLoading(true);
+    setError(false);
     listGroups('mine', 1, 50)
       .then((r) => setGroups(r.items))
-      .catch(() => setGroups([]))
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(loadGroups, []);
 
   return (
     <div className={styles.page}>
@@ -59,7 +64,9 @@ export default function CommunityMe() {
         </div>
 
         <div ref={groupsRef} className={styles.sectionTitle}>{t('communityGroup.myGroups')}</div>
-        {!loading && groups.length === 0 ? (
+        {error ? (
+          <StateBlock icon={AlertCircle} tone="error" title={t('feed.loadError')} actionLabel={t('common.retry')} onAction={loadGroups} />
+        ) : !loading && groups.length === 0 ? (
           <div className={styles.empty}>
             <StateBlock icon={UsersRound} title={t('communityGroup.myGroupsEmpty')} />
             <Button onClick={() => navigate('/community/groups', { replace: true })}>

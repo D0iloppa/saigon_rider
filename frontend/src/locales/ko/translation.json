@@ -672,7 +672,6 @@
     "detailTitle": "피드",
     "postNotFound": "게시글을 찾을 수 없어요",
     "noComments": "첫 댓글을 남겨보세요",
-    "filterHot": "핫",
     "filterPopular": "인기",
     "filterGroupLabel": "피드 필터",
     "emptyTitle": "첫 인증을 기다리고 있어요",
@@ -686,8 +685,6 @@
     "comments": "댓글",
     "loadError": "피드를 불러오지 못했어요",
     "cheerError": "잠시 후 다시 시도해 주세요",
-    "filterGroups": "내 그룹",
-    "groupsNav": "그룹",
     "moreActions": "더보기",
     "report": "신고하기",
     "reportTitle": "신고 사유",
@@ -3038,10 +3035,7 @@
     "roleSeller": "판매자"
   },
   "communityGroup": {
-    "exploreTitle": "그룹 탐색",
     "createTitle": "그룹 만들기",
-    "filterAll": "전체",
-    "filterMine": "내 그룹",
     "empty": "아직 그룹이 없어요",
     "joined": "가입됨",
     "namePlaceholder": "그룹 이름",

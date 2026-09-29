@@ -2205,7 +2205,7 @@ async def join_open_conversation(
         )
     ).scalar_one_or_none()
     if member is None:
-        # 오픈톡방은 기본 muted 로 가입 (§3.7)
+        # 오픈톡방 = 그룹 공식 채팅 — 알림 켜진 상태(muted_at NULL)로 가입 (대표 판정 260929)
         db.add(
             DmConversationMember(
                 conversation_id=conv_id,
@@ -2213,7 +2213,6 @@ async def join_open_conversation(
                 role="member",
                 joined_at=now,
                 last_read_at=now,
-                muted_at=now,
             )
         )
         conv.member_count += 1
@@ -2221,7 +2220,7 @@ async def join_open_conversation(
         member.left_at = None
         member.joined_at = now
         member.last_read_at = now
-        member.muted_at = now
+        member.muted_at = None
         conv.member_count += 1
     # else: 이미 활성 멤버 — 멱등하게 no-op
 

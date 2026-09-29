@@ -183,11 +183,18 @@ async def get_feed(
         public_group_filter = FeedPost.group_id.is_(None) | FeedPost.group_id.in_(
             select(CommunityGroup.id).where(CommunityGroup.visibility == "public")
         )
+        if filter == "liked" and session_uid is not None:
+            # 좋아요한 글은 내가 ACTIVE 멤버인 private 그룹 글도 노출(멤버십 기준).
+            public_group_filter = public_group_filter | FeedPost.group_id.in_(
+                select(CommunityGroupMember.group_id).where(
+                    CommunityGroupMember.user_id == session_uid, CommunityGroupMember.status == "ACTIVE"
+                )
+            )
         base_q = base_q.where(public_group_filter)
         count_q = count_q.where(public_group_filter)
 
     if filter == "liked":
-        # 내가 좋아요한 글 — 좋아요 시각 최신순. private 그룹 글은 위 public_group_filter 로 그대로 배제.
+        # 내가 좋아요한 글 — 좋아요 시각 최신순. private 그룹 글은 내가 ACTIVE 멤버인 그룹만(위 public_group_filter).
         if session_uid is None:
             raise HTTPException(status_code=401, detail="Login required")
         liked_on = (PostLike.post_id == FeedPost.id) & (PostLike.user_id == session_uid)

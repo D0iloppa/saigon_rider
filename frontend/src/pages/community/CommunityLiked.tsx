@@ -8,6 +8,7 @@ import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { fetchFeed, toggleCheer } from '@/api/feed';
 import type { FeedPost } from '@/api/types';
+import { toast } from '@/components/ui/Toast';
 import { FeedPostCard } from '@/pages/feed/FeedPostCard';
 import feedStyles from '@/pages/feed/FeedList.module.css';
 import styles from './Community.module.css';
@@ -28,8 +29,15 @@ export default function CommunityLiked() {
 
   const handleCheer = async (p: FeedPost, e: React.MouseEvent) => {
     e.stopPropagation();
-    const { cheered, count } = await toggleCheer(p.id);
-    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, iCheered: cheered, cheerCount: count } : x)));
+    try {
+      const { cheered, count } = await toggleCheer(p.id);
+      // 좋아요 해제 시 목록에서 제거 — 서버 liked 집합과 로드 개수를 맞춰 다음 페이지 누락을 막는다.
+      setPosts((prev) => cheered
+        ? prev.map((x) => (x.id === p.id ? { ...x, iCheered: cheered, cheerCount: count } : x))
+        : prev.filter((x) => x.id !== p.id));
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    }
   };
 
   return (

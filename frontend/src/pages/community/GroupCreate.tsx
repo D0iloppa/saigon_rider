@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Camera, Globe, Lock, X } from 'lucide-react';
@@ -30,12 +30,30 @@ export default function GroupCreate() {
   const user = useUserStore((s) => s.user);
   const [cover, setCover] = useState<{ preview: string; contentId: string | null; uploading: boolean } | null>(null);
 
+  const coverTokenRef = useRef(0);
+  const previewRef = useRef<string | null>(null);
+
+  const dropCover = () => {
+    coverTokenRef.current += 1;
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = null;
+    setCover(null);
+  };
+
+  // 언마운트(생성 성공 후 이동 포함) 시 미리보기 URL 해제 + 진행 중 업로드 결과 무시
+  useEffect(() => () => {
+    coverTokenRef.current += 1;
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+  }, []);
+
   const handleCoverSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (cover) URL.revokeObjectURL(cover.preview);
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    const token = ++coverTokenRef.current;
     const preview = URL.createObjectURL(file);
+    previewRef.current = preview;
     setCover({ preview, contentId: null, uploading: true });
     try {
       const form = new FormData();
@@ -43,11 +61,12 @@ export default function GroupCreate() {
       form.append('owner_type', 'user');
       if (user) form.append('owner_id', user.id);
       const res = await api.realFetchForm<{ id: string }>('/contents/upload', form);
+      if (token !== coverTokenRef.current) return;
       setCover({ preview, contentId: res.id, uploading: false });
     } catch (err: any) {
+      if (token !== coverTokenRef.current) return;
       toast.error(err.message ?? t('feedCreate.uploadError'));
-      URL.revokeObjectURL(preview);
-      setCover(null);
+      dropCover();
     }
   };
 
@@ -82,7 +101,7 @@ export default function GroupCreate() {
                 type="button"
                 className={communityStyles.coverRemove}
                 aria-label={t('communityGroup.coverRemove')}
-                onClick={(e) => { e.preventDefault(); URL.revokeObjectURL(cover.preview); setCover(null); }}
+                onClick={(e) => { e.preventDefault(); dropCover(); }}
               >
                 <X size={16} />
               </button>

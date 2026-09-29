@@ -672,7 +672,6 @@
     "detailTitle": "Bảng tin",
     "postNotFound": "Không tìm thấy bài viết",
     "noComments": "Hãy là người bình luận đầu tiên",
-    "filterHot": "Hot",
     "filterPopular": "Nổi bật",
     "filterGroupLabel": "Bộ lọc bảng tin",
     "emptyTitle": "Đang chờ check-in đầu tiên",
@@ -686,8 +685,6 @@
     "comments": "Bình luận",
     "loadError": "Không tải được bảng tin",
     "cheerError": "Vui lòng thử lại sau một lát",
-    "filterGroups": "Nhóm của tôi",
-    "groupsNav": "Nhóm",
     "moreActions": "Thêm",
     "report": "Báo cáo",
     "reportTitle": "Lý do báo cáo",
@@ -3038,10 +3035,7 @@
     "roleSeller": "Người bán"
   },
   "communityGroup": {
-    "exploreTitle": "Khám phá nhóm",
     "createTitle": "Tạo nhóm",
-    "filterAll": "Tất cả",
-    "filterMine": "Nhóm của tôi",
     "empty": "Chưa có nhóm nào",
     "joined": "Đã tham gia",
     "namePlaceholder": "Tên nhóm",

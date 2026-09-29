@@ -1179,19 +1179,15 @@ class UserProfileOut(BaseModel):
 # ── 커뮤니티 그룹 (204_community_group.sql, Phase2) ────────────────
 
 
-# 그룹 주제 고정 목록(대표 승인 260929) — DB CHECK(248) 와 동일 코드셋.
-GroupTopic = Literal[
-    "neighborhood_friends",
-    "riding_tour",
-    "sports",
-    "food_cafe",
-    "language_exchange",
-    "hobby",
-    "self_dev",
-    "family",
-    "pets",
-    "etc",
-]
+class GroupTopicLabels(BaseModel):
+    ko: str
+    en: str
+    vi: str
+
+
+class GroupTopicOut(BaseModel):
+    code: str
+    labels: GroupTopicLabels
 
 
 class CommunityGroupOut(BaseModel):
@@ -1206,6 +1202,7 @@ class CommunityGroupOut(BaseModel):
     join_policy: str
     visibility: str
     topic: str
+    topic_labels: GroupTopicLabels | None = None
     owner_id: UUID | None = None
     member_count: int
     post_count: int
@@ -1227,7 +1224,7 @@ class CommunityGroupCreateRequest(BaseModel):
     district_id: int | None = None
     join_policy: str = "open"  # 'open' | 'approval' | 'invite'
     visibility: str = "public"  # 'public' | 'private'
-    topic: GroupTopic  # 필수 — 고정 목록 1개
+    topic: str  # 필수 — community_group_topics.code (라우터에서 활성 코드 검증)
     cover_content_id: UUID | None = None
 
     @model_validator(mode="after")
@@ -1248,7 +1245,7 @@ class CommunityGroupPatchRequest(BaseModel):
     description: str | None = None
     join_policy: str | None = None
     visibility: str | None = None
-    topic: GroupTopic | None = None
+    topic: str | None = None
     cover_content_id: UUID | None = None
 
 

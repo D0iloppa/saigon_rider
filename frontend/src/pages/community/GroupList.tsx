@@ -10,14 +10,15 @@ import type { CommunityGroup } from '@/api/types';
 import { useUserStore } from '@/store/useUserStore';
 import { CommunityHeader } from './CommunityHeader';
 import { GroupCard, GroupCover } from './GroupCard';
-import { GROUP_TOPICS, groupTopicKey } from './groupTopics';
+import { pickTopicLabel, useGroupTopics } from './groupTopics';
 import styles from './Community.module.css';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
 // 커뮤니티 [그룹] 탭 — 검색 + 내 그룹(로그인 시 항상) + 그룹 둘러보기 1열 카드 (F-CM-02 FR-1 r13·r14).
 export default function GroupList() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const topics = useGroupTopics();
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
   const [mine, setMine] = useState<CommunityGroup[]>([]);
@@ -70,7 +71,7 @@ export default function GroupList() {
         </div>
 
         <div className={styles.topicRow} data-testid="group-topic-chips" role="radiogroup" aria-label={t('communityGroup.topicLabel')}>
-          {['', ...GROUP_TOPICS].map((c) => (
+          {[{ code: '', labels: null }, ...topics].map(({ code: c, labels }) => (
             <button
               key={c || 'all'}
               type="button"
@@ -80,7 +81,7 @@ export default function GroupList() {
               className={`${styles.topicBtn} ${topic === c ? styles.topicBtnActive : ''}`}
               onClick={() => setTopic(c)}
             >
-              {c ? t(groupTopicKey(c)) : t('communityGroup.topicAll')}
+              {c ? pickTopicLabel(labels, i18n.language) : t('communityGroup.topicAll')}
             </button>
           ))}
         </div>

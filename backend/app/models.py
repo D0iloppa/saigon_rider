@@ -488,6 +488,19 @@ class PostHashtag(Base):
 # ── 커뮤니티 그룹 (204_community_group.sql, Phase2) ───────────────
 
 
+class CommunityGroupTopic(Base):
+    __tablename__ = "community_group_topics"
+
+    code: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label_ko: Mapped[str] = mapped_column(Text, nullable=False)
+    label_en: Mapped[str] = mapped_column(Text, nullable=False)
+    label_vi: Mapped[str] = mapped_column(Text, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class CommunityGroup(Base):
     __tablename__ = "community_groups"
 
@@ -508,7 +521,10 @@ class CommunityGroup(Base):
     )
     join_policy: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
     visibility: Mapped[str] = mapped_column(String(20), nullable=False, default="public")
-    topic: Mapped[str] = mapped_column(String(32), nullable=False, default="etc")
+    topic: Mapped[str] = mapped_column(
+        String(32), ForeignKey("community_group_topics.code", onupdate="CASCADE"), nullable=False, default="etc"
+    )
+    topic_ref: Mapped["CommunityGroupTopic"] = relationship("CommunityGroupTopic", lazy="selectin")
     owner_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

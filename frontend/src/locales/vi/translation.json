@@ -3098,18 +3098,6 @@
     "joinPolicyApprovalDesc": "Trưởng nhóm phải duyệt thành viên mới",
     "topicLabel": "Chủ đề",
     "topicHint": "Chọn một chủ đề phù hợp với nhóm",
-    "topicAll": "Tất cả",
-    "topics": {
-      "neighborhood_friends": "Bạn cùng khu phố",
-      "riding_tour": "Đi xe & tour",
-      "sports": "Thể thao",
-      "food_cafe": "Ăn uống & cà phê",
-      "language_exchange": "Trao đổi ngôn ngữ",
-      "hobby": "Sở thích",
-      "self_dev": "Phát triển bản thân",
-      "family": "Nuôi dạy con & gia đình",
-      "pets": "Thú cưng",
-      "etc": "Khác"
-    }
+    "topicAll": "Tất cả"
   }
 }

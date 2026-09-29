@@ -1,7 +1,7 @@
 import { api, requireSession } from './client';
 import { transformPost } from './feed';
 import type { FeedPost } from './types';
-import type { CommunityGroup, CommunityGroupMember } from './types';
+import type { CommunityGroup, CommunityGroupMember, GroupTopic } from './types';
 
 function transformGroup(raw: any): CommunityGroup {
   return {
@@ -15,7 +15,8 @@ function transformGroup(raw: any): CommunityGroup {
     districtId: raw.district_id ?? null,
     joinPolicy: raw.join_policy,
     visibility: raw.visibility,
-    topic: raw.topic ?? 'etc',
+    topic: raw.topic,
+    topicLabels: raw.topic_labels ?? null,
     ownerId: raw.owner_id ?? null,
     memberCount: raw.member_count,
     postCount: raw.post_count,
@@ -74,6 +75,10 @@ export interface GroupPage {
   total: number;
   page: number;
   size: number;
+}
+
+export function listGroupTopics(): Promise<GroupTopic[]> {
+  return api.realFetch<GroupTopic[]>('/community/group-topics');
 }
 
 export async function listGroups(filter: 'all' | 'mine' = 'all', page = 1, size = 20, q = '', topic = ''): Promise<GroupPage> {

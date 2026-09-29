@@ -3098,18 +3098,6 @@
     "joinPolicyApprovalDesc": "방장이 승인해야 멤버가 돼요",
     "topicLabel": "주제",
     "topicHint": "그룹에 맞는 주제를 하나 골라주세요",
-    "topicAll": "전체",
-    "topics": {
-      "neighborhood_friends": "동네친구",
-      "riding_tour": "라이딩/투어",
-      "sports": "운동",
-      "food_cafe": "맛집/카페",
-      "language_exchange": "언어교환",
-      "hobby": "취미",
-      "self_dev": "자기계발",
-      "family": "육아/가족",
-      "pets": "반려동물",
-      "etc": "기타"
-    }
+    "topicAll": "전체"
   }
 }

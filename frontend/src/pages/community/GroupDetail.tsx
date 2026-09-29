@@ -16,7 +16,7 @@ import type { CommunityGroup, CommunityGroupMember, FeedPost } from '@/api/types
 import feedStyles from '@/pages/feed/FeedList.module.css';
 import { FeedPostCard } from '@/pages/feed/FeedPostCard';
 import { GroupCover } from './GroupCard';
-import { groupTopicKey } from './groupTopics';
+import { pickTopicLabel } from './groupTopics';
 import styles from './GroupDetail.module.css';
 
 type Tab = 'board' | 'chat' | 'members';
@@ -30,7 +30,7 @@ const MANAGE_ROLES = new Set(['owner', 'manager']);
 // 그룹 상세 — 동네지도 업체 상세(BizPublic)와 같은 구조: intro → sticky 탭 → 탭 콘텐츠 → 하단 CTA (F-CM-02 FR-2 r14).
 // 탭 전환 시 탭 줄이 상단에 붙도록 스크롤하는 동작과 스크롤 후 헤더에 제목이 나타나는 동작을 그대로 미러한다.
 export default function GroupDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
   const me = useUserStore((s) => s.user);
@@ -132,7 +132,7 @@ export default function GroupDetail() {
         <section ref={introRef} className={styles.intro}>
           <h1 className={styles.name}>{group.name}</h1>
           <div className={styles.profileMeta}>
-            <span data-testid="group-detail-topic">{t(groupTopicKey(group.topic))}</span>
+            <span data-testid="group-detail-topic">{pickTopicLabel(group.topicLabels, i18n.language)}</span>
             <span>{t(group.groupType === 'neighborhood' ? 'communityGroup.typeNeighborhood' : 'communityGroup.typeInterest')}</span>
             <span>
               {group.visibility === 'private' ? <Lock size={13} strokeWidth={2.2} /> : <Globe size={13} strokeWidth={2.2} />}

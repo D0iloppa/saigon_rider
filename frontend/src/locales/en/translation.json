@@ -3098,18 +3098,6 @@
     "joinPolicyApprovalDesc": "The owner must approve new members",
     "topicLabel": "Topic",
     "topicHint": "Pick the one topic that fits your group",
-    "topicAll": "All",
-    "topics": {
-      "neighborhood_friends": "Neighborhood friends",
-      "riding_tour": "Riding & tours",
-      "sports": "Sports & fitness",
-      "food_cafe": "Food & cafes",
-      "language_exchange": "Language exchange",
-      "hobby": "Hobbies",
-      "self_dev": "Self-improvement",
-      "family": "Parenting & family",
-      "pets": "Pets",
-      "etc": "Other"
-    }
+    "topicAll": "All"
   }
 }

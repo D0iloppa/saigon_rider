@@ -10,6 +10,7 @@ from ..deps import optional_user_session, verify_user_session
 from ..models import (
     CommunityGroup,
     CommunityGroupMember,
+    CommunityGroupTopic,
     DmConversation,
     DmConversationBan,
     DmConversationMember,
@@ -24,6 +25,8 @@ from ..schemas import (
     CommunityGroupMemberOut,
     CommunityGroupOut,
     CommunityGroupPatchRequest,
+    GroupTopicLabels,
+    GroupTopicOut,
     Page,
 )
 from ..utils import build_imgproxy_url, resolve_avatar_url
@@ -33,19 +36,37 @@ router = APIRouter(prefix="/community/groups", tags=["커뮤니티 그룹 (Commu
 
 _MANAGE_ROLES = ("owner", "manager")
 
-# 주제 코드 → (ko, en, vi) 라벨 — 검색어가 라벨과 맞으면 그 주제 그룹도 매칭(프론트 communityGroup.topics.* 와 동일 문구).
-_TOPIC_LABELS: dict[str, tuple[str, str, str]] = {
-    "neighborhood_friends": ("동네친구", "Neighborhood friends", "Bạn cùng khu phố"),
-    "riding_tour": ("라이딩/투어", "Riding & tours", "Đi xe & tour"),
-    "sports": ("운동", "Sports & fitness", "Thể thao"),
-    "food_cafe": ("맛집/카페", "Food & cafes", "Ăn uống & cà phê"),
-    "language_exchange": ("언어교환", "Language exchange", "Trao đổi ngôn ngữ"),
-    "hobby": ("취미", "Hobbies", "Sở thích"),
-    "self_dev": ("자기계발", "Self-improvement", "Phát triển bản thân"),
-    "family": ("육아/가족", "Parenting & family", "Nuôi dạy con & gia đình"),
-    "pets": ("반려동물", "Pets", "Thú cưng"),
-    "etc": ("기타", "Other", "Khác"),
-}
+topics_router = APIRouter(prefix="/community/group-topics", tags=["커뮤니티 그룹 (Community Group)"])
+
+
+def _topic_labels(t: CommunityGroupTopic) -> GroupTopicLabels:
+    return GroupTopicLabels(ko=t.label_ko, en=t.label_en, vi=t.label_vi)
+
+
+async def _require_active_topic(db: AsyncSession, code: str) -> None:
+    ok = (
+        await db.execute(
+            select(CommunityGroupTopic.code).where(CommunityGroupTopic.code == code, CommunityGroupTopic.is_active)
+        )
+    ).scalar_one_or_none()
+    if ok is None:
+        raise HTTPException(status_code=422, detail={"code": "invalid_topic"})
+
+
+@topics_router.get("", response_model=list[GroupTopicOut], summary="그룹 주제 목록 (활성, 정렬순)")
+async def list_group_topics(db: AsyncSession = Depends(get_db)):
+    rows = (
+        (
+            await db.execute(
+                select(CommunityGroupTopic)
+                .where(CommunityGroupTopic.is_active)
+                .order_by(CommunityGroupTopic.sort_order, CommunityGroupTopic.code)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [GroupTopicOut(code=t.code, labels=_topic_labels(t)) for t in rows]
 
 
 async def _resolve_group(db: AsyncSession, id_or_slug: str) -> CommunityGroup:
@@ -95,6 +116,7 @@ async def _group_out(db: AsyncSession, group: CommunityGroup, session_uid: uuid.
         join_policy=group.join_policy,
         visibility=group.visibility,
         topic=group.topic,
+        topic_labels=_topic_labels(group.topic_ref),
         owner_id=group.owner_id,
         member_count=group.member_count,
         post_count=group.post_count,
@@ -112,6 +134,7 @@ async def create_group(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    await _require_active_topic(db, body.topic)
     now = datetime.now(UTC)
     group = CommunityGroup(
         name=body.name,
@@ -174,16 +197,17 @@ async def list_groups(
         escaped = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         like = f"%{escaped}%"
         cond = CommunityGroup.name.ilike(like, escape="\\") | CommunityGroup.description.ilike(like, escape="\\")
-        kw = keyword.lower()
-        topic_codes = [c for c, labels in _TOPIC_LABELS.items() if any(kw in lb.lower() for lb in labels)]
-        if topic_codes:
-            cond = cond | CommunityGroup.topic.in_(topic_codes)
+        topic_match = select(CommunityGroupTopic.code).where(
+            CommunityGroupTopic.label_ko.ilike(like, escape="\\")
+            | CommunityGroupTopic.label_en.ilike(like, escape="\\")
+            | CommunityGroupTopic.label_vi.ilike(like, escape="\\")
+        )
+        cond = cond | CommunityGroup.topic.in_(topic_match)
         base_q = base_q.where(cond)
         count_q = count_q.where(cond)
 
     if topic:
-        if topic not in _TOPIC_LABELS:
-            raise HTTPException(status_code=422, detail="Invalid topic")
+        await _require_active_topic(db, topic)
         base_q = base_q.where(CommunityGroup.topic == topic)
         count_q = count_q.where(CommunityGroup.topic == topic)
 
@@ -301,6 +325,7 @@ async def update_group(
             raise HTTPException(status_code=422, detail="Invalid visibility")
         group.visibility = body.visibility
     if body.topic is not None:
+        await _require_active_topic(db, body.topic)
         group.topic = body.topic
     if body.cover_content_id is not None:
         group.cover_content_id = body.cover_content_id

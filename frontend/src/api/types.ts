@@ -290,6 +290,17 @@ export interface DmActiveTrade {
 }
 
 // ── 커뮤니티 그룹 (204_community_group.sql, Phase2) ────────────────
+export interface GroupTopicLabels {
+  ko: string;
+  en: string;
+  vi: string;
+}
+
+export interface GroupTopic {
+  code: string;
+  labels: GroupTopicLabels;
+}
+
 export interface CommunityGroup {
   id: string;
   slug: string | null;
@@ -302,6 +313,7 @@ export interface CommunityGroup {
   joinPolicy: string;
   visibility: string;
   topic: string;
+  topicLabels: GroupTopicLabels | null;
   ownerId: string | null;
   memberCount: number;
   postCount: number;

@@ -110,6 +110,8 @@ test.describe('community IA r13', () => {
     await expect(page.getByTestId('group-cover-picker').locator('img')).toBeVisible();
     await page.locator('input[type="text"]').first().fill(GROUP_NAME);
     await page.locator('textarea').first().fill('e2e 커뮤니티 IA 그룹');
+    // 주제는 필수(대표 판정 260929) — 목록은 API(/community/group-topics)에서 온다
+    await page.locator('[data-testid^="group-create-topic-"]').first().click();
     const created = page.waitForResponse((r) => r.url().includes('/community/groups') && r.request().method() === 'POST');
     // 제출 버튼: 하단 submitBar 의 마지막 버튼(이름 입력 전엔 disabled — 위에서 이름을 채웠다)
     await page.locator('button').last().click();
@@ -202,7 +204,7 @@ test.describe('S7 group official chat', () => {
     b = await newUser(request, 'cmd');
     const g = await json(await request.post(`${API}/community/groups`, {
       headers: H(a),
-      data: { name, description: 'e2e', group_type: 'interest', join_policy: 'open', visibility: 'public' },
+      data: { name, description: 'e2e', group_type: 'interest', topic: 'sports', join_policy: 'open', visibility: 'public' },
     }));
     groupId = g.id;
     await json(await request.post(`${API}/community/groups/${groupId}/join`, { headers: H(b) }));

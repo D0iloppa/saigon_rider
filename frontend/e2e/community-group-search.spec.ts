@@ -47,7 +47,7 @@ test.describe('community group search (r14)', () => {
     visitor = await newUser(request, 'gsv');
     const created = await request.post(`${API}/community/groups`, {
       headers: H(owner),
-      data: { name: groupName, description: `설명 ${tag}`, group_type: 'interest', join_policy: 'open', visibility: 'public' },
+      data: { name: groupName, description: `설명 ${tag}`, group_type: 'interest', topic: 'sports', join_policy: 'open', visibility: 'public' },
     });
     expect(created.status()).toBe(201);
 
@@ -56,6 +56,14 @@ test.describe('community group search (r14)', () => {
     expect(byName.items.map((g: { name: string }) => g.name)).toContain(groupName);
     const none = await (await request.get(`${API}/community/groups?q=${encodeURIComponent(`없는검색어${tag}`)}`, { headers: H(visitor) })).json();
     expect(none.total).toBe(0);
+
+    // 주제: 목록은 테이블 API, 주제 이름(운동)으로도 검색되고 topic 필터로 좁혀진다
+    const topics = await (await request.get(`${API}/community/group-topics`)).json();
+    expect(topics.map((x: { code: string }) => x.code)).toContain('sports');
+    const byTopicName = await (await request.get(`${API}/community/groups?q=${encodeURIComponent('운동')}&size=100`, { headers: H(visitor) })).json();
+    expect(byTopicName.items.map((g: { name: string }) => g.name)).toContain(groupName);
+    const byTopic = await (await request.get(`${API}/community/groups?topic=sports&size=100`, { headers: H(visitor) })).json();
+    expect(byTopic.items.every((g: { topic: string }) => g.topic === 'sports')).toBe(true);
 
     await injectSession(page, visitor);
     await page.addInitScript(() => window.localStorage.setItem('sr-lang', 'ko'));
@@ -77,6 +85,12 @@ test.describe('community group search (r14)', () => {
     await input.fill(`없는검색어${tag}`);
     await expect(page.getByText('검색 결과가 없어요')).toBeVisible();
     await expect(cards).toHaveCount(0);
+
+    // 주제 칩: 운동 칩 선택 시 해당 그룹 카드에 주제 칩이 보인다
+    await input.fill(tag);
+    await page.getByTestId('group-topic-sports').click();
+    await expect(cards.filter({ hasText: groupName }).getByTestId('group-card-topic')).toHaveText('운동');
+    await page.getByTestId('group-topic-all').click();
 
     // 지우기 → 둘러보기 + 내 그룹 섹션 복귀
     await page.getByRole('button', { name: '지우기' }).click();

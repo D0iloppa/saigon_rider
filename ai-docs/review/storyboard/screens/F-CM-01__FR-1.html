@@ -984,10 +984,11 @@ body {
 .pOn { color: var(--brand-600); }
 .unreadDot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #F5333F; border: 1.5px solid var(--surface); }
 
-/* ── 화면 전용 (커뮤니티 셸 r13) ── */
-.cmSeg { display: flex; border-bottom: 1px solid var(--line); background: var(--surface); }
-.cmSegTab { flex: 1; padding: 12px 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-3); border-bottom: 2px solid transparent; }
-.cmSegActive { color: var(--text); border-bottom-color: var(--text); }
+/* ── 화면 전용 (커뮤니티 셸 r14 — 도메인 탭은 헤더 좌측 큰 글자, 밑줄 없음. Community.module.css .domainTabs) ── */
+.topbarContent { justify-content: space-between; }
+.domainTabs { display: flex; align-items: baseline; gap: 18px; padding-left: 4px; }
+.domainTab { padding: 4px 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; color: var(--text-3); }
+.domainTabActive { color: var(--text); }
 .fChip {
   flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
   padding: 6px 12px; border-radius: var(--r-pill);
@@ -1030,12 +1031,10 @@ body {
     <div class="page">
     <header class="topbar">
       <div class="topbarContent">
-        <div class="topbarSide"></div>
-        <h1 class="topbarTitle">커뮤니티</h1>
+        <div class="domainTabs"><span class="domainTab domainTabActive">피드</span><span class="domainTab">그룹</span></div>
         <div class="topbarSide topbarRight"><span class="iconBtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg></span></div>
       </div>
     </header>
-    <div class="cmSeg"><span class="cmSegTab cmSegActive">피드</span><span class="cmSegTab">그룹</span></div>
 
     <div class="scroll feedBodyWrap">
       <div class="feedFilterRow">

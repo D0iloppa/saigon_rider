@@ -73,8 +73,9 @@ export interface GroupPage {
   size: number;
 }
 
-export async function listGroups(filter: 'all' | 'mine' = 'all', page = 1, size = 20): Promise<GroupPage> {
+export async function listGroups(filter: 'all' | 'mine' = 'all', page = 1, size = 20, q = ''): Promise<GroupPage> {
   const params = new URLSearchParams({ filter, page: String(page), size: String(size) });
+  if (q.trim()) params.set('q', q.trim());
   const res = await api.realFetch<{ items: any[]; total: number; page: number; size: number }>(
     `/community/groups?${params}`,
   );

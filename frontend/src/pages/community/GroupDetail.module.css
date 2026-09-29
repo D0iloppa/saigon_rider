@@ -1,104 +1,253 @@
+/* 그룹 상세 — 동네지도 업체 상세(BizPublic.module.css) 디자인 언어 미러 (F-CM-02 FR-2 r14, 대표 요청 260929).
+   intro(제목·메타·소개·멤버 행·히어로 16:9) → sticky 탭 → 탭 콘텐츠 → 하단 CTA(비멤버 [가입하기]).
+   값은 BizPublic 의 .intro/.name/.profileMeta/.introText/.followRow/.heroWrap/.tabs/.tabContent/.infoCard/.ctaBtn 에서 가져왔다. */
 .page {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
   background: var(--bg);
 }
 
 .body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 20px;
+  padding: 0 0 88px;
 }
 
-.header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
-}
-
-.headerName {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.headerDesc {
-  font-size: 13px;
-  color: var(--text-2);
-  margin-top: 4px;
-}
-
-.headerMeta {
-  font-size: 12px;
-  color: var(--text-3);
-  margin-top: 6px;
-}
-
-.tabRow {
-  display: flex;
-  border-bottom: 1px solid var(--line);
-}
-
-.tabBtn {
-  flex: 1;
-  padding: 12px 0;
+.loading {
+  margin-top: 40px;
   text-align: center;
   font-size: 14px;
-  font-weight: 600;
   color: var(--text-3);
+}
+
+/* ── intro (BizPublic .intro) ── */
+.intro { padding: 24px 20px 20px; }
+
+.name {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.profileMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 8px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.profileMeta span { display: inline-flex; align-items: center; gap: 3px; }
+.profileMeta span:first-child { color: var(--brand-500); font-weight: 700; }
+
+.introText {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
+
+/* 멤버·게시글 수 행 — BizPublic .followRow(단골 n + 단골 맺기) 자리. 가입 상태 배지가 우측에 온다 */
+.followRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.followCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.statusBadge {
+  flex-shrink: 0;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--brand-500);
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.statusBadgeMuted {
+  flex-shrink: 0;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* 커버 배너 — BizPublic .heroWrap(16:9, 18px 라운드). e2e 는 class 에 "banner" 가 포함된 요소를 찾는다 */
+.banner {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin-top: 18px;
+  border-radius: 18px;
+  font-size: 44px;
+}
+
+/* ── sticky 탭 (BizPublic .tabs) ── */
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.tab, .tabActive {
+  position: relative;
+  padding: 15px 2px 14px;
+  border: 0;
   background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.tabBtnActive {
+.tabActive { color: var(--text); }
+.tabActive::after {
+  position: absolute;
+  right: 14px;
+  bottom: 0;
+  left: 14px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--text);
+  content: '';
+}
+
+.tabContent {
+  min-height: calc(100dvh - var(--status-bar-height) - 112px);
+  padding: 20px 20px 24px;
+}
+
+/* ── 멤버 탭 — BizPublic .sectionTitle + .infoCard/.infoRow 문법 ── */
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 28px 0 12px;
+  font-size: 16px;
+  font-weight: 800;
   color: var(--text);
-  border-bottom-color: var(--text);
 }
 
-.chatEntry {
-  margin: 16px;
+.sectionTitle:first-child { margin-top: 0; }
+
+.sectionCount {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
 }
 
-.membersBody {
-  padding: 0 16px;
+.memberCard {
+  background: var(--surface);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
 }
 
 .memberRow {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 16px;
+}
+
+.memberRow + .memberRow { border-top: 1px solid var(--line); }
+
+.memberAvatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  object-fit: cover;
 }
 
 .memberName {
   flex: 1;
-  font-size: 15px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .memberRole {
+  flex-shrink: 0;
   font-size: 12px;
   color: var(--text-3);
 }
 
 .memberAction {
-  background: none;
-  border: none;
-  padding: 6px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-2);
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--brand-600);
   cursor: pointer;
 }
 
 .memberActionDanger {
-  color: var(--danger, #e5484d);
+  color: var(--danger);
 }
 
+/* ── 하단 CTA(비멤버 가입) — BizPublic .ctaBar/.ctaBtn 의 in-flow 판. 이 화면은 탭바가 보이므로 fixed 대신 흐름 배치 ── */
+.ctaBar {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.ctaBtn {
+  width: 100%;
+  height: 52px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #F4602A, #EB4910);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.ctaBtn:active { opacity: 0.88; }
+.ctaBtn:disabled { opacity: 0.5; }
+
+/* 글쓰기 FAB(멤버·게시판 탭) — 기존 그대로 */
 .writeFab {
   position: fixed;
   right: 20px;

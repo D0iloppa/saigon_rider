@@ -53763,6 +53763,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — 커뮤니티 그룹 라우트·진입 유지; 승인안 ②의 "[내 그룹] 칩 제거(F-CM-02 FR-1 B안 접기 확정)" 제외, [내 그룹] 칩 존치. 나머지 승인안(①③④⑤ 헤더·팔로잉 칩·FAB·비로그인 게이트·티어 칩 제외)은 유효.</div>
 <div class="field field-prose"><div class="field-label">판정(r12, 260929) 대표 확정 — 2열 그리드 → 1열 게시물 카드</div> 대표 실기기 피드백(원문 요지): "1 row에 두 개의 카드가 노출되는 형태 — 통상적인 SNS처럼 (상세보기 같은) 형태로 피드들이 나타나고 터치하면 상세보기로 들어가야. 지금 너무 잘못 디자인됐다." 위 와이어의 <code>B 2열 그리드 카드</code>를 대체한다.<br>  - <strong>카드(1열, 게시물 사이 8px 간격)</strong>: 작성자 행(아바타 · 닉네임 · 동네 · 상대시간 · [⋮]) → 사진(화면 폭, 비율 1:1~4:5로 제한·크롭, 여러 장이면 첫 장 + "1/N" 배지 — 목록에서 스와이프 없음) → 본문 최대 3줄(넘치면 "더보기" — 탭 = 상세) → 반응 행 🔥 n · 💬 n. <strong>사진 없는 글</strong>은 사진 칸 없이 본문 최대 6줄.<br>  - <strong>탭</strong>: 사진·본문·빈 곳 = 상세(<code>/feed/post/:id</code>), 🔥 = 제자리 응원 토글(낙관적), 💬 = 상세의 댓글 위치, 아바타·닉네임 = 프로필(F-P-01).<br>  - <strong>근거</strong> 이 커뮤니티는 라이더 사진·이야기 SNS라 사진과 본문이 콘텐츠 자체인데, 2열 그리드는 둘 다 작게 잘라 "무슨 이야기인지"를 없애고 글만 있는 게시물을 빈 카드로 만든다. 작성자를 맨 위에 두는 것은 동네 SNS에서 "누가 올렸나"가 신뢰의 시작이기 때문.<br>  - <strong>함께 정리(기승인 미반영, 대표 재확인 260929)</strong>: 필터 칩 "친구" → <strong>"팔로잉"</strong>(r4, 프론트 필터 키·API 파라미터 모두 <code>following</code>) · <strong>레벨 배지(LV.n) 앱 전역 제거</strong>(F-N-02 FR-2 ② 게임 지표 금지 — 피드 상세·소셜 목록·사람 찾기·내 프로필 2곳, 컴포넌트 <code>LevelBadge</code> 미사용 시 삭제) · 타인 프로필의 <strong>"친구" 칩 제거</strong>(F-P-01 FR-1 r3 ①). 화면 샘플 <code>F-CM-01 FR-1</code>(1열 카드로 재작성)·<code>FR-2</code>·<code>F-P-01 FR-1/2/3</code>의 친구·LV 잔재도 함께 정정(F-N-02 FR-6 ③). 이번 범위 밖: 설정 알림 항목명 "친구 신청"·퀘스트 해금 레벨 조건.<br>  - <strong>검증</strong> <code>/feed</code>가 1열 카드로 렌더되고(한 행에 카드 1개), 카드 탭이 상세로 가며, 🔥 탭은 상세로 가지 않고 숫자만 바뀐다. 필터 칩에 "친구"가 없고 "팔로잉"이 있다. 앱 어디에도 LV 배지가 렌더되지 않고(<code>grep "&lt;LevelBadge"</code> 0), 타인 프로필에 "친구" 칩이 없다. <code>screens/*.html</code>에 "친구"·"LV." 잔재가 없다(설정 알림 항목 제외).<br>  - <strong>구현(260929, <code>3d2a0365</code>)</strong> <code>FeedList.tsx</code> 1열 <code>.postCard</code>(<code>data-testid="feed-post-card"</code>) — 사진 칸은 1:1로 자리를 잡고 로드 후 비율을 1:1~4:5로 조정(API가 이미지 크기를 주지 않음), 본문 3줄/글만 6줄·넘칠 때만 "더보기", 🔥 제자리 토글, 💬 = <code>/feed/post/:id#comments</code>(상세에 <code>#comments</code> 앵커 신설). 필터 키 <code>following</code>(서버는 <code>friends</code> 별칭 유지). <code>LevelBadge</code> 컴포넌트 삭제(렌더 0). <strong>스펙과 다른 점</strong>: 작성자 행의 동네 이름·카드 ⋮는 생략 — 게시물에 동네 필드가 없고 목록에 카드 메뉴가 없었음(새 메뉴를 만들지 않음). <strong>남은 것</strong>: 그룹 게시판(<code>GroupDetail</code>)은 아직 2열 카드.</div>
 <div class="field field-prose"><div class="field-label">판정(r13, 260929) 대표 승인 — 커뮤니티 정보구조(IA) 재설계 ("권장안대로 진행")</div> 고치는 결함: ① 피드 필터 줄에 <strong>이동(그룹 진입 칩)이 필터와 같은 줄에 섞여</strong> 위계가 깨져 있었고, ② <code>내 그룹</code> 필터 칩이 그 이동 칩과 사실상 중복이었고, ③ 그룹 탐색 화면은 DM 목록 행을 그대로 재사용한 미완성 상태(거대한 원형 자리표시자)였고, ④ "내 커뮤니티 활동" 허브가 없었다. 레퍼런스는 당근 커뮤니티 탭(최상위에서 동네생활 | 모임으로 도메인 분할, ☰가 개인 허브를 연다).<br>  - <strong>셸(F-CM-01 FR-1 · F-CM-02 FR-1 공용)</strong> 헤더 = 제목 <strong>"커뮤니티"</strong>(이전 "피드") + 우측 아이콘 <strong>☰ 하나</strong> → 내 커뮤니티 허브(F-CM-03 FR-1). 헤더 아래 <strong>1차 세그먼트 탭 [피드 | 그룹]</strong>: 피드 = <code>/feed</code>, 그룹 = <code>/community/groups</code>. 전환은 <strong>탭 전환(replace 이동, 뒤로 버튼 없음)</strong>이고 하단 탭바 커뮤니티는 두 탭 모두에서 활성 유지.<br>  - <strong>피드 탭</strong> 필터 칩 = 정확히 <strong>[전체][내 동네][팔로잉][인기]</strong>. <code>내 그룹</code> 필터 칩과 <code>그룹</code> 이동 칩 제거. 글쓰기 FAB 그대로. 화면 샘플의 잔존 "친구" 칩도 없음(4종 정정).<br>  - <strong>대표 판정 260929 — 그룹 진입은 1차 탭 [그룹]으로 승격</strong>(r4 "그룹 진입 유지"를 더 강하게 충족), <strong>피드 내 '내 그룹 글 모아보기' 필터는 폐지</strong>(내 그룹 글은 그룹 탭 / 각 그룹 게시판에서 본다). r4의 "[내 그룹] 칩 존치"는 이 판정으로 대체된다.<br>  - <strong>검증</strong> <code>/feed</code> 헤더 제목이 "커뮤니티"이고 우측 아이콘이 ☰ 하나, 헤더 아래 [피드|그룹] 탭이 있으며 피드가 활성이다. 필터 칩이 정확히 4종이고 "내 그룹"·"그룹" 칩이 없다. [그룹] 탭 → <code>/community/groups</code>로 replace 이동(뒤로 버튼 없음), 하단 탭바 커뮤니티가 계속 활성이다. ☰ → <code>/community/me</code>.</div>
+<div class="field field-prose"><div class="field-label">판정(r14, 260929) 대표 피드백 — 셸 헤더 재설계(실기기 4패널 ①)</div> 지적: 가운데 제목 "커뮤니티" 아래 <strong>전폭 밑줄 탭 [피드 · 그룹]</strong>이 "페이지 안 하위 탭"처럼 읽히고, 그룹 상세의 [게시판 · 채팅 · 멤버](같은 밑줄형)와 모양이 같아 위계가 무너진다. → 당근 커뮤니티 탭(동네생활 · 모임) 문법으로 <strong>도메인 전환을 헤더 좌측 큰 글자 탭 "피드  그룹"</strong>(22px, 활성 = 본문색·굵게, 비활성 = 회색, 전폭 밑줄 없음)으로 바꾼다. 제목 텍스트 "커뮤니티"는 빠지고(탭바 라벨이 이미 커뮤니티) 우측 ☰는 그대로. replace 이동·testid(<code>community-seg-feed</code>/<code>community-seg-group</code>/<code>community-menu-btn</code>) 유지. 화면 안 탭(밑줄형)과 시각적으로 구분된다.<br>  - <strong>구현(260929)</strong> <code>CommunityHeader.tsx</code> — <code>TopBar</code> <code>leftContent</code>에 <code>.domainTabs</code>(<code>Community.module.css</code>), <code>GroupDetail.module.css</code> 의존 제거. 화면 샘플 <code>F-CM-01 FR-1</code>·<code>F-CM-02 FR-1</code> 헤더 교체.<br>  - <strong>검증</strong> <code>/feed</code>·<code>/community/groups</code> 헤더 좌측에 "피드 그룹"이 크게 나란히 있고 활성만 진하다. 전폭 밑줄이 없다. 탭 전환은 replace 이동, ☰ → <code>/community/me</code>.</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
@@ -54749,10 +54750,11 @@ body {
 .pOn { color: var(--brand-600); }
 .unreadDot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #F5333F; border: 1.5px solid var(--surface); }
 
-/* ── 화면 전용 (커뮤니티 셸 r13) ── */
-.cmSeg { display: flex; border-bottom: 1px solid var(--line); background: var(--surface); }
-.cmSegTab { flex: 1; padding: 12px 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-3); border-bottom: 2px solid transparent; }
-.cmSegActive { color: var(--text); border-bottom-color: var(--text); }
+/* ── 화면 전용 (커뮤니티 셸 r14 — 도메인 탭은 헤더 좌측 큰 글자, 밑줄 없음. Community.module.css .domainTabs) ── */
+.topbarContent { justify-content: space-between; }
+.domainTabs { display: flex; align-items: baseline; gap: 18px; padding-left: 4px; }
+.domainTab { padding: 4px 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; color: var(--text-3); }
+.domainTabActive { color: var(--text); }
 .fChip {
   flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
   padding: 6px 12px; border-radius: var(--r-pill);
@@ -54795,12 +54797,10 @@ body {
     <div class=&quot;page&quot;>
     <header class=&quot;topbar&quot;>
       <div class=&quot;topbarContent&quot;>
-        <div class=&quot;topbarSide&quot;></div>
-        <h1 class=&quot;topbarTitle&quot;>커뮤니티</h1>
+        <div class=&quot;domainTabs&quot;><span class=&quot;domainTab domainTabActive&quot;>피드</span><span class=&quot;domainTab&quot;>그룹</span></div>
         <div class=&quot;topbarSide topbarRight&quot;><span class=&quot;iconBtn&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><line x1=&quot;4&quot; x2=&quot;20&quot; y1=&quot;12&quot; y2=&quot;12&quot;/><line x1=&quot;4&quot; x2=&quot;20&quot; y1=&quot;6&quot; y2=&quot;6&quot;/><line x1=&quot;4&quot; x2=&quot;20&quot; y1=&quot;18&quot; y2=&quot;18&quot;/></svg></span></div>
       </div>
     </header>
-    <div class=&quot;cmSeg&quot;><span class=&quot;cmSegTab cmSegActive&quot;>피드</span><span class=&quot;cmSegTab&quot;>그룹</span></div>
 
     <div class=&quot;scroll feedBodyWrap&quot;>
       <div class=&quot;feedFilterRow&quot;>
@@ -55988,6 +55988,7 @@ body {
 <div class="field field-prose"><div class="field-label">판정(r3, 260924)</div> 승인(r3, 대표 일괄 — 260923 UX 리뷰 §5 P1 <code>[정의 Y — 존폐 판정]</code> → <strong>B안 접기</strong>) — 구현 대기 · 구현 패키지 M.</div>
 <div class="field field-prose"><div class="field-label">판정(r4, 260924)</div> 대표 반려 — 커뮤니티 그룹 현행 유지(라우트·화면·API·[내 그룹] 칩 모두 존치, B안 접기 미채택). 승인안 전체(①~⑤ 라우트 제거·그룹톡방 유지 전환·URL 폴백·칩 제거) 제외.</div>
 <div class="field field-prose"><div class="field-label">판정(r13, 260929) 대표 승인 — 그룹 탭 재설계(커뮤니티 IA, F-CM-01 FR-1 r13 참조)</div>  - <strong>(a) 내 그룹 레일</strong> 가입한 그룹의 가로 스크롤 레일(정사각 커버 썸네일 + 그룹명). 로그아웃이거나 가입 그룹이 없으면 레일 자체를 숨긴다. 탭 = <code>/group/:slug</code>.<br>  - <strong>(b) 그룹 둘러보기</strong> 1열 그룹 카드 목록: 64px 둥근 사각 커버 썸네일(커버가 없으면 그룹명 첫 글자를 얹은 색 타일 — 자리표시자 원형 폐기) · 그룹명 · 한 줄 설명 · 메타 줄 <code>동네/관심사 · 멤버 N명</code> + 가입한 그룹이면 "가입됨" 배지. 정렬은 기존대로 멤버 수 순. 카드 탭 = <code>/group/:slug</code>(FR-2).<br>  - <strong>(c) FAB "+ 그룹 만들기"</strong> → <code>/community/groups/new</code>. 헤더 [+] 아이콘은 제거(헤더 우측은 ☰만). 기존 필터 칩 [전체 | 내 그룹]은 제거 — 내 그룹 레일이 대체.<br>  - <strong>빈 상태</strong> 그룹이 하나도 없으면 <code>StateBlock</code> + [그룹 만들기] CTA(채움 버튼). 로딩·에러도 <code>StateBlock</code>.<br>  - <strong>그룹 만들기 폼(<code>/community/groups/new</code>) — 별도 FR 없이 이 FR-1 소속</strong>(기존 "개설 폼은 별도 프레임을 만들지 않는다" 결정 유지). 기존 필드(이름·설명·공개/비공개·자유/승인 칩·[만들기] 하단 고정 버튼)에 <strong>선택 항목 "커버 이미지" 업로드</strong>를 추가한다 — 사진 추가 타일 1칸(F-S0-01 사진 슬롯과 같은 문법), contents 경유로 업로드해 <code>cover_content_id</code>로 전송(백엔드는 이미 지원). 미첨부 시 첫 글자 색 타일 폴백. 별도 화면 샘플은 만들지 않는다(폼 필드 1개 추가).<br>  - <strong>검증</strong> <code>/community/groups</code>가 [그룹] 탭 활성으로 열리고 헤더에 뒤로 버튼이 없다. 가입 그룹이 있으면 레일이 보이고 없거나 로그아웃이면 숨는다. 카드가 1열이고 커버 썸네일 또는 첫 글자 타일이 보이며 가입 그룹에 "가입됨" 배지가 있다. FAB "+ 그룹 만들기" → 폼, 폼에서 커버를 올리면 카드·상세 배너에 반영된다. 그룹이 0개면 빈 상태 + 만들기 CTA가 뜬다.</div>
+<div class="field field-prose"><div class="field-label">판정(r14, 260929) 대표 피드백 — 그룹 탭 보강 + 그룹 만들기 폼 완성(실기기 4패널 ②·④)</div> 지적: 그룹 탭에 "그룹 둘러보기"만 덩그러니 있고 내 그룹이 안 보이며(0개면 레일이 숨겨짐) 그룹을 찾을 방법이 없다. 만들기 폼은 거대한 빈 커버 상자·라벨 없는 전폭 입력·떠 있는 칩·비활성 CTA로 디자인이 안 된 상태.<br>  - <strong>(a) 검색</strong> 탭 최상단에 검색 필드(알약 40px, 동네지도 검색 <code>MapSearch</code> 문법) — 이름·소개 부분일치(<code>GET /community/groups?q=</code>, 서버 ILIKE, 공개 규칙은 기존과 동일), 300ms 디바운스, 검색 중에는 섹션 제목이 "검색 결과"로 바뀌고 내 그룹 섹션은 접힌다. 0건이면 <code>StateBlock</code> "검색 결과가 없어요 / 다른 검색어로 찾아보세요". 지우기(×) → 둘러보기 복귀.<br>  - <strong>(b) 내 그룹 항상 표시</strong> 로그인 상태면 가입 그룹이 0개여도 "내 그룹" 섹션을 남기고 <strong>컴팩트 빈 카드</strong>("아직 가입한 그룹이 없어요", 점선 테두리 한 줄)를 둔다 — r13의 "0개면 레일 자체를 숨긴다"를 대체. 비로그인은 계속 숨김. 레일 testid(<code>my-groups-rail</code>/<code>my-groups-rail-item</code>)는 채워진 레일에만.<br>  - <strong>(c) 카드 다듬기</strong> 카드에 <code>--shadow-card</code>·눌림 배경, 메타에 멤버 아이콘, 비가입 카드 우측 ›(가입 카드는 "가입됨" 배지 그대로). 폴백 타일은 단색 평면 큰 글자 → <strong>이름 기반 색상각 그라데이션 + 글자 그림자, 글자 24px</strong>(레일·상세 히어로도 같은 타일).<br>  - <strong>(d) 그룹 만들기 폼 재설계(<code>/community/groups/new</code>, 이 FR-1 소속 유지 — 별도 화면 샘플 없음)</strong> 3섹션. [기본 정보] <strong>컴팩트 커버 행</strong>(112×72 미리보기 썸네일 + "커버 사진 · 선택" + 도움말 "가로 사진이 잘 어울려요. 없으면 첫 글자 타일로 보여요" + [사진 선택]/[사진 바꾸기] + 업로드 중 오버레이 + ×) → 라벨 "그룹 이름"(예시 placeholder "예: 사이공 주말 라이딩", 0/60) → 라벨 "그룹 소개 · 선택"(0/500). [공개 여부] <strong>라디오 카드 2행</strong>: 공개 "그룹 둘러보기에 노출되고, 글이 피드에도 보여요" · 비공개 "목록에 노출되지 않고, 글은 멤버에게만 보여요". [가입 방식] 바로 가입 "누구나 바로 멤버가 돼요" · 승인 필요 "방장이 승인해야 멤버가 돼요". 설명은 현재 서버 동작 그대로(새 정책·새 옵션 없음). 하단 고정 [만들기]는 이름 입력 전 비활성(기존).<br>  - <strong>구현(260929)</strong> <code>GroupList.tsx</code>·<code>GroupCard.tsx</code>·<code>Community.module.css</code>, <code>GroupCreate.tsx</code> + 신규 <code>GroupCreate.module.css</code>(DmGroupCreate/FeedCreate CSS 차용 해제, 커버 업로드 토큰 가드 유지), <code>backend/app/routers/community_groups.py</code> <code>q</code>, <code>api/community_groups.ts</code> <code>listGroups(..., q)</code>. e2e <code>frontend/e2e/community-group-search.spec.ts</code>(작성만). i18n ko/en/vi <code>communityGroup.search*</code>·<code>postCount</code>·폼 라벨/설명 키.<br>  - <strong>검증</strong> 검색어 입력 → 카드가 이름·소개 일치로 좁혀지고 없으면 빈 상태, 지우면 둘러보기·내 그룹 복귀. 가입 그룹 0개 로그인 사용자에게 "내 그룹" 빈 카드가 보인다(<code>my-groups-empty</code>). 만들기 폼에 섹션 제목·라벨·선택지 설명이 보이고 커버 썸네일에 미리보기가 뜬다(e2e S3 <code>group-cover-picker</code> img 유지).</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
@@ -56933,77 +56934,34 @@ body {
 .ph--avatar2{ background: linear-gradient(145deg, #9FB8D4, #4F6E96); }
 .phLarge { width: 100%; height: 100%; }
 
-/* ── 화면 전용 ── */
-.feedBodyWrap { padding: 0 20px 20px; }
-.feedFilterRow { display: flex; gap: 8px; padding: 12px 0 12px; overflow: hidden; }
-.fChip {
-  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 12px; border-radius: var(--r-pill);
-  font-size: 13px; font-weight: 600; white-space: nowrap;
-  color: var(--text-2); background: var(--surface); border: 1px solid var(--line);
-}
-.fChipActive { background: var(--text); border-color: var(--text); color: var(--surface); }
-.feedGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.fCard { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.fThumb { position: relative; width: 100%; aspect-ratio: 1.15; overflow: hidden; flex-shrink: 0; background: var(--surface-2); }
-.fThumb .phLarge { height: 100%; }
-.fBody { display: flex; flex-direction: column; gap: 6px; padding: 10px 11px 12px; }
-.fAuthor { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; column-gap: 6px; }
-.fAvatar { width: 22px; height: 22px; border-radius: 50%; grid-row: span 2; }
-.fNick { overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.fTime { color: var(--text-3); font-size: 10px; }
-.fCaption { display: -webkit-box; min-height: 36px; overflow: hidden; color: var(--text-2); font-size: 13px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.fMeta { display: flex; align-items: center; gap: 9px; color: var(--text-3); font-size: 11px; font-weight: 600; }
-.fMeta > span { display: flex; align-items: center; gap: 3px; }
-.fMetaOn { color: var(--brand-600); }
-.feedList { display: flex; flex-direction: column; gap: 8px; }
-.pCard { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.pAuthor { display: flex; align-items: center; gap: 8px; }
-.pAvatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
-.pWho { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.pNick { font-size: 13px; font-weight: 700; }
-.pSub { color: var(--text-3); font-size: 11px; }
-.pMore { color: var(--text-3); display: flex; }
-.pPhoto { position: relative; display: block; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 12px; background: var(--surface-2); }
-.pPhoto .phLarge { height: 100%; }
-.pBadge { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: var(--r-pill); background: rgba(11,13,20,.6); color: #fff; font-size: 11px; font-weight: 700; }
-.pText { display: -webkit-box; overflow: hidden; color: var(--text-2); font-size: 14px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.pCardText .pText { -webkit-line-clamp: 6; }
-.pReact { display: flex; align-items: center; gap: 12px; color: var(--text-3); font-size: 12px; font-weight: 600; }
-.pReact > span { display: flex; align-items: center; gap: 4px; }
-.pOn { color: var(--brand-600); }
-.unreadDot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #F5333F; border: 1.5px solid var(--surface); }
-
-/* ── 화면 전용 (커뮤니티 셸 r13) ── */
-.cmSeg { display: flex; border-bottom: 1px solid var(--line); background: var(--surface); }
-.cmSegTab { flex: 1; padding: 12px 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-3); border-bottom: 2px solid transparent; }
-.cmSegActive { color: var(--text); border-bottom-color: var(--text); }
-.fChip {
-  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 12px; border-radius: var(--r-pill);
-  font-size: 13px; font-weight: 600; white-space: nowrap;
-  color: var(--text-2); background: var(--surface); border: 1px solid var(--line);
-}
-.fChipActive { background: var(--text); border-color: var(--text); color: var(--surface); }
+/* ── 화면 전용 (커뮤니티 셸 r14 — 도메인 탭은 헤더 좌측 큰 글자, 밑줄 없음. Community.module.css .domainTabs) ── */
+.topbarContent { justify-content: space-between; }
+.domainTabs { display: flex; align-items: baseline; gap: 18px; padding-left: 4px; }
+.domainTab { padding: 4px 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; color: var(--text-3); }
+.domainTabActive { color: var(--text); }
 .phLarge { width: 100%; height: 100%; }
-
-.groupBody { flex: 1; min-height: 0; overflow: hidden; background: var(--bg); padding: 0 20px 90px; }
-.gSection { padding: 16px 0 8px; font-size: 15px; font-weight: 700; color: var(--text); }
-.gRail { display: flex; gap: 12px; overflow: hidden; }
-.gRailItem { flex-shrink: 0; width: 76px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.gRailCover { width: 76px; height: 76px; border-radius: 16px; }
+.groupBody { flex: 1; min-height: 0; overflow: hidden; background: var(--bg); padding-bottom: 90px; }
+.gSearchWrap { padding: 12px 20px 4px; }
+.gSearch { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-3); font-size: 15px; }
+.gSection { padding: 16px 20px 8px; font-size: 15px; font-weight: 700; color: var(--text); }
+.gRail { display: flex; gap: 12px; overflow: hidden; padding: 0 20px 4px; }
+.gRailItem { flex-shrink: 0; width: 64px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.gRailCover { width: 56px; height: 56px; border-radius: 16px; }
 .gRailName { width: 100%; text-align: center; font-size: 12px; font-weight: 600; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gCard { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.gCover { width: 64px; height: 64px; border-radius: 14px; flex-shrink: 0; }
-.gTile { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; font-weight: 800; }
-.gTile--a { background: linear-gradient(145deg, #E4A38B, #B8613F); }
-.gTile--b { background: linear-gradient(145deg, #8BB9A8, #3F8068); }
+.gList { display: flex; flex-direction: column; gap: 8px; padding: 0 20px; }
+.gCard { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow-card); }
+.gCover { width: 64px; height: 64px; border-radius: 16px; flex-shrink: 0; }
+.gTile { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; font-weight: 800; text-shadow: 0 1px 2px rgba(11,13,20,.18); }
+.gTile--a { background: linear-gradient(145deg, hsl(18 60% 62%), hsl(18 58% 40%)); }
+.gTile--b { background: linear-gradient(145deg, hsl(160 60% 62%), hsl(160 58% 40%)); }
+.gTile--c { background: linear-gradient(145deg, hsl(262 60% 62%), hsl(262 58% 40%)); }
 .gInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .gName { font-size: 15px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gDesc { font-size: 13px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gMeta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3); }
-.gBadge { flex-shrink: 0; padding: 2px 8px; border-radius: 8px; background: var(--brand-50); color: var(--brand-700); font-size: 11px; font-weight: 700; }
-.fabLabel { position: absolute; right: 20px; bottom: 92px; display: inline-flex; align-items: center; gap: 6px; height: 48px; padding: 0 18px; border-radius: var(--r-pill); background: var(--brand-600); color: #fff; font-size: 14px; font-weight: 700; box-shadow: var(--shadow-2, 0 6px 16px rgba(11,13,20,.22)); }
+.gMeta { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-3); }
+.gBadge { flex-shrink: 0; padding: 3px 8px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--brand-600); font-size: 11px; font-weight: 700; }
+.gChevron { flex-shrink: 0; display: flex; color: var(--text-3); }
+.fabLabel { position: absolute; right: 18px; bottom: 90px; display: inline-flex; align-items: center; gap: 6px; height: 48px; padding: 0 18px; border-radius: var(--r-pill); background: var(--brand-500); color: #fff; font-size: 14px; font-weight: 700; box-shadow: var(--shadow-pop); }
 </style>
 </head>
 <body>
@@ -57019,58 +56977,63 @@ body {
     <div class=&quot;page&quot;>
     <header class=&quot;topbar&quot;>
       <div class=&quot;topbarContent&quot;>
-        <div class=&quot;topbarSide&quot;></div>
-        <h1 class=&quot;topbarTitle&quot;>커뮤니티</h1>
+        <div class=&quot;domainTabs&quot;><span class=&quot;domainTab&quot;>피드</span><span class=&quot;domainTab domainTabActive&quot;>그룹</span></div>
         <div class=&quot;topbarSide topbarRight&quot;><span class=&quot;iconBtn&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><line x1=&quot;4&quot; x2=&quot;20&quot; y1=&quot;12&quot; y2=&quot;12&quot;/><line x1=&quot;4&quot; x2=&quot;20&quot; y1=&quot;6&quot; y2=&quot;6&quot;/><line x1=&quot;4&quot; x2=&quot;20&quot; y1=&quot;18&quot; y2=&quot;18&quot;/></svg></span></div>
       </div>
     </header>
-    <div class=&quot;cmSeg&quot;><span class=&quot;cmSegTab&quot;>피드</span><span class=&quot;cmSegTab cmSegActive&quot;>그룹</span></div>
 
     <div class=&quot;groupBody&quot;>
+      <div class=&quot;gSearchWrap&quot;><div class=&quot;gSearch&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;11&quot; cy=&quot;11&quot; r=&quot;8&quot;/><path d=&quot;m21 21-4.3-4.3&quot;/></svg>그룹 이름·소개로 검색</div></div>
+
       <div class=&quot;gSection&quot;>내 그룹</div>
-      <div class=&quot;gRail&quot;><span class=&quot;gRailItem&quot;><span class=&quot;gRailCover ph ph--moto&quot;></span><span class=&quot;gRailName&quot;>사이공 라이더 클럽</span></span><span class=&quot;gRailItem&quot;><span class=&quot;gRailCover gTile gTile--b&quot;>사</span><span class=&quot;gRailName&quot;>사이공 야간 라이딩</span></span><span class=&quot;gRailItem&quot;><span class=&quot;gRailCover ph ph--helmet&quot;></span><span class=&quot;gRailName&quot;>헬멧 &amp;amp; 라이딩 기어</span></span><span class=&quot;gRailItem&quot;><span class=&quot;gRailCover ph ph--parts&quot;></span><span class=&quot;gRailName&quot;>정비 정보방</span></span></div>
+      <div class=&quot;gRail&quot;><span class=&quot;gRailItem&quot;><span class=&quot;gRailCover ph ph--moto&quot;></span><span class=&quot;gRailName&quot;>사이공 라이더 클럽</span></span><span class=&quot;gRailItem&quot;><span class=&quot;gRailCover gTile gTile--b&quot;>사</span><span class=&quot;gRailName&quot;>사이공 야간 라이딩</span></span><span class=&quot;gRailItem&quot;><span class=&quot;gRailCover ph ph--helmet&quot;></span><span class=&quot;gRailName&quot;>헬멧 &amp;amp; 라이딩 기어</span></span></div>
 
       <div class=&quot;gSection&quot;>그룹 둘러보기</div>
-      <div>
+      <div class=&quot;gList&quot;>
         <div class=&quot;gCard&quot;>
           <span class=&quot;gCover ph ph--moto&quot;></span>
           <span class=&quot;gInfo&quot;>
             <span class=&quot;gName&quot;>사이공 라이더 클럽</span>
             <span class=&quot;gDesc&quot;>호치민 전역 주말 투어 모임</span>
-            <span class=&quot;gMeta&quot;><span>관심사 · 멤버 <span class=&quot;num&quot;>212</span>명</span><span class=&quot;gBadge&quot;>가입됨</span></span>
+            <span class=&quot;gMeta&quot;>관심사 · <svg width=&quot;12&quot; height=&quot;12&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg><span>멤버 <span class=&quot;num&quot;>212</span>명</span></span>
           </span>
+          <span class=&quot;gBadge&quot;>가입됨</span>
         </div>
         <div class=&quot;gCard&quot;>
           <span class=&quot;gCover gTile gTile--a&quot;>H</span>
           <span class=&quot;gInfo&quot;>
             <span class=&quot;gName&quot;>Honda Vision 오너 모임</span>
             <span class=&quot;gDesc&quot;>비전 오너들의 정비·튜닝 이야기</span>
-            <span class=&quot;gMeta&quot;><span>관심사 · 멤버 <span class=&quot;num&quot;>188</span>명</span></span>
+            <span class=&quot;gMeta&quot;>관심사 · <svg width=&quot;12&quot; height=&quot;12&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg><span>멤버 <span class=&quot;num&quot;>188</span>명</span></span>
           </span>
+          <span class=&quot;gChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span>
         </div>
         <div class=&quot;gCard&quot;>
           <span class=&quot;gCover ph ph--helmet&quot;></span>
           <span class=&quot;gInfo&quot;>
             <span class=&quot;gName&quot;>헬멧 &amp;amp; 라이딩 기어</span>
             <span class=&quot;gDesc&quot;>기어 리뷰와 공동구매 소식</span>
-            <span class=&quot;gMeta&quot;><span>관심사 · 멤버 <span class=&quot;num&quot;>156</span>명</span><span class=&quot;gBadge&quot;>가입됨</span></span>
+            <span class=&quot;gMeta&quot;>관심사 · <svg width=&quot;12&quot; height=&quot;12&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg><span>멤버 <span class=&quot;num&quot;>156</span>명</span></span>
           </span>
+          <span class=&quot;gBadge&quot;>가입됨</span>
         </div>
         <div class=&quot;gCard&quot;>
-          <span class=&quot;gCover gTile gTile--b&quot;>7</span>
+          <span class=&quot;gCover gTile gTile--c&quot;>7</span>
           <span class=&quot;gInfo&quot;>
             <span class=&quot;gName&quot;>7군 출퇴근 라이더</span>
             <span class=&quot;gDesc&quot;>Phú Mỹ Hưng 출퇴근 경로 공유</span>
-            <span class=&quot;gMeta&quot;><span>Phú Mỹ Hưng · 멤버 <span class=&quot;num&quot;>89</span>명</span></span>
+            <span class=&quot;gMeta&quot;>동네 · <svg width=&quot;12&quot; height=&quot;12&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg><span>멤버 <span class=&quot;num&quot;>89</span>명</span></span>
           </span>
+          <span class=&quot;gChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span>
         </div>
         <div class=&quot;gCard&quot;>
           <span class=&quot;gCover ph ph--parts&quot;></span>
           <span class=&quot;gInfo&quot;>
             <span class=&quot;gName&quot;>Bình Thạnh 정비 정보방</span>
             <span class=&quot;gDesc&quot;>동네 정비소·부품 가격 공유합니다</span>
-            <span class=&quot;gMeta&quot;><span>Bình Thạnh · 멤버 <span class=&quot;num&quot;>64</span>명</span></span>
+            <span class=&quot;gMeta&quot;>동네 · <svg width=&quot;12&quot; height=&quot;12&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg><span>멤버 <span class=&quot;num&quot;>64</span>명</span></span>
           </span>
+          <span class=&quot;gChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span>
         </div>
       </div>
     </div>
@@ -57093,7 +57056,8 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 관리자가 목록을 스크롤하다 강퇴 아이콘을 스쳐 멤버가 즉시 쫓겨난다. 되돌리려면 재가입 요청을 받아야 한다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>frontend/src/pages/community/GroupDetail.tsx:46-57,83-89</code>(가입), <code>:97-122</code>(탭), <code>:170-178</code>(FAB), <code>:127-137</code>(채팅방), <code>:254-265,283-291</code>(승인), <code>:245-252,300-309</code>(강퇴 — 확인 없음). 인벤토리 <code>260918_flow_inventory_B_comms.md:186-297</code>(문서-코드 불일치 정정 포함: PENDING 승인은 실제로 구현돼 있음).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> 구현 완료(260922) — 제안①(강퇴 <code>useConfirmStore</code> 확인 1회, <code>GroupDetail.tsx:246-261</code>) · 제안②(승인·강퇴 텍스트 라벨 행 분리, 강퇴만 위험 톤, <code>GroupDetail.tsx:292-313</code>) 구현 확인.</div>
-<div class="field field-prose"><div class="field-label">판정(r13, 260929) 대표 승인 — 그룹 상세 시각 정리(커뮤니티 IA)</div> ① 최상단에 <strong>커버 배너</strong>(그룹 탭 카드와 같은 폴백 타일 규칙). ② 게시판 탭의 글은 <strong>1열 게시물 카드</strong>(F-CM-01 FR-1 r12 카드와 동일: 작성자 행 → 사진 → 본문 3줄 → 🔥·💬, 사진 없는 글 6줄) — 이전 2열 카드를 대체(r12 구현 메모의 "남은 것: 그룹 게시판은 아직 2열" 해소). ③ 그 외(가입하기·탭 [게시판|채팅|멤버]·글쓰기 FAB·승인·강퇴 확인)는 변경 없음. 화면 샘플은 게시판 탭으로 교체(이전 샘플은 멤버 탭).<br>  - <strong>검증</strong> <code>/group/:slug</code>에 커버 배너(또는 첫 글자 타일)가 있고 게시판 탭 글이 한 행에 카드 1개로 나온다.<br>---</div>
+<div class="field field-prose"><div class="field-label">판정(r13, 260929) 대표 승인 — 그룹 상세 시각 정리(커뮤니티 IA)</div> ① 최상단에 <strong>커버 배너</strong>(그룹 탭 카드와 같은 폴백 타일 규칙). ② 게시판 탭의 글은 <strong>1열 게시물 카드</strong>(F-CM-01 FR-1 r12 카드와 동일: 작성자 행 → 사진 → 본문 3줄 → 🔥·💬, 사진 없는 글 6줄) — 이전 2열 카드를 대체(r12 구현 메모의 "남은 것: 그룹 게시판은 아직 2열" 해소). ③ 그 외(가입하기·탭 [게시판|채팅|멤버]·글쓰기 FAB·승인·강퇴 확인)는 변경 없음. 화면 샘플은 게시판 탭으로 교체(이전 샘플은 멤버 탭).<br>  - <strong>검증</strong> <code>/group/:slug</code>에 커버 배너(또는 첫 글자 타일)가 있고 게시판 탭 글이 한 행에 카드 1개로 나온다.</div>
+<div class="field field-prose"><div class="field-label">판정(r14, 260929) 대표 요청 — "동네지도 업체 상세 UI 차용"(실기기 4패널 ③)</div> 지적: 전폭 단색 타일에 글자 하나, 고아 "멤버 2명" + 떠 있는 [가입하기], 탭, 홀로 남은 게이트 문구 — "지금은 대충 만들어놨어". → <code>F-BZ-01 FR-1</code>(업체 상세, <code>BizPublic.tsx</code>)의 구조·간격·타이포를 그대로 가져온다.<br>  - <strong>와이어(r14)</strong> <code>H</code> TopBar [뒤로] — 제목은 <strong>72px 스크롤 후에만 그룹명</strong>(업체 상세와 동일) / <code>C</code> intro(24px 20px 20px): <strong>그룹명 26px/800</strong> → 메타 줄 13px(<code>관심사</code>/<code>동네</code>(브랜드색 굵게) · 🌐 공개 / 🔒 비공개 · 바로 가입 / 승인 필요) → 소개 14px → 카운트 행(👥 멤버 N명 · 📄 게시글 N개 — 우측에 상태 배지 "가입됨"(브랜드 알약) / "승인 대기 중"(회색 알약)) → <strong>커버 히어로 16:9, 18px 라운드</strong>(없으면 첫 글자 그라데이션 타일 — e2e <code>[class*="banner"]</code> 유지) / <code>B</code> <strong>sticky 탭</strong> [게시판 · 채팅 · 멤버](3px 밑줄, 탭을 누르면 탭 줄이 상단에 붙도록 스크롤, 콘텐츠는 최소 높이로 붙은 상태 유지) → 탭 콘텐츠(20px 패딩): 게시판 = 1열 게시물 카드(r13, <code>group-board-list</code>) + 글쓰기 FAB(멤버) / <strong>채팅 = 탭 자체가 방으로 이동</strong>(<code>/dm/:conversationId</code> — 멤버는 공식 채팅에 자동 참여라 중간 [채팅방 입장] 화면을 없앤다; 비멤버는 게이트 문구) / 멤버 = 섹션 제목("승인 대기 n" · "멤버 n") + 카드 안 행(36px 아바타 · 닉네임 · 역할 · [승인] / [강퇴](위험 톤) 알약) / <code>K</code> <strong>비멤버·미신청일 때만 하단 CTA [가입하기]</strong>(업체 상세 [문의하기] 문법 — 52px 채움 버튼, 이 화면은 탭바가 보이므로 fixed 가 아니라 탭바 위 흐름 배치) · 멤버는 CTA 없음(주행동 = 글쓰기 FAB).<br>  - <strong>생략(그룹 대응물 없음 — 지어내지 않는다)</strong> 별점·주소·전화·위치 지도 카드·소식/가격/쿠폰/매물 미리보기·찜(♥)·공유·신고 케밥. 동네 그룹의 ward/district 는 API가 id만 주므로 이름을 표시하지 않고 "동네" 타입 라벨만.<br>  - <strong>구현(260929)</strong> <code>GroupDetail.tsx</code>·<code>GroupDetail.module.css</code>(<code>BizPublic.module.css</code> 값 미러 — 페이지 간 CSS import 없이 주석으로 출처 표기), <code>Community.module.css</code> <code>.cover.banner</code> 제거(상세 전용 → <code>GroupDetail.module.css .banner</code>). i18n <code>communityGroup.enterChat</code> 삭제(중간 버튼 폐지) · <code>postCount</code> 신설. <code>frontend-page-map.md</code>·ADR 은 이번 범위 밖(구조 변경 없음).<br>  - <strong>검증</strong> <code>/group/:slug</code>에서 그룹명이 본문 제목으로 크게 보이고 아래로 메타·소개·카운트·16:9 커버가 차례로 온다. 스크롤하면 헤더에 그룹명이 나타나고 탭 줄이 상단에 붙는다. 비멤버는 하단에 [가입하기] 바가 있고 멤버·승인 대기는 없다. 멤버가 [채팅] 탭을 누르면 바로 채팅방으로 간다. e2e S3(<code>[class*="banner"]</code> img, <code>group-board-list</code> 1열)·S7(그룹명 노출) 유지.<br>---</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
@@ -58039,88 +58003,27 @@ body {
 .ph--avatar2{ background: linear-gradient(145deg, #9FB8D4, #4F6E96); }
 .phLarge { width: 100%; height: 100%; }
 
-/* ── 화면 전용 ── */
-.feedBodyWrap { padding: 0 20px 20px; }
-.feedFilterRow { display: flex; gap: 8px; padding: 12px 0 12px; overflow: hidden; }
-.fChip {
-  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 12px; border-radius: var(--r-pill);
-  font-size: 13px; font-weight: 600; white-space: nowrap;
-  color: var(--text-2); background: var(--surface); border: 1px solid var(--line);
-}
-.fChipActive { background: var(--text); border-color: var(--text); color: var(--surface); }
-.feedGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.fCard { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.fThumb { position: relative; width: 100%; aspect-ratio: 1.15; overflow: hidden; flex-shrink: 0; background: var(--surface-2); }
-.fThumb .phLarge { height: 100%; }
-.fBody { display: flex; flex-direction: column; gap: 6px; padding: 10px 11px 12px; }
-.fAuthor { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; column-gap: 6px; }
-.fAvatar { width: 22px; height: 22px; border-radius: 50%; grid-row: span 2; }
-.fNick { overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.fTime { color: var(--text-3); font-size: 10px; }
-.fCaption { display: -webkit-box; min-height: 36px; overflow: hidden; color: var(--text-2); font-size: 13px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.fMeta { display: flex; align-items: center; gap: 9px; color: var(--text-3); font-size: 11px; font-weight: 600; }
-.fMeta > span { display: flex; align-items: center; gap: 3px; }
-.fMetaOn { color: var(--brand-600); }
-.feedList { display: flex; flex-direction: column; gap: 8px; }
-.pCard { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.pAuthor { display: flex; align-items: center; gap: 8px; }
-.pAvatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
-.pWho { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.pNick { font-size: 13px; font-weight: 700; }
-.pSub { color: var(--text-3); font-size: 11px; }
-.pMore { color: var(--text-3); display: flex; }
-.pPhoto { position: relative; display: block; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 12px; background: var(--surface-2); }
-.pPhoto .phLarge { height: 100%; }
-.pBadge { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: var(--r-pill); background: rgba(11,13,20,.6); color: #fff; font-size: 11px; font-weight: 700; }
-.pText { display: -webkit-box; overflow: hidden; color: var(--text-2); font-size: 14px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.pCardText .pText { -webkit-line-clamp: 6; }
-.pReact { display: flex; align-items: center; gap: 12px; color: var(--text-3); font-size: 12px; font-weight: 600; }
-.pReact > span { display: flex; align-items: center; gap: 4px; }
-.pOn { color: var(--brand-600); }
-.unreadDot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #F5333F; border: 1.5px solid var(--surface); }
-
-/* ── 화면 전용 (커뮤니티 셸 r13) ── */
-.cmSeg { display: flex; border-bottom: 1px solid var(--line); background: var(--surface); }
-.cmSegTab { flex: 1; padding: 12px 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-3); border-bottom: 2px solid transparent; }
-.cmSegActive { color: var(--text); border-bottom-color: var(--text); }
-.fChip {
-  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 12px; border-radius: var(--r-pill);
-  font-size: 13px; font-weight: 600; white-space: nowrap;
-  color: var(--text-2); background: var(--surface); border: 1px solid var(--line);
-}
-.fChipActive { background: var(--text); border-color: var(--text); color: var(--surface); }
-.phLarge { width: 100%; height: 100%; }
-.feedBodyWrap { padding: 0 20px 20px; }
-.feedFilterRow { display: flex; gap: 8px; padding: 12px 0 12px; overflow: hidden; }
-.feedList { display: flex; flex-direction: column; gap: 8px; }
-.pCard { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.pAuthor { display: flex; align-items: center; gap: 8px; }
-.pAvatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
-.pWho { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.pNick { font-size: 13px; font-weight: 700; }
-.pSub { color: var(--text-3); font-size: 11px; }
-.pMore { color: var(--text-3); display: flex; }
-.pPhoto { position: relative; display: block; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 12px; background: var(--surface-2); }
-.pPhoto .phLarge { height: 100%; }
-.pBadge { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: var(--r-pill); background: rgba(11,13,20,.6); color: #fff; font-size: 11px; font-weight: 700; }
-.pText { display: -webkit-box; overflow: hidden; color: var(--text-2); font-size: 14px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.pCardText .pText { -webkit-line-clamp: 6; }
-.pReact { display: flex; align-items: center; gap: 12px; color: var(--text-3); font-size: 12px; font-weight: 600; }
-.pReact > span { display: flex; align-items: center; gap: 4px; }
-.pOn { color: var(--brand-600); }
-.unreadDot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #F5333F; border: 1.5px solid var(--surface); }
+/* ── 화면 전용 (그룹 상세 r14 — 동네지도 업체 상세 BizPublic.module.css 문법 미러: intro → sticky 탭 → 탭 콘텐츠 → 하단 CTA) ── */
 .gdBody { flex: 1; min-height: 0; overflow: hidden; background: var(--bg); }
-.gdHeader { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
-.gdDesc { font-size: 13px; line-height: 1.5; color: var(--text-2); }
-.gdMeta { margin-top: 6px; font-size: 12px; color: var(--text-3); }
-.gdTabRow { display: flex; border-bottom: 1px solid var(--line); background: var(--surface); }
-.gdTab { flex: 1; padding: 12px 0; text-align: center; font-size: 14px; font-weight: 600; color: var(--text-3); border-bottom: 2px solid transparent; }
-.gdTabActive { color: var(--text); border-bottom-color: var(--text); }
-
-.gdCover { display: flex; align-items: center; justify-content: center; width: 100%; height: 132px; color: #fff; font-size: 44px; font-weight: 800; background: linear-gradient(145deg, #7C8698 0%, #4C5566 55%, #2E3440 100%); }
-.gdBoard { padding: 8px 16px 90px; }
+.gdIntro { padding: 24px 20px 20px; }
+.gdName { margin: 0; font-size: 26px; font-weight: 800; line-height: 1.2; color: var(--text); }
+.gdMeta { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 8px; color: var(--text-3); font-size: 13px; }
+.gdMeta span { display: inline-flex; align-items: center; gap: 3px; }
+.gdMeta span:first-child { color: var(--brand-500); font-weight: 700; }
+.gdDesc { margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: var(--text-2); }
+.gdRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.gdCount { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.gdHero { display: block; width: 100%; aspect-ratio: 16 / 9; margin-top: 18px; border-radius: 18px; overflow: hidden; }
+.gdTabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); background: var(--surface); }
+.gdTab { position: relative; padding: 15px 2px 14px; text-align: center; font-size: 14px; font-weight: 700; color: var(--text-3); }
+.gdTabActive { color: var(--text); }
+.gdTabActive::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--text); }
+.gdContent { padding: 20px 20px 24px; }
+.gdGate { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 36px 20px; text-align: center; }
+.gdGateIcon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-2); color: var(--text-3); }
+.gdGateTitle { font-size: 14px; font-weight: 700; color: var(--text); }
+.gdCta { flex-shrink: 0; padding: 12px 20px; border-top: 1px solid var(--line); background: var(--surface); }
+.gdCtaBtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 52px; border-radius: 16px; background: linear-gradient(135deg, var(--brand-500), var(--brand-600)); color: #fff; font-size: 16px; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -58136,49 +58039,34 @@ body {
     <div class=&quot;page&quot;>
     <header class=&quot;topbar&quot;>
       <div class=&quot;topbarContent&quot;>
-        <div class=&quot;topbarSide&quot;><span class=&quot;iconBtn&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m12 19-7-7 7-7&quot;/><path d=&quot;M19 12H5&quot;/></svg></span></div>
-        <h1 class=&quot;topbarTitle&quot;>사이공 라이더 클럽</h1>
+        <div class=&quot;topbarSide&quot;><span class=&quot;iconBtn&quot;><svg width=&quot;22&quot; height=&quot;22&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m12 19-7-7 7-7&quot;/><path d=&quot;M19 12H5&quot;/></svg></span></div>
+        <div class=&quot;topbarTitle&quot;></div>
         <div class=&quot;topbarSide topbarRight&quot;></div>
       </div>
     </header>
 
     <div class=&quot;gdBody&quot;>
-      <div class=&quot;gdCover ph ph--moto&quot;></div>
-      <div class=&quot;gdHeader&quot;>
-        <div class=&quot;gdDesc&quot;>호치민 전역을 함께 도는 주말 투어 모임입니다. 매주 토요일 아침 6시 Bình Thạnh 출발.</div>
-        <div class=&quot;gdMeta&quot;>멤버 <span class=&quot;num&quot;>128</span>명</div>
+      <div class=&quot;gdIntro&quot;>
+        <h1 class=&quot;gdName&quot;>사이공 라이더 클럽</h1>
+        <div class=&quot;gdMeta&quot;><span>관심사</span><span><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;10&quot;/><path d=&quot;M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20&quot;/><path d=&quot;M2 12h20&quot;/></svg>공개</span><span>승인 필요</span></div>
+        <p class=&quot;gdDesc&quot;>호치민 전역을 함께 도는 주말 투어 모임입니다. 매주 토요일 아침 6시 Bình Thạnh 출발, 초보 환영.</p>
+        <div class=&quot;gdRow&quot;><span class=&quot;gdCount&quot;><svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg><span>멤버 <span class=&quot;num&quot;>128</span>명</span> · <svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z&quot;/><path d=&quot;M14 2v4a2 2 0 0 0 2 2h4&quot;/><path d=&quot;M10 9H8&quot;/><path d=&quot;M16 13H8&quot;/><path d=&quot;M16 17H8&quot;/></svg><span>게시글 <span class=&quot;num&quot;>342</span>개</span></span></div>
+        <span class=&quot;gdHero ph ph--moto&quot;></span>
       </div>
 
-      <div class=&quot;gdTabRow&quot;>
+      <div class=&quot;gdTabs&quot;>
         <span class=&quot;gdTab gdTabActive&quot;>게시판</span>
         <span class=&quot;gdTab&quot;>채팅</span>
         <span class=&quot;gdTab&quot;>멤버</span>
       </div>
 
-      <div class=&quot;gdBoard&quot;>
-        <div class=&quot;feedList&quot;>
-        <article class=&quot;pCard&quot;>
-          <span class=&quot;pAuthor&quot;><span class=&quot;pAvatar ph ph--avatar2&quot;></span><span class=&quot;pWho&quot;><strong class=&quot;pNick&quot;>Minh Tuấn</strong><small class=&quot;pSub&quot;>2시간 전</small></span><span class=&quot;pMore&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;12&quot; cy=&quot;5&quot; r=&quot;1&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;1&quot;/><circle cx=&quot;12&quot; cy=&quot;19&quot; r=&quot;1&quot;/></svg></span></span>
-          <span class=&quot;pPhoto&quot;><span class=&quot;phLarge ph ph--moto&quot;></span><span class=&quot;pBadge num&quot;>1/3</span></span>
-          <span class=&quot;pText&quot;>Thảo Điền 강변 야경 한 컷 찍었어요. 오늘 바람이 진짜 좋아서 한참 달렸는데 다들 주말에 어디 다녀오셨나요? 저는 강변 따라 쭉 내려가 봤습니다. 다음엔 같이 달려요 …더보기</span>
-          <span class=&quot;pReact&quot;><span class=&quot;pOn&quot;><svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5&quot;/></svg><span class=&quot;num&quot;>12</span></span><span><svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M7.9 20A9 9 0 1 0 4 16.1L2 22Z&quot;/></svg><span class=&quot;num&quot;>3</span></span></span>
-        </article>
-        <article class=&quot;pCard&quot;>
-          <span class=&quot;pAuthor&quot;><span class=&quot;pAvatar ph ph--avatar&quot;></span><span class=&quot;pWho&quot;><strong class=&quot;pNick&quot;>Hà Linh</strong><small class=&quot;pSub&quot;>2시간 전</small></span><span class=&quot;pMore&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;12&quot; cy=&quot;5&quot; r=&quot;1&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;1&quot;/><circle cx=&quot;12&quot; cy=&quot;19&quot; r=&quot;1&quot;/></svg></span></span>
-          <span class=&quot;pPhoto&quot;><span class=&quot;phLarge ph ph--helmet&quot;></span></span>
-          <span class=&quot;pText&quot;>비 오는 날 헬멧 김서림 막는 꿀팁 공유합니다. 안쪽에 김서림 방지제를 얇게 바르고 바이저를 살짝 열어두면 훨씬 덜해요. 저는 이 방법으로 우기를 났어요 …더보기</span>
-          <span class=&quot;pReact&quot;><span class=&quot;pOn&quot;><svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5&quot;/></svg><span class=&quot;num&quot;>31</span></span><span><svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M7.9 20A9 9 0 1 0 4 16.1L2 22Z&quot;/></svg><span class=&quot;num&quot;>8</span></span></span>
-        </article>
-        <article class=&quot;pCard pCardText&quot;>
-          <span class=&quot;pAuthor&quot;><span class=&quot;pAvatar ph ph--avatar2&quot;></span><span class=&quot;pWho&quot;><strong class=&quot;pNick&quot;>Đức Anh</strong><small class=&quot;pSub&quot;>2시간 전</small></span><span class=&quot;pMore&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;12&quot; cy=&quot;5&quot; r=&quot;1&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;1&quot;/><circle cx=&quot;12&quot; cy=&quot;19&quot; r=&quot;1&quot;/></svg></span></span>
-
-          <span class=&quot;pText&quot;>퇴근길 7군 Nguyễn Văn Linh 정체 실화인가요. 오늘은 평소보다 40분은 더 걸린 것 같아요. 공사 구간 때문인지 사고가 났는지 모르겠는데 혹시 우회로 아시는 분 계신가요? 다들 안전 운전하세요. 내일 아침에도 막힐까 걱정입니다. 아시는 분 댓글 부탁드려요 …더보기</span>
-          <span class=&quot;pReact&quot;><span class=&quot;pOn&quot;><svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5&quot;/></svg><span class=&quot;num&quot;>9</span></span><span><svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M7.9 20A9 9 0 1 0 4 16.1L2 22Z&quot;/></svg><span class=&quot;num&quot;>14</span></span></span>
-        </article>
-        </div>
+      <div class=&quot;gdContent&quot;>
+        <div class=&quot;gdGate&quot;><span class=&quot;gdGateIcon&quot;><svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M18 21a8 8 0 0 0-16 0&quot;/><circle cx=&quot;10&quot; cy=&quot;8&quot; r=&quot;5&quot;/><path d=&quot;M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3&quot;/></svg></span><span class=&quot;gdGateTitle&quot;>가입 후 게시판을 볼 수 있어요</span></div>
       </div>
     </div>
-    <span class=&quot;writeFab&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.4&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M5 12h14&quot;/><path d=&quot;M12 5v14&quot;/></svg></span>
+
+    <div class=&quot;gdCta&quot;><span class=&quot;gdCtaBtn&quot;><svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><line x1=&quot;19&quot; x2=&quot;19&quot; y1=&quot;8&quot; y2=&quot;14&quot;/><line x1=&quot;22&quot; x2=&quot;16&quot; y1=&quot;11&quot; y2=&quot;11&quot;/></svg>가입하기</span></div>
+    <nav class=&quot;tabbar&quot;><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8&quot;/><path d=&quot;M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z&quot;/></svg></span><span class=&quot;tabLabel&quot;>홈</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7&quot;/><path d=&quot;M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8&quot;/><path d=&quot;M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4&quot;/><path d=&quot;M2 7h20&quot;/><path d=&quot;M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7&quot;/></svg></span><span class=&quot;tabLabel&quot;>마켓</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z&quot;/><path d=&quot;M15 5.764v15&quot;/><path d=&quot;M9 3.236v15&quot;/></svg></span><span class=&quot;tabLabel&quot;>동네지도</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M7.9 20A9 9 0 1 0 4 16.1L2 22Z&quot;/></svg><span class=&quot;navBadge num&quot;>3</span></span><span class=&quot;tabLabel&quot;>채팅</span></span><span class=&quot;tab tabActive&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M22 21v-2a4 4 0 0 0-3-3.87&quot;/><path d=&quot;M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg></span><span class=&quot;tabLabel&quot;>커뮤니티</span></span><span class=&quot;tab&quot;><span class=&quot;tabIconWrap&quot;><svg width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;12&quot; cy=&quot;7&quot; r=&quot;4&quot;/></svg></span><span class=&quot;tabLabel&quot;>프로필</span></span></nav>
   </div>
 </div>
 </body>

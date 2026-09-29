@@ -1,0 +1,262 @@
+/* 그룹 만들기 폼 — 섹션·라벨·도움말이 있는 폼 (F-CM-02 FR-1 r14 대표 피드백 "디자인이 안 됐다").
+   입력 표면은 BizApply/MarketCreate 폼 문법(테두리 12px 라운드 입력), 선택지는 라디오 카드 행. */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 20px 24px;
+}
+
+.section { margin-bottom: 26px; }
+
+.sectionTitle {
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.sectionHint {
+  margin: -6px 0 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
+.field { margin-top: 14px; }
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.optional {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+}
+
+.input { height: 48px; }
+
+.textarea {
+  min-height: 104px;
+  padding: 12px 14px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.input:focus,
+.textarea:focus { border-color: var(--brand-500); }
+
+.input::placeholder,
+.textarea::placeholder { color: var(--text-3); }
+
+.counter {
+  margin-top: 4px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* 커버 — 컴팩트 행(썸네일 + 설명 + 액션). 거대한 빈 상자 대신 미리보기가 있는 한 줄 */
+.coverRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.coverThumb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 112px;
+  height: 72px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+.coverThumbFilled { border-style: solid; }
+
+.coverPreview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.coverUploading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 13, 20, .4);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.coverBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.coverTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.coverHint {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
+.coverAction {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-600);
+}
+
+.coverRemove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.hiddenInput { display: none; }
+
+/* 선택지 — 라디오 카드 행(아이콘 · 제목 · 한 줄 설명 · 체크) */
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.optionActive {
+  border-color: var(--brand-500);
+  background: var(--brand-50);
+}
+
+.optionIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.optionActive .optionIcon {
+  background: var(--surface);
+  color: var(--brand-600);
+}
+
+.optionBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.optionTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.optionDesc {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
+.optionCheck {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  color: #fff;
+}
+
+.optionActive .optionCheck {
+  border-color: var(--brand-500);
+  background: var(--brand-500);
+}
+
+.submitBar {
+  flex-shrink: 0;
+  padding: 12px 20px calc(12px + var(--bottom-safe, 0px));
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}

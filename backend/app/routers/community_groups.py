@@ -142,6 +142,7 @@ async def create_group(
 @router.get("", response_model=Page[CommunityGroupOut], summary="그룹 탐색 목록")
 async def list_groups(
     filter: str = "all",  # 'all' | 'mine'
+    q: str | None = None,  # 이름·설명 부분일치 검색 (F-CM-02 FR-1 r14)
     page: int = 1,
     size: int = 20,
     db: AsyncSession = Depends(get_db),
@@ -150,6 +151,13 @@ async def list_groups(
     offset = (page - 1) * size
     base_q = select(CommunityGroup).where(CommunityGroup.status == "ACTIVE")
     count_q = select(func.count()).select_from(CommunityGroup).where(CommunityGroup.status == "ACTIVE")
+
+    keyword = (q or "").strip()
+    if keyword:
+        like = f"%{keyword}%"
+        cond = CommunityGroup.name.ilike(like) | CommunityGroup.description.ilike(like)
+        base_q = base_q.where(cond)
+        count_q = count_q.where(cond)
 
     if filter == "mine":
         if session_uid is None:

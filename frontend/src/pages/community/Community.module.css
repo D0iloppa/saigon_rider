@@ -1,4 +1,4 @@
-/* 커뮤니티 셸 · 그룹 카드 · 내 그룹 레일 · 내 커뮤니티 허브 (F-CM-01/02/03 r13) */
+/* 커뮤니티 셸 · 그룹 카드 · 내 그룹 레일 · 내 커뮤니티 허브 (F-CM-01/02/03 r13, r14) */
 .menuBtn {
   display: flex;
   align-items: center;
@@ -8,6 +8,81 @@
   color: var(--text);
   padding: 4px 8px;
   cursor: pointer;
+}
+
+/* 도메인 전환 [피드 그룹] — 당근 커뮤니티 탭(동네생활·모임) 문법: 헤더 좌측 큰 글자 탭, 밑줄 없음.
+   화면 안 탭(그룹 상세 게시판|채팅|멤버, 밑줄형)과 시각적으로 구분한다 (r14 대표 피드백). */
+.domainTabs {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  padding-left: 4px;
+}
+
+.domainTab {
+  padding: 4px 0;
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.domainTabActive { color: var(--text); }
+
+/* 그룹 검색 — MapSearch.module.css .searchBox 문법 미러(알약 40px, surface-2) */
+.searchWrap { padding: 12px 20px 4px; }
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.searchIcon { flex-shrink: 0; color: var(--text-3); }
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.searchInput::placeholder { color: var(--text-3); }
+
+.searchClear {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--text-3);
+  color: var(--surface);
+}
+
+/* 내 그룹이 0개일 때의 컴팩트 빈 카드 — 섹션은 항상 남긴다(r14) */
+.myGroupsEmpty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 20px;
+  padding: 14px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  color: var(--text-3);
+  font-size: 13px;
 }
 
 .page {
@@ -74,8 +149,10 @@
   white-space: nowrap;
 }
 
-/* 커버 — 사진 또는 이름 첫 글자 타일 */
+/* 커버 — 사진 또는 이름 첫 글자 타일. 폴백 타일 색은 GroupCover 가 --tile-h(색상각)로 주입,
+   그라데이션+글자 그림자로 평면 단색 느낌을 뺀다(r14). */
 .cover {
+  --tile-h: 200;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,6 +161,11 @@
   background: var(--surface-2);
   color: #fff;
   font-weight: 800;
+}
+
+.coverTile {
+  background: linear-gradient(145deg, hsl(var(--tile-h) 60% 62%), hsl(var(--tile-h) 58% 40%));
+  text-shadow: 0 1px 2px rgba(11, 13, 20, .18);
 }
 
 .coverImg {
@@ -109,17 +191,18 @@
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
+  box-shadow: var(--shadow-card);
   text-align: left;
   cursor: pointer;
 }
 
-.card:active { opacity: .85; }
+.card:active { background: var(--surface-2); }
 
 .card .cover {
   width: 64px;
   height: 64px;
   border-radius: 16px;
-  font-size: 26px;
+  font-size: 24px;
 }
 
 .cardInfo {
@@ -148,9 +231,16 @@
 }
 
 .cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
   color: var(--text-3);
 }
+
+.cardMeta svg { flex-shrink: 0; }
+
+.cardChevron { flex-shrink: 0; color: var(--text-3); }
 
 .joinedBadge {
   flex-shrink: 0;
@@ -184,13 +274,6 @@
 }
 
 .createFab:active { opacity: .85; }
-
-/* 그룹 상세 커버 배너 */
-.cover.banner {
-  width: 100%;
-  aspect-ratio: 16 / 7;
-  font-size: 44px;
-}
 
 /* 그룹 만들기 — 커버 선택 */
 .coverPicker {

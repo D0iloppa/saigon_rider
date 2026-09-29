@@ -1,24 +1,49 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Camera, Globe, Lock, X } from 'lucide-react';
+import { Camera, Check, Globe, Lock, UserCheck, UserPlus, X, type LucideProps } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
-import { Chip } from '@/components/ui/Chip';
 import { AppImage } from '@/components/ui/AppImage';
 import { api } from '@/api/client';
 import { useUserStore } from '@/store/useUserStore';
 import { createGroup } from '@/api/community_groups';
 import { toast } from '@/components/ui/Toast';
-import feedStyles from '@/pages/feed/FeedList.module.css';
-import feedCreateStyles from '@/pages/feed/FeedCreate.module.css';
-import styles from '@/pages/dm/DmGroupCreate.module.css';
-import communityStyles from './Community.module.css';
+import styles from './GroupCreate.module.css';
 
 type Visibility = 'public' | 'private';
 type JoinPolicy = 'open' | 'approval';
 
-// 그룹 개설 폼 — 최소 필드(이름/설명/공개여부/가입정책). DmGroupCreate/FeedCreate CSS 재사용, 신규 카드 디자인 없음.
+const NAME_MAX = 60;
+const DESC_MAX = 500;
+
+function OptionRow({ active, icon: Icon, title, desc, onSelect }: {
+  active: boolean;
+  icon: ComponentType<LucideProps>;
+  title: string;
+  desc: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      className={`${styles.option} ${active ? styles.optionActive : ''}`}
+      onClick={onSelect}
+    >
+      <span className={styles.optionIcon}><Icon size={18} strokeWidth={2.2} /></span>
+      <span className={styles.optionBody}>
+        <span className={styles.optionTitle}>{title}</span>
+        <span className={styles.optionDesc}>{desc}</span>
+      </span>
+      <span className={styles.optionCheck} aria-hidden="true">{active && <Check size={12} strokeWidth={3} />}</span>
+    </button>
+  );
+}
+
+// 그룹 개설 폼 — 기본 정보(커버·이름·소개) / 공개 여부 / 가입 방식 3섹션 (F-CM-02 FR-1 r14).
+// 선택지는 기존 옵션(public|private, open|approval)만 — 새 정책 없음.
 export default function GroupCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -93,97 +118,112 @@ export default function GroupCreate() {
     <div className={styles.page}>
       <TopBar title={t('communityGroup.createTitle')} />
       <div className={styles.body}>
-        <label className={communityStyles.coverPicker} data-testid="group-cover-picker" aria-label={t('communityGroup.coverLabel')}>
-          {cover ? (
-            <>
-              <AppImage src={cover.preview} alt="" className={communityStyles.coverPreview} />
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>{t('communityGroup.basicInfo')}</h2>
+
+          <label className={styles.coverRow} data-testid="group-cover-picker" aria-label={t('communityGroup.coverLabel')}>
+            <span className={`${styles.coverThumb} ${cover ? styles.coverThumbFilled : ''}`}>
+              {cover ? <AppImage src={cover.preview} alt="" className={styles.coverPreview} /> : <Camera size={22} />}
+              {cover?.uploading && <span className={styles.coverUploading}>{t('communityGroup.coverUploading')}</span>}
+            </span>
+            <span className={styles.coverBody}>
+              <span className={styles.coverTitle}>
+                {t('communityGroup.coverLabel')}
+                <span className={styles.optional}>{t('communityGroup.optional')}</span>
+              </span>
+              <span className={styles.coverHint}>{t('communityGroup.coverHint')}</span>
+              <span className={styles.coverAction}>{cover ? t('communityGroup.coverChange') : t('communityGroup.coverPick')}</span>
+            </span>
+            {cover && (
               <button
                 type="button"
-                className={communityStyles.coverRemove}
+                className={styles.coverRemove}
                 aria-label={t('communityGroup.coverRemove')}
                 onClick={(e) => { e.preventDefault(); dropCover(); }}
               >
                 <X size={16} />
               </button>
-            </>
-          ) : (
-            <span className={communityStyles.coverPickerInner}>
-              <Camera size={22} />
-              {t('communityGroup.coverLabel')}
-            </span>
-          )}
-          <input
-            className={communityStyles.hiddenInput}
-            data-testid="group-cover-input"
-            type="file"
-            accept="image/*"
-            onChange={handleCoverSelect}
-          />
-        </label>
-        <input
-          className={styles.titleInput}
-          type="text"
-          placeholder={t('communityGroup.namePlaceholder')}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={60}
-        />
-        <textarea
-          className={feedCreateStyles.textarea}
-          placeholder={t('communityGroup.descPlaceholder')}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={4}
-          maxLength={500}
-        />
+            )}
+            <input
+              className={styles.hiddenInput}
+              data-testid="group-cover-input"
+              type="file"
+              accept="image/*"
+              onChange={handleCoverSelect}
+            />
+          </label>
 
-        <div className={feedStyles.filterRow} role="radiogroup" aria-label={t('communityGroup.visibility')}>
-          <Chip
-            as="button"
-            variant={visibility === 'public' ? 'dark' : 'surface'}
-            role="radio"
-            aria-checked={visibility === 'public'}
-            onClick={() => setVisibility('public')}
-            style={{ cursor: 'pointer' }}
-          >
-            <Globe size={13} strokeWidth={2.2} />
-            {t('communityGroup.visibilityPublic')}
-          </Chip>
-          <Chip
-            as="button"
-            variant={visibility === 'private' ? 'dark' : 'surface'}
-            role="radio"
-            aria-checked={visibility === 'private'}
-            onClick={() => setVisibility('private')}
-            style={{ cursor: 'pointer' }}
-          >
-            <Lock size={13} strokeWidth={2.2} />
-            {t('communityGroup.visibilityPrivate')}
-          </Chip>
-        </div>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="group-create-name">{t('communityGroup.nameLabel')}</label>
+            <input
+              id="group-create-name"
+              className={styles.input}
+              type="text"
+              placeholder={t('communityGroup.namePlaceholder')}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={NAME_MAX}
+            />
+            <div className={styles.counter}>{name.length}/{NAME_MAX}</div>
+          </div>
 
-        <div className={feedStyles.filterRow} role="radiogroup" aria-label={t('communityGroup.joinPolicy')}>
-          <Chip
-            as="button"
-            variant={joinPolicy === 'open' ? 'dark' : 'surface'}
-            role="radio"
-            aria-checked={joinPolicy === 'open'}
-            onClick={() => setJoinPolicy('open')}
-            style={{ cursor: 'pointer' }}
-          >
-            {t('communityGroup.joinPolicyOpen')}
-          </Chip>
-          <Chip
-            as="button"
-            variant={joinPolicy === 'approval' ? 'dark' : 'surface'}
-            role="radio"
-            aria-checked={joinPolicy === 'approval'}
-            onClick={() => setJoinPolicy('approval')}
-            style={{ cursor: 'pointer' }}
-          >
-            {t('communityGroup.joinPolicyApproval')}
-          </Chip>
-        </div>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="group-create-desc">
+              {t('communityGroup.descLabel')}
+              <span className={styles.optional}>{t('communityGroup.optional')}</span>
+            </label>
+            <textarea
+              id="group-create-desc"
+              className={styles.textarea}
+              placeholder={t('communityGroup.descPlaceholder')}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              maxLength={DESC_MAX}
+            />
+            <div className={styles.counter}>{description.length}/{DESC_MAX}</div>
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>{t('communityGroup.visibility')}</h2>
+          <div className={styles.options} role="radiogroup" aria-label={t('communityGroup.visibility')}>
+            <OptionRow
+              active={visibility === 'public'}
+              icon={Globe}
+              title={t('communityGroup.visibilityPublic')}
+              desc={t('communityGroup.visibilityPublicDesc')}
+              onSelect={() => setVisibility('public')}
+            />
+            <OptionRow
+              active={visibility === 'private'}
+              icon={Lock}
+              title={t('communityGroup.visibilityPrivate')}
+              desc={t('communityGroup.visibilityPrivateDesc')}
+              onSelect={() => setVisibility('private')}
+            />
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>{t('communityGroup.joinPolicy')}</h2>
+          <div className={styles.options} role="radiogroup" aria-label={t('communityGroup.joinPolicy')}>
+            <OptionRow
+              active={joinPolicy === 'open'}
+              icon={UserPlus}
+              title={t('communityGroup.joinPolicyOpen')}
+              desc={t('communityGroup.joinPolicyOpenDesc')}
+              onSelect={() => setJoinPolicy('open')}
+            />
+            <OptionRow
+              active={joinPolicy === 'approval'}
+              icon={UserCheck}
+              title={t('communityGroup.joinPolicyApproval')}
+              desc={t('communityGroup.joinPolicyApprovalDesc')}
+              onSelect={() => setJoinPolicy('approval')}
+            />
+          </div>
+        </section>
       </div>
       <div className={styles.submitBar}>
         <Button onClick={handleCreate} disabled={!name.trim() || submitting || !!cover?.uploading} loading={submitting}>

@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MessagesSquare, Newspaper, Plus, UsersRound } from 'lucide-react';
+import { FileText, Globe, Lock, MessagesSquare, Newspaper, Plus, UserPlus, Users, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
-import { Button } from '@/components/ui/Button';
 import { AppImage } from '@/components/ui/AppImage';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
@@ -17,12 +16,18 @@ import type { CommunityGroup, CommunityGroupMember, FeedPost } from '@/api/types
 import feedStyles from '@/pages/feed/FeedList.module.css';
 import { FeedPostCard } from '@/pages/feed/FeedPostCard';
 import { GroupCover } from './GroupCard';
-import communityStyles from './Community.module.css';
 import styles from './GroupDetail.module.css';
 
 type Tab = 'board' | 'chat' | 'members';
+const TABS: Array<{ key: Tab; label: string }> = [
+  { key: 'board', label: 'communityGroup.tabBoard' },
+  { key: 'chat', label: 'communityGroup.tabChat' },
+  { key: 'members', label: 'communityGroup.tabMembers' },
+];
 const MANAGE_ROLES = new Set(['owner', 'manager']);
 
+// 그룹 상세 — 동네지도 업체 상세(BizPublic)와 같은 구조: intro → sticky 탭 → 탭 콘텐츠 → 하단 CTA (F-CM-02 FR-2 r14).
+// 탭 전환 시 탭 줄이 상단에 붙도록 스크롤하는 동작과 스크롤 후 헤더에 제목이 나타나는 동작을 그대로 미러한다.
 export default function GroupDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -32,6 +37,10 @@ export default function GroupDetail() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('board');
   const [joining, setJoining] = useState(false);
+  const [compactHeader, setCompactHeader] = useState(false);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const introRef = useRef<HTMLElement | null>(null);
+  const pendingTabScrollRef = useRef(false);
 
   const loadGroup = useCallback(() => {
     if (!slug) return;
@@ -45,6 +54,7 @@ export default function GroupDetail() {
   useEffect(loadGroup, [loadGroup]);
 
   const isMember = group?.myMembershipStatus === 'ACTIVE';
+  const isPending = group?.myMembershipStatus === 'PENDING';
 
   const handleJoin = async () => {
     if (!group || joining) return;
@@ -59,10 +69,43 @@ export default function GroupDetail() {
     }
   };
 
+  const scrollToTabsTop = () => {
+    const body = bodyRef.current;
+    const intro = introRef.current;
+    if (body && intro) {
+      // sticky 로 붙은 탭 줄의 rect 는 고정 위치를 주므로, 비-sticky 인 intro 의 flow 하단(= 탭 줄의 원래 위치)으로 계산한다.
+      const tabTop = intro.getBoundingClientRect().bottom - body.getBoundingClientRect().top + body.scrollTop;
+      body.scrollTo({ top: Math.max(0, tabTop), behavior: 'smooth' });
+    }
+  };
+
+  const handleTabChange = (next: Tab) => {
+    // 그룹 공식 채팅 — 멤버는 자동 참여 상태라 중간 화면 없이 바로 방으로 간다
+    if (next === 'chat' && isMember && group?.conversationId) {
+      navigate(`/dm/${group.conversationId}`);
+      return;
+    }
+    if (next === tab) {
+      scrollToTabsTop();
+      return;
+    }
+    pendingTabScrollRef.current = true;
+    setTab(next);
+  };
+
+  useLayoutEffect(() => {
+    if (!pendingTabScrollRef.current) return;
+    pendingTabScrollRef.current = false;
+    scrollToTabsTop();
+  });
+
   if (loading) {
     return (
       <div className={styles.page}>
-        <TopBar title="" />
+        <TopBar />
+        <div className={styles.body}>
+          <p className={styles.loading}>{t('common.loading')}</p>
+        </div>
       </div>
     );
   }
@@ -76,74 +119,76 @@ export default function GroupDetail() {
     );
   }
 
+  const joinPolicyLabel =
+    group.joinPolicy === 'approval' ? t('communityGroup.joinPolicyApproval')
+      : group.joinPolicy === 'open' ? t('communityGroup.joinPolicyOpen')
+        : null;
+
   return (
     <div className={styles.page}>
-      <TopBar title={group.name} />
-      <div className={styles.body}>
-        <GroupCover name={group.name} coverUrl={group.coverUrl} className={communityStyles.banner} />
-        <div className={styles.header}>
-          {group.description && <div className={styles.headerDesc}>{group.description}</div>}
-          <div className={styles.headerMeta}>{t('communityGroup.memberCount', { count: group.memberCount })}</div>
-          {!isMember && group.myMembershipStatus !== 'PENDING' && (
-            <div style={{ marginTop: 10 }}>
-              <Button size="sm" fullWidth={false} onClick={handleJoin} disabled={joining} loading={joining}>
-                {t('communityGroup.join')}
-              </Button>
-            </div>
-          )}
-          {group.myMembershipStatus === 'PENDING' && (
-            <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-3)' }}>
-              {t('communityGroup.pending')}
-            </div>
-          )}
-        </div>
-
-        <div className={styles.tabRow} role="tablist">
-          <button
-            role="tab"
-            aria-selected={tab === 'board'}
-            className={`${styles.tabBtn} ${tab === 'board' ? styles.tabBtnActive : ''}`}
-            onClick={() => setTab('board')}
-          >
-            {t('communityGroup.tabBoard')}
-          </button>
-          <button
-            role="tab"
-            aria-selected={tab === 'chat'}
-            className={`${styles.tabBtn} ${tab === 'chat' ? styles.tabBtnActive : ''}`}
-            onClick={() => setTab('chat')}
-          >
-            {t('communityGroup.tabChat')}
-          </button>
-          <button
-            role="tab"
-            aria-selected={tab === 'members'}
-            className={`${styles.tabBtn} ${tab === 'members' ? styles.tabBtnActive : ''}`}
-            onClick={() => setTab('members')}
-          >
-            {t('communityGroup.tabMembers')}
-          </button>
-        </div>
-
-        {tab === 'board' && (
-          <BoardTab group={group} isMember={isMember} navigate={navigate} t={t} />
-        )}
-        {tab === 'chat' && (
-          <div className={styles.chatEntry}>
-            {isMember && group.conversationId ? (
-              <Button onClick={() => navigate(`/dm/${group.conversationId}`)}>
-                <MessagesSquare size={16} strokeWidth={2.2} style={{ marginRight: 6 }} />
-                {t('communityGroup.enterChat')}
-              </Button>
-            ) : (
-              <StateBlock icon={MessagesSquare} title={t('communityGroup.chatRequiresMembership')} />
-            )}
+      <TopBar title={compactHeader ? group.name : undefined} />
+      <div ref={bodyRef} className={styles.body} onScroll={(e) => setCompactHeader(e.currentTarget.scrollTop > 72)}>
+        <section ref={introRef} className={styles.intro}>
+          <h1 className={styles.name}>{group.name}</h1>
+          <div className={styles.profileMeta}>
+            <span>{t(group.groupType === 'neighborhood' ? 'communityGroup.typeNeighborhood' : 'communityGroup.typeInterest')}</span>
+            <span>
+              {group.visibility === 'private' ? <Lock size={13} strokeWidth={2.2} /> : <Globe size={13} strokeWidth={2.2} />}
+              {t(group.visibility === 'private' ? 'communityGroup.visibilityPrivate' : 'communityGroup.visibilityPublic')}
+            </span>
+            {joinPolicyLabel && <span>{joinPolicyLabel}</span>}
           </div>
-        )}
-        {tab === 'members' && (
-          <MembersTab group={group} isMember={isMember} myUserId={me?.id} t={t} />
-        )}
+          {group.description && <p className={styles.introText}>{group.description}</p>}
+          <div className={styles.followRow}>
+            <span className={styles.followCount}>
+              <Users size={14} strokeWidth={2.2} />
+              {t('communityGroup.memberCount', { count: group.memberCount })}
+              {' · '}
+              <FileText size={14} strokeWidth={2.2} />
+              {t('communityGroup.postCount', { count: group.postCount })}
+            </span>
+            {isMember && <span className={styles.statusBadge}>{t('communityGroup.joined')}</span>}
+            {isPending && <span className={styles.statusBadgeMuted}>{t('communityGroup.pending')}</span>}
+          </div>
+          <GroupCover name={group.name} coverUrl={group.coverUrl} className={styles.banner} />
+        </section>
+
+        <nav className={styles.tabs} role="tablist">
+          {TABS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              className={tab === key ? styles.tabActive : styles.tab}
+              onClick={() => handleTabChange(key)}
+            >
+              {t(label)}
+            </button>
+          ))}
+        </nav>
+
+        <div className={styles.tabContent}>
+          {tab === 'board' && (
+            <BoardTab group={group} isMember={isMember} navigate={navigate} t={t} />
+          )}
+          {tab === 'chat' && (
+            <StateBlock icon={MessagesSquare} title={t('communityGroup.chatRequiresMembership')} />
+          )}
+          {tab === 'members' && (
+            <MembersTab group={group} isMember={isMember} myUserId={me?.id} t={t} />
+          )}
+        </div>
       </div>
+
+      {!isMember && !isPending && (
+        <div className={styles.ctaBar}>
+          <button className={styles.ctaBtn} type="button" onClick={handleJoin} disabled={joining}>
+            <UserPlus size={20} strokeWidth={2.2} />
+            {t('communityGroup.join')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -171,7 +216,7 @@ function BoardTab({ group, isMember, navigate, t }: any) {
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <>
       <button
         type="button"
         className={styles.writeFab}
@@ -183,12 +228,12 @@ function BoardTab({ group, isMember, navigate, t }: any) {
       {!isLoading && posts.length === 0 ? (
         <StateBlock icon={Newspaper} title={t('feed.emptyTitle')} desc={t('feed.emptySub')} />
       ) : (
-        <div className={feedStyles.postList} style={{ padding: '12px 20px 0' }} data-testid="group-board-list">
+        <div className={feedStyles.postList} data-testid="group-board-list">
           {posts.map((p) => <FeedPostCard key={p.id} p={p} onCheer={handleCheer} />)}
         </div>
       )}
       <ScrollSentinel sentinelRef={sentinelRef} isLoadingMore={isLoadingMore} hasMore={hasMore} />
-    </div>
+    </>
   );
 }
 
@@ -247,43 +292,52 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
   if (loading) return null;
 
   return (
-    <div className={styles.membersBody}>
+    <div>
       {canManage && pending.length > 0 && (
         <>
-          <div className={styles.memberRole} style={{ padding: '8px 0' }}>
+          <h3 className={styles.sectionTitle}>
             {t('communityGroup.pendingMembers')}
+            <span className={styles.sectionCount}>{pending.length}</span>
+          </h3>
+          <div className={styles.memberCard}>
+            {pending.map((m) => (
+              <div key={m.userId} className={styles.memberRow}>
+                <AppImage src={m.avatarUrl ?? undefined} alt="" className={styles.memberAvatar} variant="circle" />
+                <span className={styles.memberName}>{m.nickname ?? '—'}</span>
+                <button
+                  type="button"
+                  className={styles.memberAction}
+                  onClick={() => handleApprove(m.userId)}
+                >
+                  {t('communityGroup.approveMember')}
+                </button>
+              </div>
+            ))}
           </div>
-          {pending.map((m) => (
-            <div key={m.userId} className={styles.memberRow}>
-              <AppImage src={m.avatarUrl ?? undefined} alt="" className={feedStyles.avatar} variant="circle" />
-              <span className={styles.memberName}>{m.nickname ?? '—'}</span>
-              <button
-                type="button"
-                className={styles.memberAction}
-                onClick={() => handleApprove(m.userId)}
-              >
-                {t('communityGroup.approveMember')}
-              </button>
-            </div>
-          ))}
         </>
       )}
-      {members.map((m) => (
-        <div key={m.userId} className={styles.memberRow}>
-          <AppImage src={m.avatarUrl ?? undefined} alt="" className={feedStyles.avatar} variant="circle" />
-          <span className={styles.memberName}>{m.nickname ?? '—'}</span>
-          <span className={styles.memberRole}>{t(`communityGroup.role_${m.role}`, { defaultValue: m.role })}</span>
-          {canManage && m.userId !== myUserId && (
-            <button
-              type="button"
-              className={`${styles.memberAction} ${styles.memberActionDanger}`}
-              onClick={() => handleRemove(m.userId)}
-            >
-              {t('communityGroup.removeMember')}
-            </button>
-          )}
-        </div>
-      ))}
+      <h3 className={styles.sectionTitle}>
+        {t('communityGroup.tabMembers')}
+        <span className={styles.sectionCount}>{members.length}</span>
+      </h3>
+      <div className={styles.memberCard}>
+        {members.map((m) => (
+          <div key={m.userId} className={styles.memberRow}>
+            <AppImage src={m.avatarUrl ?? undefined} alt="" className={styles.memberAvatar} variant="circle" />
+            <span className={styles.memberName}>{m.nickname ?? '—'}</span>
+            <span className={styles.memberRole}>{t(`communityGroup.role_${m.role}`, { defaultValue: m.role })}</span>
+            {canManage && m.userId !== myUserId && (
+              <button
+                type="button"
+                className={`${styles.memberAction} ${styles.memberActionDanger}`}
+                onClick={() => handleRemove(m.userId)}
+              >
+                {t('communityGroup.removeMember')}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

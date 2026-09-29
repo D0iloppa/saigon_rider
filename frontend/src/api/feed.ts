@@ -37,6 +37,7 @@ export function transformPost(raw: any): FeedPost {
     createdAt: raw.created_at,
     latitude: raw.latitude != null ? Number(raw.latitude) : null,
     longitude: raw.longitude != null ? Number(raw.longitude) : null,
+    group: raw.group ? { id: raw.group.id, slug: raw.group.slug ?? null, name: raw.group.name } : null,
   };
 }
 

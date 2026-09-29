@@ -102,6 +102,8 @@ export interface FeedPost {
   createdAt: string;
   latitude?: number | null;
   longitude?: number | null;
+  /** 그룹 글이면 출처 그룹(목록·상세 응답) */
+  group?: { id: string; slug: string | null; name: string } | null;
 }
 
 export interface Comment {

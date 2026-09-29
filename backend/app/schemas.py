@@ -862,6 +862,12 @@ class FeedPostOut(BaseModel):
         }
 
 
+class FeedPostGroupOut(BaseModel):
+    id: UUID
+    slug: str | None = None
+    name: str
+
+
 class FeedPostEnrichedOut(BaseModel):
     id: UUID
     user_id: UUID
@@ -884,6 +890,7 @@ class FeedPostEnrichedOut(BaseModel):
     longitude: Decimal | None = None
     translation_failed: bool = False
     group_id: UUID | None = None
+    group: FeedPostGroupOut | None = None
     hashtags: list[str] = []
 
 

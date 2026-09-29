@@ -30,6 +30,7 @@ import { useKeyboard } from '@/hooks/useKeyboard';
 import { ImageViewer } from '@/components/ui/ImageViewer';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import feedStyles from './FeedList.module.css';
+import { GroupSourceChip } from './GroupSourceChip';
 import styles from './FeedDetail.module.css';
 
 /** 피드 상세 — 상품(매물) 상세(/market/:id)와 레이아웃 통일 (2026-07-12). 게시글 + 댓글 인라인 + 하단 액션바(응원·댓글 입력). */
@@ -257,6 +258,7 @@ export default function FeedDetail() {
                   </div>
                 </button>
               </div>
+              {post.group && <GroupSourceChip group={post.group} />}
 
               {/* Caption + hashtags */}
               {post.translationFailed && (

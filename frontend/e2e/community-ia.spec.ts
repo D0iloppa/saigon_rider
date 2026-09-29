@@ -10,7 +10,7 @@ import {
 } from './helpers';
 
 /**
- * F-CM-01/02/03 r13 — 커뮤니티 IA: [피드|그룹] 세그먼트, 피드 칩 4종, 그룹 탭(레일·1열 카드·커버),
+ * F-CM-01/02/03 r13 — 커뮤니티 IA: [피드|그룹] 세그먼트, 피드 칩 5종, 그룹 탭(레일·1열 카드·커버),
  * 내 커뮤니티 허브(/community/me), 좋아요한 글, 그룹 공식 채팅(오픈톡방) 노출.
  * 이 스펙은 작성만 하고 실행하지 않는다 — 통합 실행은 감독이 1회 수행.
  * S7 만 따로: npx playwright test community-ia -g "S7"  (S1~S6 의 setup 이 필요하므로 serial — 단독 실행 시 setup 테스트도 포함되게 -g "setup|S7")
@@ -76,18 +76,19 @@ test.describe('community IA r13', () => {
     b = await newUser(request, 'cmb');
   });
 
-  test('S1 피드 셸: 헤더·메뉴 버튼·세그먼트·칩 4종', async ({ page }) => {
+  test('S1 피드 셸: 헤더·메뉴 버튼·세그먼트·칩 5종', async ({ page }) => {
     await openAs(page, a, '/feed');
     await expect(page.getByText('커뮤니티', { exact: true }).first()).toBeVisible();
     await expect(page.getByTestId('community-menu-btn')).toBeVisible();
     await expect(page.getByTestId('community-seg-feed')).toBeVisible();
     await expect(page.getByTestId('community-seg-group')).toBeVisible();
     const chips = page.getByTestId('feed-filter-chips').getByRole('radio');
-    await expect(chips).toHaveCount(4);
-    for (const label of ['전체', '내 동네', '팔로잉', '인기']) {
+    await expect(chips).toHaveCount(5);
+    for (const label of ['전체', '내 동네', '팔로잉', '내 그룹', '인기']) {
       await expect(page.getByTestId('feed-filter-chips').getByRole('radio', { name: label })).toBeVisible();
     }
-    await expect(page.getByTestId('feed-filter-chips').getByRole('radio', { name: /그룹/ })).toHaveCount(0);
+    // 내비게이션 칩 '그룹' 단독은 없다(r13) — '내 그룹' 필터만 존재
+    await expect(page.getByTestId('feed-filter-chips').getByRole('radio', { name: '그룹', exact: true })).toHaveCount(0);
   });
 
   test('S2 세그먼트: 그룹 ↔ 피드, 하단 탭 유지', async ({ page }) => {

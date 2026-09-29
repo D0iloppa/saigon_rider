@@ -271,7 +271,7 @@ function BoardTab({ group, isMember, navigate, t }: any) {
         <StateBlock icon={Newspaper} title={t('communityGroup.boardEmptyTitle')} desc={t('communityGroup.boardEmptySub')} />
       ) : (
         <div className={feedStyles.postList} data-testid="group-board-list">
-          {posts.map((p) => <FeedPostCard key={p.id} p={p} onCheer={handleCheer} />)}
+          {posts.map((p) => <FeedPostCard key={p.id} p={p} onCheer={handleCheer} hideGroupChip />)}
         </div>
       )}
       <ScrollSentinel sentinelRef={sentinelRef} isLoadingMore={isLoadingMore} hasMore={hasMore} />

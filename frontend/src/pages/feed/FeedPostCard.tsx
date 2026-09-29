@@ -7,6 +7,7 @@ import type { FeedPost } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { OwnerBadge } from '@/components/ui/OwnerBadge';
 import { useUserStore } from '@/store/useUserStore';
+import { GroupSourceChip } from './GroupSourceChip';
 import styles from './FeedList.module.css';
 
 // 본문 클램프 — 사진 글 3줄 / 글만 있는 글 6줄. 넘칠 때만 "더보기"(탭은 카드 탭과 같이 상세로 버블링).
@@ -28,7 +29,7 @@ function ClampedCaption({ text, lines }: { text: string; lines: number }) {
 
 
 // 1열 게시물 카드 — 피드 목록·그룹 게시판·좋아요한 글이 공유한다.
-export function FeedPostCard({ p, onCheer }: { p: FeedPost; onCheer: (p: FeedPost, e: React.MouseEvent) => void }) {
+export function FeedPostCard({ p, onCheer, hideGroupChip }: { p: FeedPost; onCheer: (p: FeedPost, e: React.MouseEvent) => void; hideGroupChip?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
@@ -84,6 +85,7 @@ export function FeedPostCard({ p, onCheer }: { p: FeedPost; onCheer: (p: FeedPos
         >{p.userNickname ?? '—'}</strong>
         <small>{formatRelativeTime(p.createdAt)}</small>
         {user && p.userId === user.id && <OwnerBadge label={t('common.myPostBadge')} />}
+        {p.group && !hideGroupChip && <GroupSourceChip group={p.group} />}
       </span>
       {p.photoUrl && (
         <div className={styles.postMedia} style={{ aspectRatio: photoRatio }}>

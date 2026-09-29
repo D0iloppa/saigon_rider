@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Camera, Flame, Globe, MapPin, Plus, Users, type LucideIcon } from 'lucide-react';
+import { AlertCircle, Camera, Flame, Globe, MapPin, Plus, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { CommunityHeader } from '@/pages/community/CommunityHeader';
 import StateBlock from '@/components/ui/StateBlock';
 import sys from '@/styles/system.module.css';
@@ -21,8 +21,8 @@ import { FeedPostCard } from './FeedPostCard';
 import { useCheerToggle } from './useCheerToggle';
 import styles from './FeedList.module.css';
 
-type FilterKey = 'all' | 'neighborhood' | 'following' | 'hot';
-const FILTER_KEYS: FilterKey[] = ['all', 'neighborhood', 'following', 'hot'];
+type FilterKey = 'all' | 'neighborhood' | 'following' | 'groups' | 'hot';
+const FILTER_KEYS: FilterKey[] = ['all', 'neighborhood', 'following', 'groups', 'hot'];
 // 탭 전환으로 언마운트돼도 스크롤 위치가 살아있게(P2-11) — URL 에 넣기 부적절한 값이라
 // sessionStorage 를 쓴다(MarketMain 의 scrollTop 저장 패턴과 동일 결).
 const FEED_SCROLL_KEY = 'feed_scroll_v1';
@@ -80,6 +80,8 @@ export default function FeedList() {
     if (filter === 'following' && user) {
       return fetchFeed({ filter, userId: user.id, page });
     }
+    // 내 그룹: 비로그인은 서버 401 대신 빈 상태로(가입한 그룹이 없는 것과 동일 안내)
+    if (filter === 'groups' && !user) return { items: [], total: 0, page, size: 20, hasMore: false };
     return fetchFeed({ filter, page });
   }, [filter, user, neighborhoodLoc]);
 
@@ -119,6 +121,7 @@ export default function FeedList() {
     { key: 'all',          label: t('feed.filterAll'),          Icon: Globe },
     { key: 'neighborhood', label: t('feed.filterNeighborhood'), Icon: MapPin },
     { key: 'following',    label: t('feed.filterFollowing'),    Icon: Users },
+    { key: 'groups',       label: t('feed.filterMyGroups'),     Icon: UsersRound },
     { key: 'hot',          label: t('feed.filterPopular'),          Icon: Flame },
   ];
 
@@ -185,11 +188,20 @@ export default function FeedList() {
         ) : !isLoading && posts.length === 0 ? (
           <div className={styles.stateCard}>
             <div className={sys.card}>
-              <StateBlock
-                icon={Camera}
-                title={t('feed.emptyTitle')}
-                desc={t('feed.emptySub')}
-              />
+              {filter === 'groups' ? (
+                <StateBlock
+                  icon={UsersRound}
+                  title={t('feed.emptyGroupsTitle')}
+                  actionLabel={t('feed.emptyGroupsAction')}
+                  onAction={() => navigate('/community/groups', { replace: true })}
+                />
+              ) : (
+                <StateBlock
+                  icon={Camera}
+                  title={t('feed.emptyTitle')}
+                  desc={t('feed.emptySub')}
+                />
+              )}
             </div>
           </div>
         ) : (

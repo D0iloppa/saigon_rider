@@ -34,6 +34,7 @@ from ..schemas import (
     FeedCreateRequest,
     FeedDeleteRequest,
     FeedPostEnrichedOut,
+    FeedPostGroupOut,
     FeedPostOut,
     FeedUpdateRequest,
     LikeToggleRequest,
@@ -93,7 +94,26 @@ async def _public_coordinates(post: FeedPost, db: AsyncSession) -> tuple[Decimal
     )
 
 
-async def _enrich(post: FeedPost, user: User | None, ride: RideSession | None, db: AsyncSession) -> FeedPostEnrichedOut:
+async def _group_refs(posts: list[FeedPost], db: AsyncSession) -> dict[uuid.UUID, FeedPostGroupOut]:
+    """페이지 내 그룹 글의 그룹 정보(id/slug/name)를 쿼리 1회로 조회한다(글마다 조회 금지)."""
+    group_ids = {p.group_id for p in posts if p.group_id is not None}
+    if not group_ids:
+        return {}
+    rows = (
+        await db.execute(
+            select(CommunityGroup.id, CommunityGroup.slug, CommunityGroup.name).where(CommunityGroup.id.in_(group_ids))
+        )
+    ).all()
+    return {gid: FeedPostGroupOut(id=gid, slug=slug, name=name) for gid, slug, name in rows}
+
+
+async def _enrich(
+    post: FeedPost,
+    user: User | None,
+    ride: RideSession | None,
+    db: AsyncSession,
+    groups: dict[uuid.UUID, FeedPostGroupOut] | None = None,
+) -> FeedPostEnrichedOut:
     image_urls = _resolve_image_urls(post)
     content_ids = [img.content_id for img in (post.images or [])]
     public_latitude, public_longitude = await _public_coordinates(post, db)
@@ -118,6 +138,7 @@ async def _enrich(post: FeedPost, user: User | None, ride: RideSession | None, d
         latitude=public_latitude,
         longitude=public_longitude,
         group_id=post.group_id,
+        group=(groups or {}).get(post.group_id) if post.group_id else None,
         hashtags=[h.tag for h in (post.hashtags or [])],
     )
 
@@ -265,7 +286,8 @@ async def get_feed(
 
     rows = (await db.execute(base_q.order_by(*order).offset(offset).limit(size))).all()
 
-    items = [await _enrich(post, user, ride, db) for post, user, ride in rows]
+    groups = await _group_refs([post for post, _, _ in rows], db)
+    items = [await _enrich(post, user, ride, db, groups) for post, user, ride in rows]
     # 조회 언어로 내용 표기(캐시 히트만, 없으면 원문). 배치(MGET+IN) — API 호출 안 함.
     if lang:
         contents = await lookup_lang_batch([it.content or "" for it in items], lang, db)
@@ -299,7 +321,8 @@ async def get_stories(
         blocking_users = select(UserBlock.blocker_id).where(UserBlock.blocked_id == session_uid)
         query = query.where(FeedPost.user_id.notin_(blocked_users), FeedPost.user_id.notin_(blocking_users))
     rows = (await db.execute(query.order_by(FeedPost.created_at.desc()).limit(50))).all()
-    return [await _enrich(post, user, ride, db) for post, user, ride in rows]
+    groups = await _group_refs([post for post, _, _ in rows], db)
+    return [await _enrich(post, user, ride, db, groups) for post, user, ride in rows]
 
 
 # F-2b
@@ -324,7 +347,7 @@ async def get_feed_post(
     if row is None:
         raise HTTPException(status_code=404, detail="Post not found")
     post, user, ride = row
-    enriched = await _enrich(post, user, ride, db)
+    enriched = await _enrich(post, user, ride, db, await _group_refs([post], db))
     if lang and enriched.content:
         enriched.content, enriched.translation_failed = await translate_to(enriched.content, lang, db)
     return enriched

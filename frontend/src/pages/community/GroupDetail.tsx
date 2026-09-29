@@ -240,33 +240,38 @@ export default function GroupDetail() {
 }
 
 function BoardTab({ group, isMember, navigate, t }: any) {
+  const canRead = isMember || group.visibility === 'public';
   const fetchPage = useCallback(
     async (page: number) => {
-      if (!isMember) return { items: [], total: 0, page, size: 20 };
+      if (!canRead) return { items: [], total: 0, page, size: 20 };
       return listGroupPosts(group.id, page, 20);
     },
-    [group.id, isMember],
+    [group.id, canRead],
   );
 
   const { items: posts, setItems: setPosts, isLoading, isLoadingMore, hasMore, sentinelRef } =
-    useInfiniteScroll<FeedPost>(fetchPage, 20, [group.id, isMember]);
+    useInfiniteScroll<FeedPost>(fetchPage, 20, [group.id, canRead]);
 
   const handleCheer = useCheerToggle(setPosts);
 
-  if (!isMember) {
+  if (!canRead) {
     return <StateBlock icon={UsersRound} title={t('communityGroup.boardRequiresMembership')} />;
   }
 
   return (
     <>
-      <button
-        type="button"
-        className={styles.writeFab}
-        onClick={() => navigate(`/feed/new?groupId=${group.id}`)}
-        aria-label={t('feedCreate.title')}
-      >
-        <Plus size={22} strokeWidth={2.4} />
-      </button>
+      {isMember ? (
+        <button
+          type="button"
+          className={styles.writeFab}
+          onClick={() => navigate(`/feed/new?groupId=${group.id}`)}
+          aria-label={t('feedCreate.title')}
+        >
+          <Plus size={22} strokeWidth={2.4} />
+        </button>
+      ) : (
+        <p className={styles.boardNudge} data-testid="board-join-nudge">{t('communityGroup.boardJoinNudge')}</p>
+      )}
       {!isLoading && posts.length === 0 ? (
         <StateBlock icon={Newspaper} title={t('communityGroup.boardEmptyTitle')} desc={t('communityGroup.boardEmptySub')} />
       ) : (

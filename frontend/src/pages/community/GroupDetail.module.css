@@ -290,6 +290,14 @@
 }
 
 /* 글쓰기 FAB(멤버·게시판 탭) — 기존 그대로 */
+.boardNudge {
+  margin: 0;
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--text-3);
+  background: var(--surface-2);
+}
+
 .writeFab {
   position: fixed;
   right: 20px;

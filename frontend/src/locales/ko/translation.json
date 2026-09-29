@@ -3085,6 +3085,7 @@
     "unban": "차단 해제",
     "banListEmpty": "차단한 사람이 없어요",
     "boardRequiresMembership": "가입 후 게시판을 볼 수 있어요",
+    "boardJoinNudge": "가입하면 글을 쓰고 댓글을 달 수 있어요",
     "membersRequiresMembership": "가입 후 멤버 목록을 볼 수 있어요",
     "role_owner": "방장",
     "role_manager": "매니저",

@@ -104,4 +104,21 @@ test.describe('feed groups r18', () => {
     await expect(page.getByTestId('group-board-list').getByTestId('feed-post-card').first()).toBeVisible();
     await expect(page.getByTestId('post-group-chip')).toHaveCount(0);
   });
+
+  test('r19: 비멤버가 public 그룹 게시판을 읽는다(읽기 전용) + private 은 게이트', async ({ page, request }) => {
+    await open(page, c, '/feed');
+    await page.getByTestId('feed-post-card').filter({ hasText: POST_TEXT }).getByTestId('post-group-chip').click();
+    await expect(page).toHaveURL(/\/group\//);
+    await expect(page.getByTestId('group-board-list').getByText(POST_TEXT)).toBeVisible();
+    await expect(page.getByTestId('board-join-nudge')).toBeVisible();
+    await expect(page.getByRole('button', { name: '새 글 작성' })).toHaveCount(0);
+
+    const topics = await json(await request.get(`${API}/community/group-topics`));
+    const priv = await json(await request.post(`${API}/community/groups`, {
+      headers: H(a),
+      data: { name: `${GROUP_NAME}비공개`, description: 'e2e', topic: topics[0].code, visibility: 'private' },
+    }));
+    const res = await request.get(`${API}/community/groups/${priv.id}/posts`, { headers: H(c) });
+    expect([403, 404]).toContain(res.status());
+  });
 });

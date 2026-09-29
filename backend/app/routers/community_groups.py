@@ -641,11 +641,12 @@ async def list_group_posts(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID | None = Depends(optional_user_session),
 ):
-    """멤버십 검사 후 그룹 글 노출. public/private 무관하게 그룹 멤버(ACTIVE)만 접근."""
+    """public 그룹 게시판은 비멤버·비로그인도 읽기 가능(대표 판정 260929 — 전체 피드에 이미 노출). private 은 ACTIVE 멤버만."""
     group = await _resolve_group(db, str(group_id))
-    membership = await _my_membership(db, group.id, session_uid)
-    if membership is None or membership.status != "ACTIVE":
-        raise HTTPException(status_code=403, detail="Not an active member of this group")
+    if group.visibility != "public":
+        membership = await _my_membership(db, group.id, session_uid)
+        if membership is None or membership.status != "ACTIVE":
+            raise HTTPException(status_code=403, detail="Not an active member of this group")
 
     offset = (page - 1) * size
     base_q = (

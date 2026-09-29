@@ -16,9 +16,9 @@ export function GroupSourceChip({ group }: { group: NonNullable<FeedPost['group'
         navigate(`/group/${group.slug ?? group.id}`);
       }}
     >
-      <Users size={12} strokeWidth={2.2} />
+      <Users size={12} strokeWidth={2.2} className={styles.groupChipIcon} />
       <span>{group.name}</span>
-      <ChevronRight size={12} strokeWidth={2.2} />
+      <ChevronRight size={12} strokeWidth={2.2} className={styles.groupChipIcon} />
     </button>
   );
 }

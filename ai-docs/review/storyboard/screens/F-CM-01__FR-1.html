@@ -968,12 +968,18 @@ body {
 .fMetaOn { color: var(--brand-600); }
 .feedList { display: flex; flex-direction: column; gap: 8px; }
 .pCard { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.pAuthor { display: flex; align-items: center; gap: 8px; }
-.pAvatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
-.pWho { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.pNick { font-size: 13px; font-weight: 700; }
+.pAuthor { display: flex; align-items: center; gap: 10px; }
+.pAvatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; }
+.pWho { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.pLine1 { display: flex; align-items: center; gap: 6px; min-width: 0; line-height: 20px; }
+.pLine1 .pNick { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 20px; }
+.pLine2 { display: flex; align-items: center; gap: 4px; min-width: 0; color: var(--text-3); font-size: 12px; line-height: 16px; white-space: nowrap; }
+.pLine2 .pSub { flex-shrink: 0; font-size: 12px; }
+.pNick { font-size: 14px; font-weight: 700; }
 .pSub { color: var(--text-3); font-size: 11px; }
-.pGroup { display: inline-flex; align-items: center; gap: 3px; max-width: 45%; padding: 3px 8px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-2); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pGroup { display: inline-flex; align-items: center; gap: 3px; flex: 0 1 auto; min-width: 0; color: var(--text-2); font-size: 12px; font-weight: 600; line-height: 16px; white-space: nowrap; }
+.pGroup .pGName { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pGroup svg { flex-shrink: 0; }
 .pMore { color: var(--text-3); display: flex; }
 .pPhoto { position: relative; display: block; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 12px; background: var(--surface-2); }
 .pPhoto .phLarge { height: 100%; }
@@ -1002,12 +1008,18 @@ body {
 .feedFilterRow { display: flex; gap: 8px; padding: 12px 0 12px; overflow: hidden; }
 .feedList { display: flex; flex-direction: column; gap: 8px; }
 .pCard { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.pAuthor { display: flex; align-items: center; gap: 8px; }
-.pAvatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
-.pWho { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.pNick { font-size: 13px; font-weight: 700; }
+.pAuthor { display: flex; align-items: center; gap: 10px; }
+.pAvatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; }
+.pWho { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.pLine1 { display: flex; align-items: center; gap: 6px; min-width: 0; line-height: 20px; }
+.pLine1 .pNick { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 20px; }
+.pLine2 { display: flex; align-items: center; gap: 4px; min-width: 0; color: var(--text-3); font-size: 12px; line-height: 16px; white-space: nowrap; }
+.pLine2 .pSub { flex-shrink: 0; font-size: 12px; }
+.pNick { font-size: 14px; font-weight: 700; }
 .pSub { color: var(--text-3); font-size: 11px; }
-.pGroup { display: inline-flex; align-items: center; gap: 3px; max-width: 45%; padding: 3px 8px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-2); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pGroup { display: inline-flex; align-items: center; gap: 3px; flex: 0 1 auto; min-width: 0; color: var(--text-2); font-size: 12px; font-weight: 600; line-height: 16px; white-space: nowrap; }
+.pGroup .pGName { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pGroup svg { flex-shrink: 0; }
 .pMore { color: var(--text-3); display: flex; }
 .pPhoto { position: relative; display: block; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 12px; background: var(--surface-2); }
 .pPhoto .phLarge { height: 100%; }
@@ -1049,19 +1061,19 @@ body {
 
       <div class="feedList">
         <article class="pCard">
-          <span class="pAuthor"><span class="pAvatar ph ph--avatar2"></span><span class="pWho"><strong class="pNick">Minh Tuấn</strong><small class="pSub">2시간 전</small></span><span class="pGroup"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Thảo Điền 라이더스<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span><span class="pMore"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span></span>
+          <span class="pAuthor"><span class="pAvatar ph ph--avatar2"></span><span class="pWho"><span class="pLine1"><strong class="pNick">Minh Tuấn</strong></span><span class="pLine2"><small class="pSub">2시간 전</small><span aria-hidden="true">·</span><span class="pGroup"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span class="pGName">Thảo Điền 라이더스</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span></span></span><span class="pMore"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span></span>
           <span class="pPhoto"><span class="phLarge ph ph--moto"></span><span class="pBadge num">1/3</span></span>
           <span class="pText">Thảo Điền 강변 야경 한 컷 찍었어요. 오늘 바람이 진짜 좋아서 한참 달렸는데 다들 주말에 어디 다녀오셨나요? 저는 강변 따라 쭉 내려가 봤습니다. 다음엔 같이 달려요 …더보기</span>
           <span class="pReact"><span class="pOn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg><span class="num">12</span></span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span class="num">3</span></span></span>
         </article>
         <article class="pCard">
-          <span class="pAuthor"><span class="pAvatar ph ph--avatar"></span><span class="pWho"><strong class="pNick">Hà Linh</strong><small class="pSub">2시간 전</small></span><span class="pMore"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span></span>
+          <span class="pAuthor"><span class="pAvatar ph ph--avatar"></span><span class="pWho"><span class="pLine1"><strong class="pNick">Hà Linh</strong></span><span class="pLine2"><small class="pSub">2시간 전</small></span></span><span class="pMore"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span></span>
           <span class="pPhoto"><span class="phLarge ph ph--helmet"></span></span>
           <span class="pText">비 오는 날 헬멧 김서림 막는 꿀팁 공유합니다. 안쪽에 김서림 방지제를 얇게 바르고 바이저를 살짝 열어두면 훨씬 덜해요. 저는 이 방법으로 우기를 났어요 …더보기</span>
           <span class="pReact"><span class="pOn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg><span class="num">31</span></span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span class="num">8</span></span></span>
         </article>
         <article class="pCard pCardText">
-          <span class="pAuthor"><span class="pAvatar ph ph--avatar2"></span><span class="pWho"><strong class="pNick">Đức Anh</strong><small class="pSub">2시간 전</small></span><span class="pMore"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span></span>
+          <span class="pAuthor"><span class="pAvatar ph ph--avatar2"></span><span class="pWho"><span class="pLine1"><strong class="pNick">Đức Anh</strong></span><span class="pLine2"><small class="pSub">2시간 전</small></span></span><span class="pMore"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span></span>
           
           <span class="pText">퇴근길 7군 Nguyễn Văn Linh 정체 실화인가요. 오늘은 평소보다 40분은 더 걸린 것 같아요. 공사 구간 때문인지 사고가 났는지 모르겠는데 혹시 우회로 아시는 분 계신가요? 다들 안전 운전하세요. 내일 아침에도 막힐까 걱정입니다. 아시는 분 댓글 부탁드려요 …더보기</span>
           <span class="pReact"><span class="pOn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg><span class="num">9</span></span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span class="num">14</span></span></span>

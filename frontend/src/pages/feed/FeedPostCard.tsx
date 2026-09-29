@@ -66,26 +66,37 @@ export function FeedPostCard({ p, onCheer, hideGroupChip }: { p: FeedPost; onChe
         >
           <AppImage src={p.userAvatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
         </button>
-        {/* 닉네임도 프로필 진입점 — 아바타만 탭 가능한 건 인스타·Threads 관례와
-            어긋나고 히트 영역이 작다(2026-08-13). */}
-        <strong
-          role="button"
-          tabIndex={0}
-          className={styles.nickBtn}
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
-          }}
-          onKeyDown={(e) => {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            e.preventDefault();
-            e.stopPropagation();
-            navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
-          }}
-        >{p.userNickname ?? '—'}</strong>
-        <small>{formatRelativeTime(p.createdAt)}</small>
-        {user && p.userId === user.id && <OwnerBadge label={t('common.myPostBadge')} />}
-        {p.group && !hideGroupChip && <GroupSourceChip group={p.group} />}
+        <span className={styles.authorInfo}>
+          <span className={styles.authorLine}>
+            {/* 닉네임도 프로필 진입점 — 아바타만 탭 가능한 건 인스타·Threads 관례와
+                어긋나고 히트 영역이 작다(2026-08-13). */}
+            <strong
+              role="button"
+              tabIndex={0}
+              className={styles.nickBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                e.stopPropagation();
+                navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
+              }}
+            >{p.userNickname ?? '—'}</strong>
+            {user && p.userId === user.id && <OwnerBadge label={t('common.myPostBadge')} />}
+          </span>
+          <span className={styles.metaLine}>
+            <small>{formatRelativeTime(p.createdAt)}</small>
+            {p.group && !hideGroupChip && (
+              <>
+                <span aria-hidden="true">·</span>
+                <GroupSourceChip group={p.group} />
+              </>
+            )}
+          </span>
+        </span>
       </span>
       {p.photoUrl && (
         <div className={styles.postMedia} style={{ aspectRatio: photoRatio }}>

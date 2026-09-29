@@ -250,15 +250,24 @@ export default function FeedDetail() {
             <div className={styles.body}>
               {/* Author (MarketDetail sellerRow 미러) */}
               <div className={styles.authorBlock}>
-                <button className={styles.authorRow} type="button" onClick={handleAuthorTap}>
-                  <AppImage src={post.userAvatarUrl ?? undefined} alt="" className={styles.authorAvatar} variant="circle" />
+                <div className={styles.authorRow}>
+                  <button className={styles.authorAvatarBtn} type="button" onClick={handleAuthorTap}>
+                    <AppImage src={post.userAvatarUrl ?? undefined} alt="" className={styles.authorAvatar} variant="circle" />
+                  </button>
                   <div className={styles.authorInfo}>
-                    <span className={styles.authorName}>{post.userNickname ?? 'Unknown'}</span>
-                    <span className={styles.authorSub}>{formatRelativeTime(post.createdAt)}</span>
+                    <button className={styles.authorName} type="button" onClick={handleAuthorTap}>{post.userNickname ?? 'Unknown'}</button>
+                    <div className={styles.authorSub}>
+                      <span>{formatRelativeTime(post.createdAt)}</span>
+                      {post.group && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <GroupSourceChip group={post.group} />
+                        </>
+                      )}
+                    </div>
                   </div>
-                </button>
+                </div>
               </div>
-              {post.group && <GroupSourceChip group={post.group} />}
 
               {/* Caption + hashtags */}
               {post.translationFailed && (

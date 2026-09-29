@@ -190,28 +190,61 @@
 .postAuthor {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 12px 14px;
 }
 
 .postAuthor .avatar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
 }
 
-.postAuthor strong {
+/* 카드/상세 헤더 2줄 — 1줄: 닉네임(줄어듦)+배지 / 2줄: 시간 · 그룹칩(그룹명만 줄어듦) */
+.authorInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.authorLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  line-height: 20px;
+}
+
+.authorLine strong {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   font-size: 14px;
   font-weight: 700;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.postAuthor small {
-  flex-shrink: 0;
+.authorLine > :not(strong) { flex-shrink: 0; white-space: nowrap; }
+
+.metaLine {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
   color: var(--text-3);
   font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.metaLine small,
+.metaLine > span[aria-hidden] {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 /* 사진 박스 — 비율은 인라인 aspect-ratio(1:1 ~ 4:5), 넘치는 부분은 크롭 */
@@ -392,21 +425,20 @@
   color: white;
 }
 
-/* 그룹 글 출처 칩 (F-CM-01 FR-1 r18) */
+/* 그룹 글 출처 칩 — 메타줄 인라인 링크(필 패딩 없음, 줄높이 불변) (F-CM-01 FR-1 r20) */
 .groupChip {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: 45%;
-  align-self: flex-start;
-  padding: 3px 8px;
+  padding: 0;
   border: 0;
-  border-radius: 999px;
-  background: var(--surface-2);
+  background: none;
   color: var(--text-2);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
+  line-height: 16px;
   cursor: pointer;
 }
 .groupChip span {
@@ -415,4 +447,5 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.groupChipIcon { flex-shrink: 0; }
 .groupChip:active { opacity: .6; }

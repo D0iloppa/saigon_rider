@@ -30,9 +30,6 @@ import {
   fetchConversation,
   proposeAppointment,
   acceptAppointment,
-  completeAppointment,
-  requestAppointmentCompletion,
-  declineAppointmentCompletion,
   cancelAppointment,
   fetchAppointmentNavigation,
   proposePriceOffer,
@@ -50,6 +47,7 @@ import {
   addReaction,
   removeReaction,
   fetchMarketplaceTransaction,
+  confirmMarketplaceItemInspection,
   fetchTradeSet,
   updateTradeSetStatus,
   DM_REACTION_EMOJIS,
@@ -835,19 +833,6 @@ export default function DmDetail() {
     }
   };
 
-  // F-DM-02 — 약속 확정 후 칩 행의 판매자 [예약] 지름길(상태 시트를 거치지 않고 바로 예약중).
-  const handleReserveShortcut = async () => {
-    if (!conversationId || sending) return;
-    setSending(true);
-    try {
-      setTradeSet(await updateTradeSetStatus(conversationId, 'RESERVED'));
-    } catch (err) {
-      toast.error(tradeSetErrorMessage(err, t));
-    } finally {
-      setSending(false);
-    }
-  };
-
   // P6: 실시간 위치공유 채널을 약속에 연결할 때 넘길 "현재 약속" — 대화 내 가장 최근 약속 메시지 기준.
   // 약속이 없는 대화면 null → 위치공유는 이제 그래도 켜진다(약속 독립, 2026-08-29), 정밀도 창 정책만 빠진다.
   // F-DM-02(리뷰 지적 MEDIUM, 260928): 매물이 둘 이상 얽힌 방에서는 선택된 대표 매물의 약속만
@@ -865,23 +850,56 @@ export default function DmDetail() {
   }, [messages, tradeSet?.items.length, selectedListingId]);
   const currentAppointmentId = currentAppointment?.id ?? null;
 
-  // ①: 진행상태 배너 — payment_qr 메시지가 있을 때만 거래 결제상태를 1회 조회한다(폴링 없음).
+  // 칩 행 [약속 잡기]/[📅]/제안 표시용 — 방의 최신 활성(PROPOSED/ACCEPTED) 약속. 세트·매물 스코프와 무관(약속 독립, F-N-02 FR-7).
+  const activeAppointment = useMemo<Appointment | null>(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const appt = messages[i].appointment;
+      if (messages[i].messageType !== 'appointment' || !appt) continue;
+      if (appt.status === 'PROPOSED' || appt.status === 'ACCEPTED') return appt;
+    }
+    return null;
+  }, [messages]);
+
+  // ①: 결제(거래) 기록은 세트에 귀속(F-N-02 FR-7 ④) — 결제 열림 = 세트에 예약중 항목 존재. 이때만 1회 조회한다(폴링 없음).
+  // payment_qr 메시지는 meta.tradeSetId 로 매칭하고, 구 메시지(appointmentId 만)는 현재 약속으로 폴백한다.
+  const tradeSetId = tradeSet?.id ?? null;
+  const hasReservedItem = tradeSet?.status === 'ACTIVE' && tradeSet.items.some((it) => it.status === 'RESERVED');
   const hasPaymentQrMessage = useMemo(
-    () => messages.some((m) => m.messageType === 'payment_qr' && m.meta?.appointmentId === currentAppointmentId),
-    [messages, currentAppointmentId],
+    () => messages.some((m) => m.messageType === 'payment_qr' && (
+      m.meta?.tradeSetId ? m.meta.tradeSetId === tradeSetId : m.meta?.appointmentId === currentAppointmentId
+    )),
+    [messages, tradeSetId, currentAppointmentId],
   );
   const [tradeBannerTx, setTradeBannerTx] = useState<MarketplaceTransaction | null>(null);
   useEffect(() => {
-    if (!hasPaymentQrMessage || !currentAppointmentId) {
+    if (!hasReservedItem || !tradeSetId) {
       setTradeBannerTx(null);
       return;
     }
     let active = true;
-    fetchMarketplaceTransaction(currentAppointmentId)
+    fetchMarketplaceTransaction(tradeSetId)
       .then((tx) => { if (active) setTradeBannerTx(tx); })
       .catch(() => {});
     return () => { active = false; };
-  }, [hasPaymentQrMessage, currentAppointmentId]);
+  }, [hasReservedItem, tradeSetId, hasPaymentQrMessage]);
+
+  // F-N-02 FR-7 ⑤ 칩 행 퀵액션 [물건 확인했어요] — 게이트가 아니라 제안. 선입금 방지(C2)는 "직접 보셨나요?" 확인으로 지킨다.
+  const handleInspectItem = () => {
+    if (!tradeSetId) return;
+    useConfirmStore.getState().open(
+      t('dm.tradeInspectConfirm', { defaultValue: '만나서 물건을 직접 보셨나요?' }),
+      () => {
+        useConfirmStore.getState().close();
+        confirmMarketplaceItemInspection(tradeSetId)
+          .then((tx) => {
+            setTradeBannerTx(tx);
+            toast.success(t('dm.tradeInspectionSaved'));
+          })
+          .catch(() => toast.error(t('common.errorUnexpected')));
+      },
+      { confirmLabel: t('dm.tradeInspectConfirmCta', { defaultValue: '네, 확인했어요' }) },
+    );
+  };
 
   const requestAppointmentNavigation = useCallback((appointmentId: string) => {
     if (navigationRequestedRef.current.has(appointmentId)) return;
@@ -1561,9 +1579,8 @@ export default function DmDetail() {
       })()
     : undefined;
 
-  // ①: 진행상태 배너 — direct 방 + ACCEPTED 약속에서만 노출. PROPOSED(수락 전)는
-  // 백엔드에 MarketplaceTransaction 행이 아직 없어(생성 시점=수락) 배너를 눌러도 404가 난다.
-  const tradeBannerVisible = isDirect && currentAppointment?.status === 'ACCEPTED';
+  // ①: 진행상태 배너 — direct 방 + 세트에 예약중 항목이 있을 때만 노출(결제는 세트 귀속, 약속과 무관).
+  const tradeBannerVisible = isDirect && hasReservedItem;
   const tradeBannerKey = !hasPaymentQrMessage
     ? 'dm.tradeBannerQrWaiting'
     : tradeBannerTx?.paymentStatus === 'PAYMENT_CONFIRMED'
@@ -1627,12 +1644,12 @@ export default function DmDetail() {
       />
 
       {/* ① 거래 진행상태 배너 — direct 방 전용 */}
-      {tradeBannerVisible && currentAppointmentId && (
+      {tradeBannerVisible && tradeSetId && (
         <div className={styles.tradeStatusBanner}>
           <button
             type="button"
             className={styles.tradeStatusMain}
-            onClick={() => navigate(`/dm/${conversationId}/trade/${currentAppointmentId}`)}
+            onClick={() => navigate(`/dm/${conversationId}/trade/${tradeSetId}`)}
             aria-label={t('dm.tradeBannerOpenAria')}
           >
             {t(tradeBannerKey)}
@@ -1733,28 +1750,36 @@ export default function DmDetail() {
           <TradeSetChips
             tradeSet={tradeSet}
             isSeller={myId === tradeSet.sellerId}
-            acceptedAppointment={currentAppointment?.status === 'ACCEPTED' ? currentAppointment : null}
+            myId={myId}
+            appointment={activeAppointment}
+            payment={tradeBannerTx ? {
+              status: tradeBannerTx.paymentStatus,
+              hasQr: !!tradeBannerTx.qrMessageId,
+              inspected: !!tradeBannerTx.buyerInspectedAt,
+            } : null}
             onAddOrEditItems={() => setTradeSetPickerOpen(true)}
+            onMakeAppointment={handleOpenAppt}
             onOpenAppointment={() => {
-              const mid = messages.find((m) => m.appointment?.id === currentAppointment?.id)?.id;
+              const mid = messages.find((m) => m.appointment?.id === activeAppointment?.id)?.id;
               if (mid) scrollToMessage(mid);
             }}
             onShareLocation={() => {
-              if (!currentAppointment) return;
-              const hasCoords = currentAppointment.placeLat != null && currentAppointment.placeLng != null;
+              if (!activeAppointment) return;
+              const hasCoords = activeAppointment.placeLat != null && activeAppointment.placeLng != null;
               startLiveLocation({
-                appointmentId: currentAppointment.id,
+                appointmentId: activeAppointment.id,
                 dest: hasCoords
                   ? {
-                      lat: currentAppointment.placeLat!,
-                      lng: currentAppointment.placeLng!,
-                      ...(currentAppointment.placeName ? { name: currentAppointment.placeName } : {}),
+                      lat: activeAppointment.placeLat!,
+                      lng: activeAppointment.placeLng!,
+                      ...(activeAppointment.placeName ? { name: activeAppointment.placeName } : {}),
                     }
                   : undefined,
                 sendInvite: true,
               });
             }}
-            onReserveShortcut={handleReserveShortcut}
+            onOpenTrade={() => navigate(`/dm/${conversationId}/trade/${tradeSet.id}`)}
+            onInspectItem={handleInspectItem}
           />
         </>
       )}
@@ -1839,7 +1864,7 @@ export default function DmDetail() {
           const neighbors = bubbleNeighborsById.get(m.id);
           const prevMsg = neighbors?.previous ?? null;
           const nextMsg = neighbors?.next ?? null;
-          if (m.messageType === 'payment_qr' && m.meta?.appointmentId) {
+          if (m.messageType === 'payment_qr' && (m.meta?.tradeSetId || m.meta?.appointmentId)) {
             return (
               <CardMessage
                 key={m.id}
@@ -1858,7 +1883,7 @@ export default function DmDetail() {
                 {!isMine && <p className={styles.apptNote}>{t('dm.tradeSafetyNotice')}</p>}
                 <div className={styles.apptActions}>
                   <button className={styles.apptBtnPrimary} type="button"
-                    onClick={() => navigate(`/dm/${conversationId}/trade/${m.meta!.appointmentId}`)}>
+                    onClick={() => navigate(`/dm/${conversationId}/trade/${m.meta!.tradeSetId ?? tradeSetId}`)}>
                     {t('dm.tradeOpen')}
                   </button>
                   {!isMine && (
@@ -1913,21 +1938,11 @@ export default function DmDetail() {
                         : t('dm.apptNavigationUnavailable', { defaultValue: '지금은 길안내를 준비할 수 없어요. 잠시 후 다시 확인해 주세요.' })
                       : null
               : null;
-            const isSeller = !!appt?.sellerId && appt.sellerId === myId;
             const canAccept = !!appt && status === 'PROPOSED' && !iAmProposer;
-            const canComplete = !!appt && status === 'ACCEPTED' && isSeller;
-            // 신고(PAYMENT_REPORTED) 이후에는 서버도 취소를 막는다(TradeTransaction.tsx cancelTrade
-            // 의 "payment is reported" 케이스) — 260919 리뷰킷 F-X-01 FR-1 ⓑ, 거래 화면과 취소
-            // 가능 조건을 여기서도 같은 tradeBannerTx(현재 활성 약속에 한해 조회됨) 기준으로 맞춘다.
-            const apptTx = appt?.id === currentAppointmentId ? tradeBannerTx : null;
-            const paymentReported = apptTx?.paymentStatus === 'PAYMENT_REPORTED' || apptTx?.paymentStatus === 'PAYMENT_CONFIRMED';
-            const canCancel = !!appt && (status === 'PROPOSED' || (status === 'ACCEPTED' && !paymentReported));
-            const cancelBlockedByReport = !!appt && status === 'ACCEPTED' && paymentReported;
-            // S-16: 완료 요청은 ACCEPTED 의 하위 상태 — 거절된 요청은 "요청 없음"으로 되돌려 재요청을 허용한다.
+            // 약속 카드는 만남 전용(대표 판정 260929) — 결제·거래완료 액션은 칩 행/거래 화면 소관이라 여기서 판단하지 않는다.
+            const canCancel = !!appt && (status === 'PROPOSED' || status === 'ACCEPTED');
+            // S-16: 완료 요청 표시(상태 pill)만 남긴다 — 거절된 요청은 "요청 없음"으로 되돌린다.
             const completionPending = !!appt?.completionRequestedAt && !appt.completionDeclinedAt;
-            const canRequestCompletion = !!appt && status === 'ACCEPTED' && !isSeller && !completionPending;
-            const canDeclineCompletion = !!appt && status === 'ACCEPTED' && isSeller && completionPending;
-            const canOpenTrade = !!appt && (status === 'ACCEPTED' || status === 'COMPLETED');
             const cancelLabel = status === 'ACCEPTED'
               ? t('dm.apptCancel', { defaultValue: '약속 취소' })
               : iAmProposer
@@ -1971,17 +1986,6 @@ export default function DmDetail() {
                     </div>
                   )}
                 </div>
-                {/* S-16: 판매자가 앱을 열지 않아 거래가 정체되지 않도록 구매자에게 요청 도선을 준다.
-                    거절 시엔 그 사실을 구매자 화면에 남겨야 "요청이 사라진" 것으로 오인하지 않는다.
-                    누가 거절했는지로 문구가 갈린다 — 운영 기각(`completionDeclinedBy === null`)을
-                    "판매자가 거절"이라고 하면 사실과 다르고 연락할 상대도 잘못 가리킨다. */}
-                {appt?.completionDeclinedAt && !isSeller && status === 'ACCEPTED' && (
-                  <p className={styles.apptNote}>
-                    {appt.completionDeclinedBy
-                      ? t('dm.apptCompletionDeclinedNote', { defaultValue: '판매자가 완료 요청을 거절했어요. 대화로 확인해 주세요.' })
-                      : t('dm.apptCompletionDismissedNote', { defaultValue: '완료 요청이 운영 검토에서 기각됐어요. 알림에서 사유를 확인해 주세요.' })}
-                  </p>
-                )}
                 {/* 이 약속이 현재 활성 약속(currentAppointmentId)일 때만, 그리고 ACCEPTED 상태에서만
                     — 채널을 이 약속에 연결(목적지 초기값 = 약속 장소). SOLD/COMPLETED 이후엔 진행
                     도구를 남기지 않는다(260919 리뷰킷 F-S7-01 FR-2). 무전기 버튼은 위치공유와 같은
@@ -2001,53 +2005,12 @@ export default function DmDetail() {
                     </button>
                   </div>
                 )}
-                {(canOpenTrade || canAccept) && (
+                {canAccept && (
                   <div className={styles.apptPrimaryAction}>
-                    {canOpenTrade && (
-                      <button className={styles.apptBtnPrimary} type="button"
-                        onClick={() => navigate(`/dm/${conversationId}/trade/${appt.id}`)}>
-                        {t('dm.tradeOpen')}
-                      </button>
-                    )}
-                    {canAccept && (
-                      <button className={styles.apptBtnPrimary} type="button" disabled={sending}
-                        onClick={() => handleAppointmentAction(acceptAppointment, appt.id)}>
-                        {t('dm.apptAccept', { defaultValue: '약속 수락' })}
-                      </button>
-                    )}
-                  </div>
-                )}
-                {(canComplete || canRequestCompletion || canDeclineCompletion) && (
-                  <div className={styles.apptCompletionActions}>
-                    {/* 거래 완료 처리에 확인 1회(260919 리뷰킷 F-S7-01 FR-1) — SOLD 복귀 불가한
-                        비가역 행위인데 확인 없이 즉시 실행됐다 */}
-                    {canComplete && (
-                      <button className={styles.apptBtnGhost} type="button" disabled={sending}
-                        onClick={() => useConfirmStore.getState().open(
-                          t('dm.apptCompleteConfirm', { defaultValue: '정말 거래를 완료 처리할까요? 이후에는 되돌릴 수 없어요.' }),
-                          () => {
-                            useConfirmStore.getState().close();
-                            handleAppointmentAction(completeAppointment, appt.id);
-                          },
-                          { confirmLabel: t('dm.apptComplete', { defaultValue: '거래 완료' }) },
-                        )}>
-                        {t('dm.apptComplete', { defaultValue: '거래 완료' })}
-                      </button>
-                    )}
-                    {canRequestCompletion && (
-                      <button className={styles.apptBtnGhost} type="button" disabled={sending}
-                        onClick={() => handleAppointmentAction(requestAppointmentCompletion, appt.id)}>
-                        {appt.completionDeclinedAt
-                          ? t('dm.apptRequestCompletionAgain', { defaultValue: '완료 다시 요청' })
-                          : t('dm.apptRequestCompletion', { defaultValue: '거래 완료 요청' })}
-                      </button>
-                    )}
-                    {canDeclineCompletion && (
-                      <button className={styles.apptBtnGhost} type="button" disabled={sending}
-                        onClick={() => handleAppointmentAction(declineAppointmentCompletion, appt.id)}>
-                        {t('dm.apptDeclineCompletion', { defaultValue: '요청 거절' })}
-                      </button>
-                    )}
+                    <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                      onClick={() => handleAppointmentAction(acceptAppointment, appt.id)}>
+                      {t('dm.apptAccept', { defaultValue: '약속 수락' })}
+                    </button>
                   </div>
                 )}
                 {navInlineReason && <p className={styles.apptNavigationNote} role="status">{navInlineReason}</p>}
@@ -2057,7 +2020,7 @@ export default function DmDetail() {
                     {t('dm.apptNavigationRetry', { defaultValue: '정확한 장소 다시 확인' })}
                   </button>
                 )}
-                {(showNav || canCancel || cancelBlockedByReport) && (
+                {(showNav || canCancel) && (
                   <div className={styles.apptSecondaryActions}>
                     {showNav && (
                       <button className={styles.apptBtnGhost} type="button"
@@ -2092,16 +2055,6 @@ export default function DmDetail() {
                           }
                         }}>
                         {cancelLabel}
-                      </button>
-                    )}
-                    {/* 신고 이후엔 취소 버튼을 감추고 "문제가 있나요?" 출구 안내로 대체(F-X-01 FR-1 ⓑ,
-                        F-S6-01 FR-4 ③) — 실행 불가한 종료 액션을 진행 카드에 남기지 않는다. 사용자
-                        수준 출구(신고 취소·취소 요청)가 CS 문의보다 먼저 오도록 거래 화면의 접힘
-                        행으로 보낸다(F-X-01 FR-2 권한 3단, CS는 최후 수단). */}
-                    {cancelBlockedByReport && (
-                      <button className={styles.apptBtnGhost} type="button"
-                        onClick={() => navigate(`/dm/${conversationId}/trade/${appt.id}`, { state: { openIssues: true } })}>
-                        {t('dm.tradeIssuesToggle')}
                       </button>
                     )}
                   </div>
@@ -2625,8 +2578,8 @@ export default function DmDetail() {
             label: t('dm.album', { defaultValue: '앨범' }),
             onPress: () => fileInputRef.current?.click(),
           },
-          // 약속잡기 — direct 매물 방 전용. 약속은 거래 상태와 독립이라 양측 언제나 제안 가능(F-N-02 FR-7)
-          ...(isDirect && conv?.contextType === 'listing'
+          // 약속잡기 — 1:1 방 전용(매물 방이 아니어도 단순 만남 약속 가능). 약속은 거래 상태와 독립이라 양측 언제나 제안 가능(F-N-02 FR-7)
+          ...(isDirect
             ? [{
                 key: 'appt',
                 icon: <CalendarPlus size={26} strokeWidth={1.8} />,
@@ -2761,6 +2714,7 @@ export default function DmDetail() {
           conversationId={conversationId}
           sellerId={pickerSellerId}
           sellerNickname={myId === pickerSellerId ? user?.nickname ?? '' : otherName}
+          isSellerMe={myId === pickerSellerId}
           tradeSet={tradeSet}
           contextListingId={listing?.id ?? conv?.contextId ?? null}
           onSaved={setTradeSet}

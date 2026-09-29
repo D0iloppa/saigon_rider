@@ -696,7 +696,7 @@ export default function App() {
           <Route path="/dm/:conversationId/board" element={<PrivateRoute><DmBoard /></PrivateRoute>} />
           <Route path="/dm/:conversationId/board/new" element={<PrivateRoute><DmBoardCompose /></PrivateRoute>} />
           <Route path="/dm/:conversationId/board/:postId" element={<PrivateRoute><DmBoardPost /></PrivateRoute>} />
-          <Route path="/dm/:conversationId/trade/:appointmentId" element={<PrivateRoute><TradeTransaction /></PrivateRoute>} />
+          <Route path="/dm/:conversationId/trade/:tradeSetId" element={<PrivateRoute><TradeTransaction /></PrivateRoute>} />
           <Route path="/dm/:conversationId/items" element={<PrivateRoute><TradeSetItems /></PrivateRoute>} />
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/community/groups" element={<PrivateRoute><GroupList /></PrivateRoute>} />

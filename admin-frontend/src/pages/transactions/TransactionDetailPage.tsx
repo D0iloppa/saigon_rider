@@ -54,7 +54,7 @@ export default function TransactionDetailPage() {
           <Descriptions.Item label="상태">
             <StatusTag kind="transaction" status={tx.payment_status} />
           </Descriptions.Item>
-          <Descriptions.Item label="약속 상태">{tx.appointment_status}</Descriptions.Item>
+          <Descriptions.Item label="약속 상태">{tx.appointment_status ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="금액">{tx.amount_vnd.toLocaleString()}đ</Descriptions.Item>
           <Descriptions.Item label="결제 수단">{tx.payment_method}</Descriptions.Item>
           <Descriptions.Item label="판매자">
@@ -66,7 +66,7 @@ export default function TransactionDetailPage() {
           <Descriptions.Item label="결제 QR 등록">
             <Tag color={tx.qr_registered ? 'blue' : 'default'}>{tx.qr_registered ? '등록됨' : '미등록'}</Tag>
           </Descriptions.Item>
-          <Descriptions.Item label="약속일시">{dayjs(tx.when_at).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
+          <Descriptions.Item label="약속일시">{tx.when_at ? dayjs(tx.when_at).format('YYYY-MM-DD HH:mm') : '-'}</Descriptions.Item>
           <Descriptions.Item label="구매자 입금신고">
             {tx.buyer_reported_at ? dayjs(tx.buyer_reported_at).format('YYYY-MM-DD HH:mm') : '-'}
           </Descriptions.Item>

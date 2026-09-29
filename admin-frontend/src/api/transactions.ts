@@ -12,7 +12,9 @@ export interface TransactionParty {
 export type TransactionPaymentStatus = 'AWAITING_PAYMENT' | 'PAYMENT_REPORTED' | 'PAYMENT_CONFIRMED'
 
 export interface TransactionRow {
-  appointment_id: string
+  id: string
+  trade_set_id: string | null
+  appointment_id: string | null
   listing_id: string
   listing_title: string
   amount_vnd: number
@@ -32,8 +34,8 @@ export interface TransactionMemo {
 export interface TransactionDetail extends TransactionRow {
   conversation_id: string
   payment_method: string
-  appointment_status: string
-  when_at: string
+  appointment_status: string | null
+  when_at: string | null
   buyer_reported_at: string | null
   seller_confirmed_at: string | null
   qr_registered: boolean
@@ -56,22 +58,22 @@ export function useTransactions(params: TransactionListParams) {
   })
 }
 
-export function useTransaction(appointmentId: string) {
+export function useTransaction(transactionId: string) {
   return useQuery({
-    queryKey: ['transaction', appointmentId],
-    queryFn: () => api<TransactionDetail>(`/admin/api/transactions/${appointmentId}`),
-    enabled: !!appointmentId,
+    queryKey: ['transaction', transactionId],
+    queryFn: () => api<TransactionDetail>(`/admin/api/transactions/${transactionId}`),
+    enabled: !!transactionId,
   })
 }
 
-export function useAddTransactionMemo(appointmentId: string) {
+export function useAddTransactionMemo(transactionId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (note: string) =>
-      api<void>(`/admin/api/transactions/${appointmentId}/memo`, {
+      api<void>(`/admin/api/transactions/${transactionId}/memo`, {
         method: 'POST',
         body: JSON.stringify({ note }),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transaction', appointmentId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['transaction', transactionId] }),
   })
 }

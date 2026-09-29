@@ -7,7 +7,6 @@ import StateBlock from '@/components/ui/StateBlock';
 import { AppImage } from '@/components/ui/AppImage';
 import { Button } from '@/components/ui/Button';
 import {
-  cancelAppointment,
   cancelMarketplacePaymentReport,
   confirmMarketplaceItemInspection,
   confirmMarketplacePayment,
@@ -38,7 +37,7 @@ export default function TradeTransaction() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { conversationId, appointmentId } = useParams<{ conversationId: string; appointmentId: string }>();
+  const { conversationId, tradeSetId } = useParams<{ conversationId: string; tradeSetId: string }>();
   const user = useUserStore((state) => state.user);
   const fileRef = useRef<HTMLInputElement>(null);
   const issuesSectionRef = useRef<HTMLElement>(null);
@@ -49,7 +48,6 @@ export default function TradeTransaction() {
   const [qrObject, setQrObject] = useState<{ messageId: string; url: string } | null>(null);
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
-  const [now, setNow] = useState(() => Date.now());
   // F-X-01 FR-2: "문제가 있나요?" 접힘 행 — DM 카드의 취소 불가 안내(state) 또는 24h/+3h 넛지 푸시
   // 딥링크(?openIssues=1)로 이 화면에 넘어오면 펼친 채로 연다.
   const openIssuesRequested = Boolean((location.state as { openIssues?: boolean } | null)?.openIssues)
@@ -61,11 +59,11 @@ export default function TradeTransaction() {
   }, [openIssuesRequested, loading]);
 
   const load = async () => {
-    if (!appointmentId) return;
+    if (!tradeSetId) return;
     setLoading(true);
     setLoadError(false);
     try {
-      setTransaction(await fetchMarketplaceTransaction(appointmentId));
+      setTransaction(await fetchMarketplaceTransaction(tradeSetId));
     } catch {
       setLoadError(true);
     } finally {
@@ -74,14 +72,14 @@ export default function TradeTransaction() {
   };
 
   useEffect(() => {
-    if (!appointmentId) return;
+    if (!tradeSetId) return;
     let active = true;
-    fetchMarketplaceTransaction(appointmentId)
+    fetchMarketplaceTransaction(tradeSetId)
       .then((value) => { if (active) setTransaction(value); })
       .catch(() => { if (active) setLoadError(true); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [appointmentId]);
+  }, [tradeSetId]);
 
   useEffect(() => {
     let active = true;
@@ -90,11 +88,6 @@ export default function TradeTransaction() {
       .catch(() => {});
     return () => { active = false; };
   }, [i18n.language]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     const messageId = transaction?.qrMessageId;
@@ -114,19 +107,17 @@ export default function TradeTransaction() {
   }, [conversationId, transaction?.qrMessageId]);
 
   const updatePayment = async (kind: 'report' | 'confirm') => {
-    if (!appointmentId || busy) return;
+    if (!tradeSetId || busy) return;
     setBusy(true);
     try {
       const next = kind === 'report'
-        ? await reportMarketplacePayment(appointmentId)
-        : await confirmMarketplacePayment(appointmentId);
+        ? await reportMarketplacePayment(tradeSetId)
+        : await confirmMarketplacePayment(tradeSetId);
       setTransaction(next);
       toast.success(kind === 'report' ? t('dm.tradePaymentReported') : t('dm.tradePaymentConfirmed'));
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       if (message.includes('item_inspection_required')) toast.error(t('dm.tradeInspectionRequired'));
-      else if (message.includes('payment_report_too_early')) toast.error(t('dm.tradeReportTooEarly'));
-      else if (message.includes('payment_report_window_expired')) toast.error(t('dm.tradeReportExpired'));
       else toast.error(t('common.errorUnexpected'));
     } finally {
       setBusy(false);
@@ -134,10 +125,10 @@ export default function TradeTransaction() {
   };
 
   const confirmInspection = async () => {
-    if (!appointmentId || busy) return;
+    if (!tradeSetId || busy) return;
     setBusy(true);
     try {
-      setTransaction(await confirmMarketplaceItemInspection(appointmentId));
+      setTransaction(await confirmMarketplaceItemInspection(tradeSetId));
       toast.success(t('dm.tradeInspectionSaved'));
     } catch {
       toast.error(t('common.errorUnexpected'));
@@ -149,10 +140,10 @@ export default function TradeTransaction() {
   const replaceQr = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || !conversationId || !appointmentId || !user || busy) return;
+    if (!file || !conversationId || !tradeSetId || !user || busy) return;
     setBusy(true);
     try {
-      await registerMarketplacePaymentQr(conversationId, appointmentId, user.id, file);
+      await registerMarketplacePaymentQr(conversationId, tradeSetId, user.id, file);
       await load();
       toast.success(t('dm.tradeQrSaved'));
     } catch {
@@ -162,31 +153,12 @@ export default function TradeTransaction() {
     }
   };
 
-  const cancelTrade = async (reason?: AppointmentCancelReason) => {
-    if (!appointmentId || busy) return;
-    setBusy(true);
-    try {
-      await cancelAppointment(appointmentId, reason);
-      toast.success(t('dm.tradeCancelled'));
-      navigate(conversationId ? `/dm/${conversationId}` : '/dm', { replace: true });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('payment is reported')) {
-        toast.error(t('dm.tradeCancelBlocked'));
-        load();
-      } else {
-        toast.error(t('dm.tradeCancelError'));
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
   // F-X-01 FR-2 ①: 구매자가 스스로 오신고를 철회한다 — ACCEPTED(AWAITING_PAYMENT)로 복귀.
   const cancelPaymentReport = async () => {
-    if (!appointmentId || busy) return;
+    if (!tradeSetId || busy) return;
     setBusy(true);
     try {
-      setTransaction(await cancelMarketplacePaymentReport(appointmentId));
+      setTransaction(await cancelMarketplacePaymentReport(tradeSetId));
       toast.success(t('dm.tradeReportCancelDone'));
     } catch {
       toast.error(t('dm.tradeReportCancelError'));
@@ -197,10 +169,10 @@ export default function TradeTransaction() {
 
   // F-X-01 FR-2 ②: 양측 합의 취소 요청을 보낸다.
   const requestCancelTrade = async (reason: AppointmentCancelReason) => {
-    if (!appointmentId || busy) return;
+    if (!tradeSetId || busy) return;
     setBusy(true);
     try {
-      await createTransactionCancelRequest(appointmentId, reason);
+      await createTransactionCancelRequest(tradeSetId, reason);
       toast.success(t('dm.tradeCancelRequestSent'));
       await load();
     } catch {
@@ -235,16 +207,16 @@ export default function TradeTransaction() {
     || transaction?.paymentStatus === 'PAYMENT_CONFIRMED';
   const confirmed = transaction?.paymentStatus === 'PAYMENT_CONFIRMED';
   const inspected = !!transaction?.buyerInspectedAt;
-  const reportWindow = transaction ? getPaymentReportWindow(transaction.whenAt, now) : 'open';
+  // 결제는 세트에 귀속(F-N-02 FR-7 ④) — 약속 상태가 아니라 세트 상태로 진행 여부를 본다.
+  const isActive = transaction?.tradeSetStatus === 'ACTIVE';
   const stepDoneFlags = transaction
-    ? [true, inspected, !!qrUrl, reported, confirmed, transaction.appointmentStatus === 'COMPLETED']
+    ? [true, inspected, !!qrUrl, reported, confirmed, transaction.tradeSetStatus === 'CLOSED']
     : [];
-  const currentStepIndex = transaction && transaction.appointmentStatus !== 'CANCELLED'
+  const currentStepIndex = transaction
     ? stepDoneFlags.findIndex((done) => !done)
     : -1;
-  const canCancel = transaction?.appointmentStatus === 'ACCEPTED' && !reported;
   // F-X-01 FR-2: 교착 출구는 PAYMENT_REPORTED(신고 후)에만 연다 — 그 전엔 위 [거래 취소]가 정상 출구.
-  const showIssuesSection = transaction?.appointmentStatus === 'ACCEPTED' && transaction.paymentStatus === 'PAYMENT_REPORTED';
+  const showIssuesSection = isActive && transaction?.paymentStatus === 'PAYMENT_REPORTED';
   const activeCancelRequest = transaction?.activeCancelRequest ?? null;
   const isCancelRequestRequester = !!activeCancelRequest && activeCancelRequest.requesterId === user?.id;
 
@@ -303,7 +275,7 @@ export default function TradeTransaction() {
                   {t('dm.tradeSafetyReportLink')}
                 </Button>
               )}
-              {transaction.viewerRole === 'seller' && transaction.appointmentStatus === 'ACCEPTED' && (
+              {transaction.viewerRole === 'seller' && isActive && (
                 <>
                   <input
                     ref={fileRef}
@@ -336,7 +308,7 @@ export default function TradeTransaction() {
                 <TradeStep done={reported} current={currentStepIndex === 3} title={t('dm.tradeStepReported')} detail={t('dm.tradeStepReportedDetail')} />
                 <TradeStep done={confirmed} current={currentStepIndex === 4} title={t('dm.tradeStepConfirmed')} detail={t('dm.tradeStepConfirmedDetail')} />
                 <TradeStep
-                  done={transaction.appointmentStatus === 'COMPLETED'}
+                  done={transaction.tradeSetStatus === 'CLOSED'}
                   current={currentStepIndex === 5}
                   title={t('dm.tradeStepHandoff')}
                   detail={t('dm.tradeStepHandoffDetail')}
@@ -344,16 +316,16 @@ export default function TradeTransaction() {
               </ol>
             </section>
 
-            {transaction.viewerRole === 'buyer' && transaction.appointmentStatus === 'ACCEPTED' && !reported && !inspected && (
+            {transaction.viewerRole === 'buyer' && isActive && !reported && !inspected && (
               <Button fullWidth disabled={busy} onClick={confirmInspection}>
                 {t('dm.tradeConfirmInspection')}
               </Button>
             )}
-            {transaction.viewerRole === 'buyer' && transaction.appointmentStatus === 'ACCEPTED' && !reported && inspected && (
+            {transaction.viewerRole === 'buyer' && isActive && !reported && inspected && (
               <>
               <Button
                 fullWidth
-                disabled={busy || !qrUrl || reportWindow !== 'open'}
+                disabled={busy || !qrUrl}
                 onClick={() => useConfirmStore.getState().open(
                   t('dm.tradeReportPaymentConfirm'),
                   () => {
@@ -365,14 +337,9 @@ export default function TradeTransaction() {
               >
                 {t('dm.tradeReportPayment')}
               </Button>
-              {reportWindow !== 'open' && (
-                <p className={styles.safetyNote}>
-                  {reportWindow === 'early' ? t('dm.tradeReportTooEarly') : t('dm.tradeReportExpired')}
-                </p>
-              )}
               </>
             )}
-            {transaction.viewerRole === 'seller' && transaction.appointmentStatus === 'ACCEPTED' && reported && !confirmed && (
+            {transaction.viewerRole === 'seller' && isActive && reported && !confirmed && (
               <Button
                 fullWidth
                 disabled={busy}
@@ -386,26 +353,6 @@ export default function TradeTransaction() {
                 )}
               >
                 {t('dm.tradeConfirmReceipt')}
-              </Button>
-            )}
-            {canCancel && (
-              <Button
-                fullWidth
-                variant="danger"
-                disabled={busy}
-                onClick={() => useCancelReasonStore.getState().open(
-                  t('dm.cancelReasonTitle'),
-                  (reason) => useConfirmStore.getState().open(
-                    t('dm.tradeCancelConfirm'),
-                    () => {
-                      useConfirmStore.getState().close();
-                      cancelTrade(reason);
-                    },
-                    { confirmLabel: t('dm.tradeCancelConfirmCta') },
-                  ),
-                )}
-              >
-                {t('dm.tradeCancel')}
               </Button>
             )}
             {showIssuesSection && (
@@ -497,7 +444,7 @@ export default function TradeTransaction() {
                             state: {
                               inquiryDraft: {
                                 title: t('dm.tradeSupportDraftTitle', { listing: transaction.listingTitle }),
-                                body: t('dm.tradeSupportDraftBody', { id: transaction.appointmentId }),
+                                body: t('dm.tradeSupportDraftBody', { id: transaction.id }),
                               },
                             },
                           })}
@@ -547,7 +494,7 @@ export default function TradeTransaction() {
                 state: {
                   inquiryDraft: {
                     title: t('dm.tradeSupportDraftTitle', { listing: transaction.listingTitle }),
-                    body: t('dm.tradeSupportDraftBody', { id: transaction.appointmentId }),
+                    body: t('dm.tradeSupportDraftBody', { id: transaction.id }),
                   },
                 },
               })}
@@ -559,13 +506,6 @@ export default function TradeTransaction() {
       </main>
     </div>
   );
-}
-
-function getPaymentReportWindow(whenAt: string, now: number): 'early' | 'open' | 'expired' {
-  const appointmentAt = new Date(whenAt).getTime();
-  if (now < appointmentAt - 30 * 60_000) return 'early';
-  if (now > appointmentAt + 60 * 60_000) return 'expired';
-  return 'open';
 }
 
 function TradeStep({

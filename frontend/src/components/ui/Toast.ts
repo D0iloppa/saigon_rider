@@ -10,6 +10,8 @@ export interface NeutralToastOptions {
   anchor?: HTMLElement | string | null;
   /** anchor 기준 표시 방향. 기본 'bottom'. */
   anchorPlacement?: 'top' | 'bottom';
+  /** 텍스트 버튼 1개 — 탭하면 onClick 실행 후 토스트를 닫는다. */
+  action?: { label: string; onClick: () => void };
 }
 
 const NEUTRAL_CONTENT_STYLE: CSSProperties = {
@@ -26,7 +28,19 @@ const NEUTRAL_CONTENT_STYLE: CSSProperties = {
   textAlign: 'center',
 };
 
-function NeutralToastContent({ message, opts }: { message: string; opts?: NeutralToastOptions }) {
+const NEUTRAL_ACTION_STYLE: CSSProperties = {
+  marginLeft: '10px',
+  padding: 0,
+  background: 'none',
+  border: 'none',
+  color: '#fff',
+  font: 'inherit',
+  fontWeight: 700,
+  textDecoration: 'underline',
+  cursor: 'pointer',
+};
+
+function NeutralToastContent({ message, opts, onDismiss }: { message: string; opts?: NeutralToastOptions; onDismiss: () => void }) {
   const contentId = useId();
 
   useLayoutEffect(() => {
@@ -108,7 +122,26 @@ function NeutralToastContent({ message, opts }: { message: string; opts?: Neutra
     };
   }, [contentId, opts?.anchor, opts?.anchorPlacement, opts?.safeMargin]);
 
-  return createElement('span', { id: contentId, style: NEUTRAL_CONTENT_STYLE }, message);
+  const action = opts?.action;
+  return createElement(
+    'span',
+    { id: contentId, style: NEUTRAL_CONTENT_STYLE },
+    message,
+    action
+      ? createElement(
+          'button',
+          {
+            type: 'button',
+            style: NEUTRAL_ACTION_STYLE,
+            onClick: () => {
+              action.onClick();
+              onDismiss();
+            },
+          },
+          action.label,
+        )
+      : null,
+  );
 }
 
 /** 앱 전역 단일 토스트 — 다크 그레이 필. 성공/실패/안내 구분 없이 동일한 형태로 표시한다
@@ -123,10 +156,10 @@ function showToast(message: string, opts?: NeutralToastOptions) {
   // 불안정하게 치우친다. 그래서 li 자체는 컨테이너 폭 그대로 채우고(투명), 실제 다크 필은 그 안의
   // 일반 block 자식(span)에 width:fit-content + margin:auto 로 가운데 정렬한다(비-absolute 레이아웃
   // 이라 항상 결정적으로 중앙에 옴). 텍스트 색도 이 span 에서 흰색으로 고정한다.
-  return sonnerToast(
-    createElement(NeutralToastContent, { message, opts }),
+  const id: string | number = sonnerToast(
+    createElement(NeutralToastContent, { message, opts, onDismiss: () => sonnerToast.dismiss(id) }),
     {
-      duration: 2400,
+      duration: opts?.action ? 5000 : 2400,
       position: edge === 'top' ? 'top-center' : 'bottom-center',
       // 기본 스타일을 걷어내고(li 는 투명 풀와이드 레인) 위 span 만 필로 보인다.
       unstyled: true,
@@ -135,6 +168,7 @@ function showToast(message: string, opts?: NeutralToastOptions) {
       },
     },
   );
+  return id;
 }
 
 /** 기본 호출(`toast(msg)`)과 success/error/info/warning 별칭 — 표시는 모두 동일한 그레이 필이다. */

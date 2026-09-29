@@ -701,7 +701,8 @@
     "deleteCommentConfirm": "Delete this comment?",
     "deleteCommentSuccess": "Comment deleted",
     "deleteCommentError": "Failed to delete comment",
-    "groupMemberRequired": "Join the group to like and comment"
+    "groupMemberRequired": "Join the group to like and comment",
+    "viewGroup": "View group"
   },
   "profile": {
     "phoneVerifyNeeded": "Phone verification needed",

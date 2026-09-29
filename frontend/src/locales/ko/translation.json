@@ -701,7 +701,8 @@
     "deleteCommentConfirm": "이 댓글을 삭제하시겠어요?",
     "deleteCommentSuccess": "댓글을 삭제했어요",
     "deleteCommentError": "댓글 삭제에 실패했어요",
-    "groupMemberRequired": "그룹에 가입하면 좋아요·댓글을 남길 수 있어요"
+    "groupMemberRequired": "그룹에 가입하면 좋아요·댓글을 남길 수 있어요",
+    "viewGroup": "그룹 보기"
   },
   "profile": {
     "phoneVerifyNeeded": "휴대폰 인증 필요",

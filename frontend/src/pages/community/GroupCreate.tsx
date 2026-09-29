@@ -80,6 +80,8 @@ export default function GroupCreate() {
       });
   }, [slug, navigate, t]);
 
+  // 편집 모드에서 기존 커버를 ×로 지웠는지 — 저장 시 clear_cover 로 전송
+  const [coverCleared, setCoverCleared] = useState(false);
   const coverTokenRef = useRef(0);
   const previewRef = useRef<string | null>(null);
 
@@ -120,6 +122,8 @@ export default function GroupCreate() {
     }
   };
 
+  const hasCover = !!cover || (!!editGroup?.coverUrl && !coverCleared);
+
   const handleCreate = async () => {
     if (!name.trim() || !topic || submitting || cover?.uploading) return;
     if (isEdit && !editGroup) return;
@@ -134,6 +138,7 @@ export default function GroupCreate() {
           visibility,
           joinPolicy,
           coverContentId: cover?.contentId ?? undefined,
+          clearCover: coverCleared && !cover,
         });
         navigate(`/group/${saved.slug ?? saved.id}`, { replace: true });
         return;
@@ -162,8 +167,8 @@ export default function GroupCreate() {
           <h2 className={styles.sectionTitle}>{t('communityGroup.basicInfo')}</h2>
 
           <label className={styles.coverRow} data-testid="group-cover-picker" aria-label={t('communityGroup.coverLabel')}>
-            <span className={`${styles.coverThumb} ${cover || editGroup?.coverUrl ? styles.coverThumbFilled : ''}`}>
-              {cover || editGroup?.coverUrl
+            <span className={`${styles.coverThumb} ${hasCover ? styles.coverThumbFilled : ''}`}>
+              {hasCover
                 ? <AppImage src={cover?.preview ?? editGroup!.coverUrl!} alt="" className={styles.coverPreview} />
                 : <Camera size={22} />}
               {cover?.uploading && <span className={styles.coverUploading}>{t('communityGroup.coverUploading')}</span>}
@@ -174,14 +179,14 @@ export default function GroupCreate() {
                 <span className={styles.optional}>{t('communityGroup.optional')}</span>
               </span>
               <span className={styles.coverHint}>{t('communityGroup.coverHint')}</span>
-              <span className={styles.coverAction}>{cover || editGroup?.coverUrl ? t('communityGroup.coverChange') : t('communityGroup.coverPick')}</span>
+              <span className={styles.coverAction}>{hasCover ? t('communityGroup.coverChange') : t('communityGroup.coverPick')}</span>
             </span>
-            {cover && (
+            {hasCover && (
               <button
                 type="button"
                 className={styles.coverRemove}
                 aria-label={t('communityGroup.coverRemove')}
-                onClick={(e) => { e.preventDefault(); dropCover(); }}
+                onClick={(e) => { e.preventDefault(); dropCover(); if (isEdit) setCoverCleared(true); }}
               >
                 <X size={16} />
               </button>

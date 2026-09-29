@@ -176,5 +176,7 @@ test.describe('feed groups r18', () => {
     await btn.click();
     await expect(page.getByText('그룹에 가입하면 좋아요·댓글을 남길 수 있어요')).toBeVisible();
     expect(await btn.innerText()).toBe(before);
+    await page.getByRole('button', { name: '그룹 보기' }).click();
+    await expect(page).toHaveURL(/\/group\//);
   });
 });

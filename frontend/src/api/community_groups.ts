@@ -104,6 +104,7 @@ export interface PatchGroupParams {
   joinPolicy?: 'open' | 'approval' | 'invite';
   visibility?: 'public' | 'private';
   coverContentId?: string;
+  clearCover?: boolean;
 }
 
 export async function patchGroup(groupId: string, patch: PatchGroupParams): Promise<CommunityGroup> {
@@ -116,6 +117,7 @@ export async function patchGroup(groupId: string, patch: PatchGroupParams): Prom
       join_policy: patch.joinPolicy ?? null,
       visibility: patch.visibility ?? null,
       cover_content_id: patch.coverContentId ?? null,
+      clear_cover: patch.clearCover ?? false,
     }),
   });
   return transformGroup(raw);

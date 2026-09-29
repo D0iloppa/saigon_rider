@@ -31,7 +31,7 @@ import { ImageViewer } from '@/components/ui/ImageViewer';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import feedStyles from './FeedList.module.css';
 import { GroupSourceChip } from './GroupSourceChip';
-import { feedWriteErrorMessage } from './feedWriteErrors';
+import { toastFeedWriteError } from './feedWriteErrors';
 import styles from './FeedDetail.module.css';
 
 /** 피드 상세 — 상품(매물) 상세(/market/:id)와 레이아웃 통일 (2026-07-12). 게시글 + 댓글 인라인 + 하단 액션바(응원·댓글 입력). */
@@ -78,7 +78,7 @@ export default function FeedDetail() {
     if (!loading && hash === '#comments') commentsRef.current?.scrollIntoView();
   }, [loading, hash]);
 
-  const toastWriteError = (err: unknown) => toast.error(feedWriteErrorMessage(err, t));
+  const toastWriteError = (err: unknown) => toastFeedWriteError(err, t, navigate, post?.group);
 
   const handleCheer = async () => {
     if (!post) return;

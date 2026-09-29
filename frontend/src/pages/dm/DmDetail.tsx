@@ -13,7 +13,8 @@ import { useServiceAvailability } from '@/hooks/useServiceAvailability';
 import { api, extractErrorCode } from '@/api/client';
 import { MOCK_STICKERS, findSticker } from './mockStickers';
 import { type PickedLocation } from '../market/LocationPickerSheet';
-import AppointmentLocationPicker from './AppointmentLocationPicker';
+import ApptPlacePicker from '@/components/dm/ApptPlacePicker';
+import ApptPlaceThumb from '@/components/dm/ApptPlaceThumb';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { CardMessage } from '@/components/dm/CardMessage';
@@ -61,7 +62,7 @@ import type { AppointmentNavigationDestination, TradeSet } from '@/api/dm';
 import { native } from '@/lib/native';
 import type { DealStatusKind } from '@/lib/plugins/liveActivity';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
-import { blockUser, fetchMyReview, localizedName, type ReviewBrief } from '@/api/market';
+import { blockUser, fetchMyReview, type ReviewBrief } from '@/api/market';
 import ReviewSheet from '@/components/market/ReviewSheet';
 import { translateText } from '@/api/translate';
 import { toast } from '@/components/ui/Toast';
@@ -195,7 +196,7 @@ export default function DmDetail() {
   const [offerOpen, setOfferOpen] = useState(false);
   const [apptWhen, setApptWhen] = useState('');
   const [apptPlace, setApptPlace] = useState<PickedLocation | null>(null);
-  const [apptLocOpen, setApptLocOpen] = useState(false);
+  const [apptDetail, setApptDetail] = useState('');
   const [tr, setTr] = useState<Record<string, string>>({});
   const [trOpen, setTrOpen] = useState<Record<string, boolean>>({});
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -752,16 +753,6 @@ export default function DmDetail() {
 
   const handleOpenAppt = () => {
     if (!apptWhen) setApptWhen(getDefaultApptWhen());
-    // 대화 컨텍스트에 이미 실린 매물 좌표만 약속 장소의 초깃값으로 쓴다. 별도 지오코딩이나
-    // 위치 권한 요청은 하지 않는다. 사용자는 시트에서 언제든 다시 고를 수 있다.
-    if (!apptPlace && listing?.lat != null && listing.lng != null && listing.district) {
-      setApptPlace({
-        districtCode: String(listing.district.id),
-        districtName: localizedName(listing.district),
-        lat: listing.lat,
-        lng: listing.lng,
-      });
-    }
     setApptOpen(true);
   };
 
@@ -771,7 +762,8 @@ export default function DmDetail() {
     try {
       const msg = await proposeAppointment(conversationId, {
         whenAt: apptWhen,
-        placeName: apptPlace?.districtName ?? null,
+        // 장소 이름 = 핀 좌표의 동(매물 등록 동 아님) + 상세 위치(선택) → "상세 · 동"
+        placeName: apptPlace ? [apptDetail.trim(), apptPlace.districtName].filter(Boolean).join(' · ') : null,
         placeLat: apptPlace?.lat ?? null,
         placeLng: apptPlace?.lng ?? null,
         listingId: selectedListingId,
@@ -780,6 +772,7 @@ export default function DmDetail() {
       setApptOpen(false);
       setApptWhen('');
       setApptPlace(null);
+      setApptDetail('');
     } catch {
       toast.error(t('common.errorUnexpected'));
     } finally {
@@ -973,8 +966,7 @@ export default function DmDetail() {
     requestAppointmentNavigation(appointmentId);
   };
 
-  // 카드를 받은 approximate 좌표를 경로에 쓰지 않는다. ACCEPTED 약속만 전용 권한 경계에서
-  // 다시 확인하고, exact 성공 좌표는 이 화면의 메모리에만 둔다.
+  // ACCEPTED 약속만 전용 권한 경계(참여자 확인)에서 목적지를 다시 받고, 성공 좌표는 이 화면의 메모리에만 둔다.
   useEffect(() => {
     const acceptedIds = messages
       .filter((message) => message.appointment?.status === 'ACCEPTED')
@@ -1122,9 +1114,7 @@ export default function DmDetail() {
     const accepted = appt.status === 'ACCEPTED';
     return {
       show: accepted && navState?.status === 'ready' && !!navState.destination,
-      canRetry: accepted
-        && navState?.status === 'error'
-        && navState.errorCode === 'appointment_navigation_destination_not_exact',
+      canRetry: accepted && navState?.status === 'error',
       reason: accepted
         ? routeChecking
           ? t('locationGate.checking', '위치를 확인하고 있어요')
@@ -1135,9 +1125,7 @@ export default function DmDetail() {
             : navState?.status === 'loading'
               ? t('dm.apptNavigationChecking', { defaultValue: '약속 장소를 확인하고 있어요.' })
               : navState?.status === 'error'
-                ? navState.errorCode === 'appointment_navigation_destination_not_exact'
-                  ? t('dm.apptNavigationNotExact', { defaultValue: '정확한 약속 장소는 약속 시간에 가까워지면 확인할 수 있어요.' })
-                  : t('dm.apptNavigationUnavailable', { defaultValue: '지금은 길안내를 준비할 수 없어요. 잠시 후 다시 확인해 주세요.' })
+                ? t('dm.apptNavigationUnavailable', { defaultValue: '지금은 길안내를 준비할 수 없어요. 잠시 후 다시 확인해 주세요.' })
                 : null
         : null,
       locked: !routeAvailable,
@@ -2101,6 +2089,13 @@ export default function DmDetail() {
                       <span className={styles.apptRowVal}>{placeText}</span>
                     </div>
                   )}
+                  {appt?.placeLat != null && appt.placeLng != null && (
+                    <ApptPlaceThumb
+                      lat={appt.placeLat}
+                      lng={appt.placeLng}
+                      onClick={appt.id === activeAppointment?.id ? () => setApptSheetOpen(true) : undefined}
+                    />
+                  )}
                   {status === 'CANCELLED' && appt?.cancelReason && CANCEL_REASON_KEY[appt.cancelReason] && (
                     <div className={styles.apptRow}>
                       <span className={styles.apptRowVal}>
@@ -2451,6 +2446,9 @@ export default function DmDetail() {
                 <button type="button" style={{ display: 'block', width: '100%', textAlign: 'left' }} onClick={() => setApptSheetOpen(true)}>
                   <div className={cardStyles.cardTitle}>{t('dm.apptAcceptedCardTitle')}</div>
                   <div className={cardStyles.cardBody}>{[whenText, m.meta?.placeName].filter(Boolean).join(' · ')}</div>
+                  {m.meta?.placeLat != null && m.meta.placeLng != null && (
+                    <ApptPlaceThumb lat={m.meta.placeLat} lng={m.meta.placeLng} />
+                  )}
                 </button>
               </CardMessage>
             );
@@ -2478,6 +2476,11 @@ export default function DmDetail() {
                 <div className={cardStyles.cardBody} style={{ textDecoration: 'line-through' }}>
                   {[whenText, m.meta?.placeName].filter(Boolean).join(' · ')}
                 </div>
+                {m.meta?.placeLat != null && m.meta.placeLng != null && (
+                  <div style={{ opacity: 0.5 }}>
+                    <ApptPlaceThumb lat={m.meta.placeLat} lng={m.meta.placeLng} />
+                  </div>
+                )}
                 {reasonKey && (
                   <div className={cardStyles.cardSubtitle}>{t('dm.apptCancelReasonLine', { reason: t(reasonKey) })}</div>
                 )}
@@ -2879,28 +2882,19 @@ export default function DmDetail() {
             onChange={(e) => setApptWhen(e.target.value)}
           />
           <label className={styles.apptLabel}>{t('dm.apptPlace', { defaultValue: '장소' })}</label>
-          <button className={styles.apptPlaceBtn} onClick={() => setApptLocOpen(true)}>
-            <MapPin size={16} className={styles.apptPlacePin} />
-            {apptPlace
-              ? apptPlace.districtName
-              : listing?.lat != null && listing.lng != null && listing.district
-                ? localizedName(listing.district)
-                : t('dm.apptPlacePick', { defaultValue: '지도를 탭해 장소 찍기' })}
-          </button>
+          <ApptPlacePicker
+            initial={apptPlace ?? (listing?.lat != null && listing.lng != null ? { lat: listing.lat, lng: listing.lng } : null)}
+            onChange={setApptPlace}
+            detail={apptDetail}
+            onDetailChange={setApptDetail}
+          />
           <div className={styles.apptSubmit}>
-            <Button onClick={handleSendAppointment} disabled={!apptWhen}>
+            <Button onClick={handleSendAppointment} disabled={!apptWhen || !apptPlace}>
               {t('dm.apptSend', { defaultValue: '약속 제안 보내기' })}
             </Button>
           </div>
         </div>
       </BottomSheet>
-
-      <AppointmentLocationPicker
-        open={apptLocOpen}
-        onClose={() => setApptLocOpen(false)}
-        value={apptPlace ? { lat: apptPlace.lat, lng: apptPlace.lng } : null}
-        onConfirm={setApptPlace}
-      />
 
       {/* 가격제안 시트 — direct 전용 */}
       {isDirect && listing && (

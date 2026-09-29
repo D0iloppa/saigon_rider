@@ -56,6 +56,10 @@ interface OsmMapProps {
   onMapClick?: (lat: number, lng: number) => void;
   /** 픽 모드에서 선택된 지점 핀. */
   pickedPoint?: { lat: number; lng: number } | null;
+  /** 이동/줌 종료 시 지도 중심 좌표 통지(고정 핀 방식 선택 모드). */
+  onCenterChange?: (lat: number, lng: number) => void;
+  /** false 면 드래그·줌 입력을 모두 막는 정지 썸네일(기본 true). */
+  interactive?: boolean;
   className?: string;
 }
 
@@ -136,6 +140,8 @@ const OsmMap = forwardRef<OsmMapHandle, OsmMapProps>(function OsmMap({
   onViewportChange,
   onMapClick,
   pickedPoint,
+  onCenterChange,
+  interactive = true,
   className,
 }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -148,7 +154,9 @@ const OsmMap = forwardRef<OsmMapHandle, OsmMapProps>(function OsmMap({
   const onClickRef = useRef(onMarkerClick);
   const onViewportRef = useRef(onViewportChange);
   const onMapClickRef = useRef(onMapClick);
+  const onCenterRef = useRef(onCenterChange);
   useEffect(() => {
+    onCenterRef.current = onCenterChange;
     onClickRef.current = onMarkerClick;
     onViewportRef.current = onViewportChange;
     onMapClickRef.current = onMapClick;
@@ -163,6 +171,7 @@ const OsmMap = forwardRef<OsmMapHandle, OsmMapProps>(function OsmMap({
       center: center ? [center.lng, center.lat] : HCMC,
       zoom: 14,
       attributionControl: false,
+      interactive,
     });
     // 출처표기: 상태바·시트에 안 가리도록 좌하단 compact (ODbL/OpenMapTiles 가이드라인 준수)
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
@@ -182,7 +191,11 @@ const OsmMap = forwardRef<OsmMapHandle, OsmMapProps>(function OsmMap({
       // compact attribution 이 로드 시 펼쳐져 나오므로 접어서 ⓘ 만 노출(탭하면 펼침)
       map.getContainer().querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
     });
-    map.on('moveend', emitViewport);
+    map.on('moveend', () => {
+      emitViewport();
+      const c = map.getCenter();
+      onCenterRef.current?.(c.lat, c.lng);
+    });
     map.on('click', (e) => onMapClickRef.current?.(e.lngLat.lat, e.lngLat.lng));
     mapRef.current = map;
     return () => {

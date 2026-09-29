@@ -1,0 +1,64 @@
+/* 약속 시트 인라인 장소 선택 — 가운데 고정 핀은 지도 위 오버레이(핀 끝이 지도 정중앙을 가리킨다). */
+.mapWrap {
+  position: relative;
+  height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.centerPin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -100%);
+  color: var(--brand-500);
+  fill: var(--surface);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.locateBtn {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 10px rgba(11, 13, 20, .18);
+}
+
+.area {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.areaOut { color: var(--danger, #e5484d); }
+
+.detail {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.detail:focus {
+  outline: none;
+  border-color: var(--brand-500);
+}

@@ -744,25 +744,6 @@
   opacity: 0.85;
 }
 
-.apptPlaceBtn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-  padding: 12px 14px;
-  font-size: 15px;
-  color: var(--text);
-  text-align: left;
-}
-
-.apptPlacePin {
-  flex-shrink: 0;
-  color: var(--brand-500);
-}
-
 .apptSubmit {
   margin-top: 22px;
 }

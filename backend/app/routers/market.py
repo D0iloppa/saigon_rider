@@ -107,7 +107,6 @@ from ..services.dm_policy import require_participant, require_unblocked
 from ..services.listing_fingerprint import compute_text_simhash
 from ..services.listing_ranking import recommended_score_sql
 from ..services.listing_state import log_transition
-from ..services.location_privacy import resolve_nearest_ward, resolve_precision_level, to_approx_coords
 from ..services.search_index import immediate_blob
 from ..services.search_norm import norm
 from ..services.service_area import in_service_area
@@ -2167,20 +2166,9 @@ async def subscribe_listing_availability(
 
 
 async def _appt_out(db: AsyncSession, a: MarketplaceAppointment, seller_id: uuid.UUID | None = None) -> AppointmentOut:
-    """§3 정밀도 매트릭스에 따라 상태별로 place_lat/lng 을 흐리거나(`approx`) 감춘다(`none`).
-    정밀도 판정은 여기(서버)에서만 한다 — 원좌표를 프론트로 내려보내지 않는다."""
-    level = resolve_precision_level(a, datetime.now(UTC))
-    if level == "none":
-        place_lat, place_lng = None, None
-    elif level == "exact":
-        place_lat = float(a.place_lat) if a.place_lat is not None else None
-        place_lng = float(a.place_lng) if a.place_lng is not None else None
-    else:  # approx
-        approx_lat, approx_lng = await to_approx_coords(
-            a.place_lat, a.place_lng, None, lambda: resolve_nearest_ward(a.place_lat, a.place_lng, db)
-        )
-        place_lat = float(approx_lat) if approx_lat is not None else None
-        place_lng = float(approx_lng) if approx_lng is not None else None
+    """약속 참여자에게는 항상 정확한 place_lat/lng 을 내려준다(정밀도 정책 폐기, F-S4-01 FR-2 r10)."""
+    place_lat = float(a.place_lat) if a.place_lat is not None else None
+    place_lng = float(a.place_lng) if a.place_lng is not None else None
     return AppointmentOut(
         id=a.id,
         listing_id=a.listing_id,
@@ -2518,8 +2506,6 @@ async def get_appointment_navigation_destination(
         raise HTTPException(status_code=409, detail={"code": "appointment_navigation_not_accepted"})
 
     place_lat, place_lng = _navigation_destination(appt)
-    if resolve_precision_level(appt, datetime.now(UTC)) != "exact":
-        raise HTTPException(status_code=409, detail={"code": "appointment_navigation_destination_not_exact"})
     return AppointmentNavigationOut(
         appointment_id=appt.id,
         place_name=appt.place_name,
@@ -2788,6 +2774,8 @@ async def accept_appointment(
                 "actorId": str(session_uid),
                 "whenAt": appt.when_at.isoformat(),
                 "placeName": appt.place_name,
+                "placeLat": float(appt.place_lat) if appt.place_lat is not None else None,
+                "placeLng": float(appt.place_lng) if appt.place_lng is not None else None,
             },
             created_at=now,
         )
@@ -3275,6 +3263,8 @@ async def cancel_appointment(
                 "reason": appt.cancel_reason,
                 "whenAt": appt.when_at.isoformat(),
                 "placeName": appt.place_name,
+                "placeLat": float(appt.place_lat) if appt.place_lat is not None else None,
+                "placeLng": float(appt.place_lng) if appt.place_lng is not None else None,
             },
             created_at=now,
         )

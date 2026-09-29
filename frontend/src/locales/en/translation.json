@@ -296,7 +296,7 @@
     "withdrawing": "Withdrawing",
     "withdrawDone": "Listing taken down. You can put it back up anytime",
     "withdrawError": "Failed to withdraw",
-    "withdrawBlockedByAppointment": "Can't withdraw while an appointment is in progress. Cancel it first.",
+    "withdrawBlockedByTrade": "There is an active trade on this item",
     "relist": "Put back up",
     "relistDone": "Back on sale",
     "relistError": "Failed to put it back up",

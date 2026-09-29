@@ -58,7 +58,7 @@ export default function MarketKeywordAlerts() {
   }, [userId, refreshKey]);
 
   // 백엔드 실측 에러 계약(min_length/max_count 등의 code)을 err.message 에서 구분한다 —
-  // MarketDetail.tsx 의 active_appointment 판별과 동일한 정규식 패턴(코드베이스 관용구 재사용).
+  // MarketDetail.tsx 의 active_trade 판별과 동일한 정규식 패턴(코드베이스 관용구 재사용).
   const describeError = (err: unknown): string => {
     const msg = err instanceof Error ? err.message : '';
     if (/"code":\s*"keyword_too_short"/.test(msg)) {

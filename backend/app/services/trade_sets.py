@@ -56,6 +56,20 @@ async def is_reserved_for(db: AsyncSession, listing_id: uuid.UUID, user_id: uuid
     ).scalar_one_or_none() is not None
 
 
+async def is_item_reserved(db: AsyncSession, conversation_id: uuid.UUID, listing_id: uuid.UUID) -> bool:
+    """이 방의 활성 세트에서 해당 매물 항목이 이미 RESERVED 인지 — 약속 수락 시 예약 프롬프트 중복 방지."""
+    ts = await get_active_set(db, conversation_id)
+    if ts is None:
+        return False
+    return (
+        await db.execute(
+            select(TradeSetItem.id).where(
+                TradeSetItem.set_id == ts.id, TradeSetItem.listing_id == listing_id, TradeSetItem.status == "RESERVED"
+            )
+        )
+    ).scalar_one_or_none() is not None
+
+
 async def accepted_offer_amount(db: AsyncSession, conversation_id: uuid.UUID, listing_id: uuid.UUID) -> int | None:
     return (
         await db.execute(
@@ -348,3 +362,64 @@ async def cancel_reserved_item(db: AsyncSession, conversation_id: uuid.UUID, lis
     if item is not None:
         item.status = "CANCELLED"
         item.updated_at = datetime.now(UTC)
+
+
+async def complete_trade_set(db: AsyncSession, ts: TradeSet, actor_id: uuid.UUID) -> list[MarketplaceAppointment]:
+    """세트의 INQUIRY/RESERVED 항목을 모두 거래완료(매물 SOLD, 세트 CLOSED)로 만든다. 세트 상태 변경과
+    약속 완료(complete_appointment)가 공유하는 유일한 완료 경로(F-N-02 FR-7 ④). commit 은 호출부 몫.
+    함께 COMPLETED 로 옮긴 ACCEPTED 약속을 돌려줘 호출부가 알림·라이브 액티비티를 붙일 수 있게 한다."""
+    now = datetime.now(UTC)
+    completed_appts: list[MarketplaceAppointment] = []
+    items = (
+        (
+            await db.execute(
+                select(TradeSetItem).where(
+                    TradeSetItem.set_id == ts.id, TradeSetItem.status.in_(["INQUIRY", "RESERVED"])
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for item in items:
+        listing = (
+            await db.execute(
+                select(MarketplaceListing).where(MarketplaceListing.id == item.listing_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if listing is None:
+            continue
+        offer_amount = (
+            await db.execute(
+                select(MarketplacePriceOffer.amount)
+                .where(
+                    MarketplacePriceOffer.listing_id == listing.id,
+                    MarketplacePriceOffer.status == "ACCEPTED",
+                )
+                .order_by(MarketplacePriceOffer.updated_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        prev_status = listing.status
+        listing.status = "SOLD"
+        listing.agreed_price_vnd = offer_amount if offer_amount is not None else listing.price_vnd
+        listing.updated_at = now
+        log_transition(
+            db,
+            listing.id,
+            prev_status,
+            "SOLD",
+            actor_type="user",
+            actor_id=actor_id,
+            reason="trade_set_completed",
+        )
+        item.status = "COMPLETED"
+        item.updated_at = now
+        appt = await find_accepted_appointment(db, ts.conversation_id, listing.id)
+        if appt is not None:
+            appt.status = "COMPLETED"
+            appt.updated_at = now
+            completed_appts.append(appt)
+    ts.status = "CLOSED"
+    ts.updated_at = now
+    return completed_appts

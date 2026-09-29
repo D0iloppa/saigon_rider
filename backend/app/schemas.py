@@ -1248,7 +1248,6 @@ class DmConversationOut(BaseModel):
     context_id: UUID | None = None
     context_listing: MarketplaceListingCard | None = None
     # 약속잡기 게이트 — 판매자는 항상 true, 구매자는 판매자의 거래진행 액션 이후에만 true
-    appointment_unlocked: bool = False
     # 260827 group/open 확장 (§3.5) — direct 는 other_user_* 만 채워지고 아래는 기본값 유지
     conversation_type: str = "direct"
     title: str | None = None

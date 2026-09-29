@@ -1707,7 +1707,7 @@ export default function DmDetail() {
           </button>
           {/* 약속 잡기 칩(260919 리뷰킷 F-S4-01 FR-1) — 서비스 차별점의 입구를 "+" 메뉴 6항목
               동열에서 매물 카드 옆으로 승격. 기존 핸들러(handleOpenAppt) 재사용, "+" 메뉴 항목은 유지 */}
-          {conv?.appointmentUnlocked && listing.status !== 'SOLD' && (
+          {listing.status !== 'SOLD' && (
             <button className={styles.contextApptChip} type="button" onClick={handleOpenAppt}>
               {t('dm.makeAppointment', { defaultValue: '약속잡기' })}
             </button>
@@ -2625,8 +2625,8 @@ export default function DmDetail() {
             label: t('dm.album', { defaultValue: '앨범' }),
             onPress: () => fileInputRef.current?.click(),
           },
-          // 약속잡기 — direct 전용. 판매자는 항상, 구매자는 판매자의 거래진행 액션 이후에만 (백엔드도 403으로 차단)
-          ...(isDirect && conv?.appointmentUnlocked
+          // 약속잡기 — direct 매물 방 전용. 약속은 거래 상태와 독립이라 양측 언제나 제안 가능(F-N-02 FR-7)
+          ...(isDirect && conv?.contextType === 'listing'
             ? [{
                 key: 'appt',
                 icon: <CalendarPlus size={26} strokeWidth={1.8} />,

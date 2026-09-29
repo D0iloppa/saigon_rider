@@ -113,9 +113,11 @@ from ..services.search_norm import norm
 from ..services.service_area import in_service_area
 from ..services.trade_sets import (
     cancel_reserved_item,
+    complete_trade_set,
     find_accepted_appointment,
     get_active_set,
     get_or_create_active_set,
+    is_item_reserved,
     is_reserved_for,
     release_listing_to_on_sale,
     reserve_listing_for_set,
@@ -1081,18 +1083,23 @@ async def update_status(
         ).scalar_one_or_none()
         if listing is None:
             raise HTTPException(status_code=404, detail="Listing not found")
-        # F-7: ACCEPTED 약속이 걸린 매물은 철회 불가 — uq_mp_appointment_active_per_listing 무결성 보호.
-        # 구매자가 먼저 약속을 취소(cancel_appointment)해야 철회할 수 있다.
-        active_appt = (
+        # F-7 / F-N-02 FR-7 ⑤: 진행 중인 거래(예약중 세트 항목 또는 송금 신고된 거래)가 있으면 철회 불가.
+        # 약속(ACCEPTED)만으로는 막지 않는다 — 약속은 거래 상태와 독립.
+        reserved_item = (
             await db.execute(
-                select(MarketplaceAppointment.id).where(
-                    MarketplaceAppointment.listing_id == listing_id,
-                    MarketplaceAppointment.status == "ACCEPTED",
+                select(TradeSetItem.id).where(TradeSetItem.listing_id == listing_id, TradeSetItem.status == "RESERVED")
+            )
+        ).first()
+        reported_tx = (
+            await db.execute(
+                select(MarketplaceTransaction.appointment_id).where(
+                    MarketplaceTransaction.listing_id == listing_id,
+                    MarketplaceTransaction.payment_status == "PAYMENT_REPORTED",
                 )
             )
         ).first()
-        if active_appt is not None:
-            raise HTTPException(status_code=409, detail={"code": "active_appointment"})
+        if reserved_item is not None or reported_tx is not None:
+            raise HTTPException(status_code=409, detail={"code": "active_trade"})
 
     prev_status = listing.status
     listing.status = body.status
@@ -2152,47 +2159,6 @@ async def subscribe_listing_availability(
 # 생명주기: PROPOSED → ACCEPTED(listing RESERVED) → COMPLETED(listing SOLD) / CANCELLED
 
 
-async def _appointment_unlocked(
-    db: AsyncSession, conv: DmConversation, user_id: uuid.UUID, listing_id: uuid.UUID | None = None
-) -> bool:
-    """약속잡기 게이트 — 판매자는 항상 가능. 구매자는 판매자의 거래진행 액션 이후에만:
-    ① 이 (대화, 매물)에 ACCEPTED 가격제안 존재, 또는 ② 판매자가 제안한 약속 존재.
-    F-DM-02(260928): 방에 매물이 여럿 얽힐 수 있어 listing_id 로 좁힌다 — 생략 시 conv.context_id."""
-    if conv.context_type != "listing" or conv.context_id is None:
-        return False
-    listing_id = listing_id or conv.context_id
-    listing = await db.get(MarketplaceListing, listing_id)
-    if listing is None:
-        return False
-    if user_id == listing.seller_id:
-        return True
-    accepted_offer = (
-        await db.execute(
-            select(MarketplacePriceOffer.id)
-            .where(
-                MarketplacePriceOffer.conversation_id == conv.id,
-                MarketplacePriceOffer.listing_id == listing_id,
-                MarketplacePriceOffer.status == "ACCEPTED",
-            )
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    if accepted_offer is not None:
-        return True
-    seller_appt = (
-        await db.execute(
-            select(MarketplaceAppointment.id)
-            .where(
-                MarketplaceAppointment.conversation_id == conv.id,
-                MarketplaceAppointment.listing_id == listing_id,
-                MarketplaceAppointment.proposer_id == listing.seller_id,
-            )
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    return seller_appt is not None
-
-
 async def _appt_out(db: AsyncSession, a: MarketplaceAppointment, seller_id: uuid.UUID | None = None) -> AppointmentOut:
     """§3 정밀도 매트릭스에 따라 상태별로 place_lat/lng 을 흐리거나(`approx`) 감춘다(`none`).
     정밀도 판정은 여기(서버)에서만 한다 — 원좌표를 프론트로 내려보내지 않는다."""
@@ -2262,17 +2228,14 @@ async def propose_appointment(
     listing = await db.get(MarketplaceListing, listing_id)
     if listing is None or listing.seller_id not in (conv.participant_1, conv.participant_2):
         raise HTTPException(status_code=403, detail="Invalid conversation context")
-    if listing.status != "ON_SALE":
+    # F-N-02 FR-7: 약속은 거래 상태와 독립 — 종결 매물만 막는다(예약중이어도 제안 가능).
+    if listing.status in _LISTING_INACTIVE_STATUSES:
         raise HTTPException(status_code=409, detail="Listing is no longer available")
     await db.execute(
         pg_insert(DmConversationListing)
         .values(conversation_id=conv.id, listing_id=listing_id, source="appointment")
         .on_conflict_do_nothing(index_elements=["conversation_id", "listing_id"])
     )
-
-    # 구매자 게이팅 — 판매자의 거래진행 액션(가격제안 수락 or 판매자 약속 제안) 전에는 제안 불가
-    if not await _appointment_unlocked(db, conv, session_uid, listing_id):
-        raise HTTPException(status_code=403, detail="Appointment locked until the seller moves the deal forward")
 
     now = datetime.now(UTC)
     # 매물당 활성 제안 1건 — 직전 PROPOSED 들은 무효화. F-DM-02: 대화 하나에 매물이 여럿
@@ -2791,32 +2754,34 @@ async def accept_appointment(
         raise HTTPException(status_code=403, detail="Proposer cannot accept own appointment")
     if appt.status != "PROPOSED":
         raise HTTPException(status_code=409, detail=f"Cannot accept appointment in status {appt.status}")
-    # MKT-2: 매물이 이미 다른 거래로 예약/판매됐으면 수락 불가 (잠근 행 기준 재검사)
-    if listing.status != "ON_SALE":
+    # F-N-02 FR-7: 예약중이어도 수락 가능(배타성은 거래 세트 RESERVED 유일성이 보장) — 종결 매물만 막는다.
+    if listing.status in _LISTING_INACTIVE_STATUSES:
         raise HTTPException(status_code=409, detail="Listing is no longer available")
 
     now = datetime.now(UTC)
     appt.status = "ACCEPTED"
     appt.updated_at = now
     await _ensure_marketplace_transaction(db, appt, conv, listing)
-    buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1
-    buyer = await db.get(User, buyer_id) if buyer_id else None
-    # 프론트가 dm.tradeSetReservePrompt(nickname) 로 렌더 — content 는 원문을 저장하지 않는다(i18n).
-    db.add(
-        DmMessage(
-            conversation_id=conv.id,
-            sender_id=listing.seller_id,
-            content=None,
-            message_type="text",
-            meta={
-                "kind": "reserve_prompt",
-                "listingId": str(listing.id),
-                "appointmentId": str(appt.id),
-                "counterpartNickname": buyer.nickname if buyer else None,
-            },
-            created_at=now,
+    # 이 방의 항목이 이미 예약중이면 프롬프트를 또 띄우지 않는다.
+    if not await is_item_reserved(db, conv.id, listing.id):
+        buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1
+        buyer = await db.get(User, buyer_id) if buyer_id else None
+        # 프론트가 dm.tradeSetReservePrompt(nickname) 로 렌더 — content 는 원문을 저장하지 않는다(i18n).
+        db.add(
+            DmMessage(
+                conversation_id=conv.id,
+                sender_id=listing.seller_id,
+                content=None,
+                message_type="text",
+                meta={
+                    "kind": "reserve_prompt",
+                    "listingId": str(listing.id),
+                    "appointmentId": str(appt.id),
+                    "counterpartNickname": buyer.nickname if buyer else None,
+                },
+                created_at=now,
+            )
         )
-    )
     conv.last_message_at = now
     _enqueue_live_activity(db, appt)
     await db.commit()
@@ -3113,8 +3078,9 @@ async def complete_appointment(
     session_uid: uuid.UUID = Depends(verify_user_session),
     tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
-    """판매자만 거래 완료 처리 → COMPLETED, 매물 SOLD. (제안은 누가 했든 완료는 판매자)"""
-    appt, _conv, listing = await _load_appointment(db, appointment_id, session_uid)
+    """판매자만 거래 완료 처리 → 거래 세트 완료 경로(complete_trade_set)로 위임 — 약속 COMPLETED, 매물 SOLD.
+    (제안은 누가 했든 완료는 판매자)"""
+    appt, conv, listing = await _load_appointment(db, appointment_id, session_uid)
     if listing.seller_id != session_uid:
         raise HTTPException(status_code=403, detail="Only the seller can complete the deal")
     if appt.status != "ACCEPTED":
@@ -3123,32 +3089,12 @@ async def complete_appointment(
     if listing.status == "SOLD":
         raise HTTPException(status_code=409, detail="Listing already sold")
 
-    # MKT-7: 합의가 스냅샷 — 수락된 가격제안이 있으면 그 금액, 없으면 완료 시점의 매물가.
-    # 이후 판매자가 가격을 바꿔도 거래 이력에는 합의가가 보존된다.
-    # F-DM-02(260928): 방에 매물이 여럿 얽힐 수 있어 conversation_id 가 아니라 이 약속의
-    # listing_id 로 좁힌다 — 아니면 같은 방 다른 매물의 제안가가 엉뚱하게 합의가로 쓰인다.
-    accepted_offer_amount = (
-        await db.execute(
-            select(MarketplacePriceOffer.amount)
-            .where(
-                MarketplacePriceOffer.listing_id == appt.listing_id,
-                MarketplacePriceOffer.status == "ACCEPTED",
-            )
-            .order_by(MarketplacePriceOffer.updated_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-
-    now = datetime.now(UTC)
-    prev_status = listing.status
-    appt.status = "COMPLETED"
-    appt.updated_at = now
-    listing.status = "SOLD"
-    listing.agreed_price_vnd = accepted_offer_amount if accepted_offer_amount is not None else listing.price_vnd
-    listing.updated_at = now
-    log_transition(
-        db, listing.id, prev_status, "SOLD", actor_type="user", actor_id=session_uid, reason="appointment_completed"
-    )
+    # F-N-02 FR-7 ④: 약속 완료도 세트 완료와 같은 경로. 세트가 없는 레거시 약속은 세트·항목을 만들어 태운다.
+    # (합의가 스냅샷 MKT-7 은 complete_trade_set 이 수락된 가격제안 → 없으면 매물가 순으로 처리한다.)
+    buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1
+    ts = await get_or_create_active_set(db, conv.id, buyer_id, listing.seller_id)
+    await upsert_item(db, ts.id, listing.id, session_uid)
+    await complete_trade_set(db, ts, session_uid)
     await funnel_events.record(
         db,
         FunnelEventType.TRADE_COMPLETE,
@@ -3158,7 +3104,12 @@ async def complete_appointment(
         session_id=unpack_tracking_ids(tracking_ids)[1],
     )
     _enqueue_live_activity(db, appt)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # 다른 방이 같은 매물을 RESERVED/COMPLETED 로 쥐고 있으면 부분 유니크가 막는다(dm.py update_trade_set_status 와 동일).
+        await db.rollback()
+        raise HTTPException(status_code=409, detail={"code": "listing_reservation_conflict"}) from None
     return await _appt_out(db, appt, listing.seller_id)
 
 

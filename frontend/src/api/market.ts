@@ -337,7 +337,7 @@ export async function updateListingStatus(
   });
 }
 
-/** F-7: 매물 철회. rethrow — 호출부가 active_appointment 코드를 구분해 안내하기 위해 */
+/** F-7: 매물 철회. rethrow — 호출부가 active_trade 코드를 구분해 안내하기 위해 */
 export async function withdrawListing(id: string, sellerId: string): Promise<{ id: string }> {
   return api.realFetch<{ id: string }>(`/market/listings/${id}/status`, {
     method: 'PATCH',

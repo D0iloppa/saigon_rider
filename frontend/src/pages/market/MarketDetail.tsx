@@ -233,7 +233,7 @@ export default function MarketDetail() {
     }
   };
 
-  // F-7: 판매자 철회 — ACCEPTED 약속이 걸려 있으면 서버가 409 active_appointment 로 거부
+  // F-7: 판매자 철회 — 예약중 항목/송금 신고된 거래가 있으면 서버가 409 active_trade 로 거부
   const handleWithdraw = async () => {
     if (!detail || !myId || withdrawing) return;
     setWithdrawing(true);
@@ -243,8 +243,8 @@ export default function MarketDetail() {
       setDetail(await fetchListing(detail.id, myId));
       toast.success(t('market.withdrawDone', { defaultValue: '매물을 내렸어요. 언제든 다시 올릴 수 있어요' }));
     } catch (err: any) {
-      if (/"code":\s*"active_appointment"/.test(err?.message ?? '')) {
-        toast.error(t('market.withdrawBlockedByAppointment', { defaultValue: '진행 중인 약속이 있어 철회할 수 없어요. 약속을 먼저 취소해주세요.' }));
+      if (/"code":\s*"active_trade"/.test(err?.message ?? '')) {
+        toast.error(t('market.withdrawBlockedByTrade', { defaultValue: '진행 중인 거래가 있어 숨길 수 없어요' }));
       } else {
         toast.error(t('market.withdrawError', { defaultValue: '철회에 실패했어요' }));
       }

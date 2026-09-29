@@ -296,7 +296,7 @@
     "withdrawing": "철회 중",
     "withdrawDone": "매물을 내렸어요. 언제든 다시 올릴 수 있어요",
     "withdrawError": "철회에 실패했어요",
-    "withdrawBlockedByAppointment": "진행 중인 약속이 있어 철회할 수 없어요. 약속을 먼저 취소해주세요.",
+    "withdrawBlockedByTrade": "진행 중인 거래가 있어 숨길 수 없어요",
     "relist": "다시 올리기",
     "relistDone": "다시 판매중으로 올렸어요",
     "relistError": "다시 올리기에 실패했어요",

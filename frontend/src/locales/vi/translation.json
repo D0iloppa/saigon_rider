@@ -296,7 +296,7 @@
     "withdrawing": "Đang hủy",
     "withdrawDone": "Đã gỡ tin. Bạn có thể đăng lại bất cứ lúc nào",
     "withdrawError": "Hủy tin thất bại",
-    "withdrawBlockedByAppointment": "Không thể hủy khi có lịch hẹn đang diễn ra. Hãy hủy lịch hẹn trước.",
+    "withdrawBlockedByTrade": "Mặt hàng đang có giao dịch",
     "relist": "Đăng lại",
     "relistDone": "Đã đăng lại, đang bán",
     "relistError": "Đăng lại thất bại",

@@ -71,11 +71,10 @@ from ..services.dm_policy import (
     require_unblocked,
     require_unblocked_for_join,
 )
-from ..services.listing_state import log_transition
 from ..services.push_i18n import t
 from ..services.trade_sets import (
     bundle_snapshot_meta,
-    find_accepted_appointment,
+    complete_trade_set,
     get_active_set,
     get_or_create_active_set,
     is_reserved_for,
@@ -89,7 +88,7 @@ from ..utils import build_imgproxy_url, resolve_avatar_url
 from ._report_guard import guard_duplicate_report
 from .contents import CONTENTS_BASE_PATH, _content_playback_url
 from .dm_channels import channel_unread_counts
-from .market import _appointment_unlocked, _appt_out, _offer_out
+from .market import _appt_out, _offer_out
 from .market import _card as _market_card
 from .market import _thumbnail_url as _market_thumbnail_url
 
@@ -481,7 +480,6 @@ async def get_conversation(
         context_type=conv.context_type,
         context_id=conv.context_id,
         context_listing=await _listing_context(db, conv.context_id) if conv.context_type == "listing" else None,
-        appointment_unlocked=await _appointment_unlocked(db, conv, _session_uid),
         messaging_disabled=messaging_disabled,
         blocked_by_me=blocked_by_me,
     )
@@ -688,7 +686,6 @@ async def create_conversation(
         context_type=conv.context_type,
         context_id=conv.context_id,
         context_listing=await _listing_context(db, conv.context_id) if conv.context_type == "listing" else None,
-        appointment_unlocked=await _appointment_unlocked(db, conv, _session_uid),
     )
 
 
@@ -2502,57 +2499,7 @@ async def update_trade_set_status(
             await reserve_listing_for_set(db, listing, ts, actor_id=session_uid)
 
     else:  # COMPLETED
-        items = (
-            (
-                await db.execute(
-                    select(TradeSetItem).where(
-                        TradeSetItem.set_id == ts.id, TradeSetItem.status.in_(["INQUIRY", "RESERVED"])
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-        for item in items:
-            listing = (
-                await db.execute(
-                    select(MarketplaceListing).where(MarketplaceListing.id == item.listing_id).with_for_update()
-                )
-            ).scalar_one_or_none()
-            if listing is None:
-                continue
-            offer_amount = (
-                await db.execute(
-                    select(MarketplacePriceOffer.amount)
-                    .where(
-                        MarketplacePriceOffer.listing_id == listing.id,
-                        MarketplacePriceOffer.status == "ACCEPTED",
-                    )
-                    .order_by(MarketplacePriceOffer.updated_at.desc())
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
-            prev_status = listing.status
-            listing.status = "SOLD"
-            listing.agreed_price_vnd = offer_amount if offer_amount is not None else listing.price_vnd
-            listing.updated_at = now
-            log_transition(
-                db,
-                listing.id,
-                prev_status,
-                "SOLD",
-                actor_type="user",
-                actor_id=session_uid,
-                reason="trade_set_completed",
-            )
-            item.status = "COMPLETED"
-            item.updated_at = now
-            appt = await find_accepted_appointment(db, conv_id, listing.id)
-            if appt is not None:
-                appt.status = "COMPLETED"
-                appt.updated_at = now
-        ts.status = "CLOSED"
-        ts.updated_at = now
+        await complete_trade_set(db, ts, session_uid)
 
     try:
         await db.commit()

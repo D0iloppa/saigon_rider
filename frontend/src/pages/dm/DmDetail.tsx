@@ -414,7 +414,10 @@ export default function DmDetail() {
           // 진짜 신규 메시지(수정/공감 아님)만큼 total 근사치도 전진 — 안 하면 loadOlder 의
           // "안 받은 과거분 = total - 보유건수" 계산이 뒤로 밀려 과거 구간을 영구히 건너뛴다.
           if (fresh.length > 0 && totalRef.current !== null) totalRef.current += fresh.length;
-          if (fresh.some((m) => m.senderId !== uid)) playSound('dm_receive');
+          // 워키토키 음성(voice)이 왔으면 띠동(dm_send), 그 외 새 메시지는 수신음(대표 지시 260929).
+          const incoming = fresh.filter((m) => m.senderId !== uid);
+          if (incoming.some((m) => m.messageType === 'voice')) playSound('dm_send');
+          else if (incoming.length > 0) playSound('dm_receive');
           // 남이 등록한 공지는 이 시스템 메시지로만 알 수 있다 — 배너가 낡지 않게 conv 만 재조회
           if (fresh.some((m) => m.messageType === 'system' && m.meta?.kind === 'notice_set')) refreshConv();
           // F-DM-02(260928) — 상대가 세트를 바꾼(담기/제거/상태변경) 시스템·묶음카드가 도착하면 세트 재조회.
@@ -633,7 +636,7 @@ export default function DmDetail() {
       const msg = await sendMessage(conversationId, text, replyTo ? { replyToMessageId: replyTo.id } : {});
       applyIncoming([msg]);
       setReplyTo(null);
-      playSound('dm_send');
+      // 텍스트 발신은 무음 — 띠동(dm_send)은 워키토키 음성 발신·수신 전용(대표 지시 260929).
     } catch (err) {
       // 전송 실패 시 입력을 비운 채로 두지 않고 원문을 복원 — 재입력 없이 한 번의 조작으로 재전송 가능 (P1-6)
       composerRef.current?.setValue(text);

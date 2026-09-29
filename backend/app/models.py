@@ -1855,16 +1855,21 @@ class MarketplaceAppointmentTravelEvent(Base):
 
 
 class MarketplaceTransaction(Base):
-    """Accepted marketplace deal and its manual-payment acknowledgement state.
+    """Trade-set deal and its manual-payment acknowledgement state.
 
-    ``appointment_id`` is both the stable public id and the one-to-one key. Payment
-    acknowledgement is deliberately separate from appointment/listing completion.
+    Owned by the trade set (init/244, F-N-02 FR-7 ④⑤): one row per ``trade_set_id``, opened when the
+    set gets a RESERVED item. ``appointment_id`` is nullable legacy only. Payment acknowledgement is
+    deliberately separate from listing completion.
     """
 
     __tablename__ = "marketplace_transactions"
 
-    appointment_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("marketplace_appointments.id", ondelete="CASCADE"), primary_key=True
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    trade_set_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("trade_sets.id", ondelete="CASCADE"), nullable=True
+    )
+    appointment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_appointments.id", ondelete="CASCADE"), nullable=True
     )
     conversation_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=False
@@ -1894,15 +1899,18 @@ class MarketplaceTransaction(Base):
 class MarketplaceTransactionCancelRequest(Base):
     """F-X-01 FR-2 ②: 양측 합의 취소(교착 출구) 요청 — 거래당 활성(PENDING) 1건.
 
-    ``AGREE`` 로 응답하면 약속·거래는 CANCELLED, 매물은 ON_SALE 로 돌아간다(취소됨(합의)).
+    ``AGREE`` 로 응답하면 거래는 초기화되고 세트의 예약 항목은 취소·매물은 ON_SALE 로 돌아간다(취소됨(합의)).
     24h 무응답이면 ``expire_transaction_cancel_requests`` 잡이 같은 효력으로 자동 종료한다.
     """
 
     __tablename__ = "marketplace_transaction_cancel_requests"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    appointment_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("marketplace_appointments.id", ondelete="CASCADE"), nullable=False
+    transaction_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_transactions.id", ondelete="CASCADE"), nullable=True
+    )
+    appointment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_appointments.id", ondelete="CASCADE"), nullable=True
     )
     requester_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False

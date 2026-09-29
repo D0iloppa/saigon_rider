@@ -18,14 +18,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
 from ...models import (
+    DmConversation,
     MarketplaceAppointment,
     MarketplaceListing,
-    MarketplacePriceOffer,
     Notification,
     User,
 )
 from ...schemas import Page
-from ...services.listing_state import log_transition
+from ...services.trade_sets import complete_trade_set, get_or_create_active_set, upsert_item
 from ._audit import audit
 from .listings import _admin_uuid
 
@@ -166,44 +166,21 @@ async def force_complete(
     session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
-    """운영자가 거래를 완료로 확정한다 → 약속 COMPLETED, 매물 SOLD.
+    """운영자가 거래를 완료로 확정한다 → 세트 완료 경로: 약속 COMPLETED, 매물 SOLD.
     합의가 스냅샷은 앱 경로(MKT-7)와 동일 규칙으로 남긴다."""
     appt, listing = await _load_pending(db, appointment_id, body.reason)
     if listing.status == "SOLD":
         raise HTTPException(status_code=409, detail="listing already sold")
 
-    accepted_offer_amount = (
-        await db.execute(
-            select(MarketplacePriceOffer.amount)
-            .where(
-                MarketplacePriceOffer.conversation_id == appt.conversation_id,
-                MarketplacePriceOffer.status == "ACCEPTED",
-            )
-            .order_by(MarketplacePriceOffer.updated_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-
     now = datetime.now(UTC)
-    appt.status = "COMPLETED"
-    appt.updated_at = now
-    # 016 §4-1 #36 — 상태를 바꾸는 모든 지점은 listing_state_log 에 전이를 남긴다.
-    # 이 경로(운영자 강제완료)가 빠져 있으면 에러 없이 조용히 두 가지가 틀어진다:
-    #   ① liquidity.py 의 L-2(거래 전환율)·L-4(첫 문의까지 시간)가 이 거래를 누락해 과소산출
-    #   ② title_transfer_reminders.py 가 to_state='SOLD' 를 앵커로 조회하므로
-    #      이 경로로 완료된 거래는 D+7/D+25 명의이전 리마인더가 영구 미발송
-    log_transition(
-        db,
-        listing.id,
-        listing.status,
-        "SOLD",
-        actor_type="admin",
-        actor_id=_admin_uuid(session),
-        reason="admin_force_complete",
-    )
-    listing.status = "SOLD"
-    listing.agreed_price_vnd = accepted_offer_amount if accepted_offer_amount is not None else listing.price_vnd
-    listing.updated_at = now
+    # 앱 경로(market.complete_appointment)와 동일하게 세트 완료 경로로 위임한다(F-N-02 FR-7 ④) —
+    # 약속 COMPLETED · 매물 SOLD · 합의가 스냅샷(MKT-7) · 상태 전이 로그(016 §4-1 #36: liquidity L-2/L-4 와
+    # title_transfer_reminders 앵커)를 complete_trade_set 이 처리한다. 세트가 없는 레거시 약속은 태워서 완료한다.
+    conv = await db.get(DmConversation, appt.conversation_id)
+    buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1
+    ts = await get_or_create_active_set(db, appt.conversation_id, buyer_id, listing.seller_id)
+    await upsert_item(db, ts.id, listing.id, listing.seller_id)
+    await complete_trade_set(db, ts, _admin_uuid(session), actor_type="admin")
 
     body_text = f"'{listing.title}' 거래가 운영 검토에 따라 완료 처리되었습니다. 사유: {body.reason}"
     for user_id in {listing.seller_id, appt.completion_requested_by} - {None}:

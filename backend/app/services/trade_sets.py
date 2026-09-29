@@ -16,6 +16,7 @@ from ..models import (
     MarketplaceAppointment,
     MarketplaceListing,
     MarketplacePriceOffer,
+    MarketplaceTransaction,
     TradeSet,
     TradeSetItem,
 )
@@ -103,6 +104,106 @@ async def set_total_vnd(db: AsyncSession, ts: TradeSet) -> int:
         offer_amount = await accepted_offer_amount(db, ts.conversation_id, it.listing_id)
         total += offer_amount if offer_amount is not None else listing.price_vnd
     return total
+
+
+async def set_has_reserved_item(db: AsyncSession, set_id: uuid.UUID) -> bool:
+    return (
+        await db.execute(
+            select(TradeSetItem.id).where(TradeSetItem.set_id == set_id, TradeSetItem.status == "RESERVED").limit(1)
+        )
+    ).scalar_one_or_none() is not None
+
+
+async def ensure_set_transaction(db: AsyncSession, ts: TradeSet) -> MarketplaceTransaction | None:
+    """세트 소유 결제 거래(F-N-02 FR-7 ④⑤) — 세트에 RESERVED 항목이 생기면 1건 만들고, 송금 전
+    (AWAITING_PAYMENT)에는 항목 변동마다 금액(set_total_vnd)·대표 매물을 다시 맞춘다. 세트 항목이
+    바뀌는 모든 경로(담기·빼기·상태 변경·예약)가 부르는 단일 진입점. commit 은 호출부 몫."""
+    await db.flush()  # 방금 바뀐 항목 상태를 아래 조회에 반영
+    tx = (
+        await db.execute(select(MarketplaceTransaction).where(MarketplaceTransaction.trade_set_id == ts.id))
+    ).scalar_one_or_none()
+    if tx is None and not await set_has_reserved_item(db, ts.id):
+        return None
+    if tx is not None and tx.payment_status != "AWAITING_PAYMENT":
+        return tx
+    first_item = (
+        await db.execute(
+            select(TradeSetItem.listing_id)
+            .where(TradeSetItem.set_id == ts.id, TradeSetItem.status.in_(_ACTIVE_ITEM_STATUSES))
+            .order_by(TradeSetItem.created_at)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    now = datetime.now(UTC)
+    amount = await set_total_vnd(db, ts)
+    if tx is None:
+        tx = MarketplaceTransaction(
+            trade_set_id=ts.id,
+            conversation_id=ts.conversation_id,
+            listing_id=first_item,
+            buyer_id=ts.buyer_id,
+            seller_id=ts.seller_id,
+            amount_vnd=amount,
+            payment_method="zalopay_qr_manual",
+            payment_status="AWAITING_PAYMENT",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(tx)
+    else:
+        tx.amount_vnd = amount
+        if first_item is not None:
+            tx.listing_id = first_item
+        tx.updated_at = now
+    await db.flush()
+    return tx
+
+
+async def cancel_set_trade(
+    db: AsyncSession,
+    ts: TradeSet,
+    tx: MarketplaceTransaction,
+    *,
+    actor_id: uuid.UUID | None,
+    reason: str,
+    actor_type: str = "user",
+) -> None:
+    """거래 취소(양측 합의·만료·운영자 롤백) — 세트의 RESERVED 항목을 모두 CANCELLED 로 종결하고 매물을
+    판매중으로 되돌린 뒤(d1 알림 포함) 결제 상태를 초기화한다. 약속은 건드리지 않는다(FR-7 독립)."""
+    now = datetime.now(UTC)
+    items = (
+        (await db.execute(select(TradeSetItem).where(TradeSetItem.set_id == ts.id, TradeSetItem.status == "RESERVED")))
+        .scalars()
+        .all()
+    )
+    for item in items:
+        listing = (
+            await db.execute(
+                select(MarketplaceListing).where(MarketplaceListing.id == item.listing_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if listing is not None:
+            await release_listing_to_on_sale(db, listing, actor_id=actor_id, reason=reason, actor_type=actor_type)
+        item.status = "CANCELLED"
+        item.updated_at = now
+    tx.payment_status = "AWAITING_PAYMENT"
+    tx.buyer_reported_at = None
+    tx.stall_notice_sent_at = None
+    tx.updated_at = now
+
+
+async def latest_accepted_appointment(db: AsyncSession, conversation_id: uuid.UUID) -> MarketplaceAppointment | None:
+    """표시 전용 — 방의 가장 최근 ACCEPTED 약속(결제와 무관, FR-7)."""
+    return (
+        await db.execute(
+            select(MarketplaceAppointment)
+            .where(
+                MarketplaceAppointment.conversation_id == conversation_id, MarketplaceAppointment.status == "ACCEPTED"
+            )
+            .order_by(MarketplaceAppointment.updated_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
 
 
 async def trade_set_out(db: AsyncSession, ts: TradeSet) -> TradeSetOut:
@@ -331,6 +432,8 @@ async def reserve_listing_for_set(
         )
         db.add(msg)
 
+    await ensure_set_transaction(db, ts)
+
 
 async def find_accepted_appointment(
     db: AsyncSession, conversation_id: uuid.UUID, listing_id: uuid.UUID
@@ -364,7 +467,9 @@ async def cancel_reserved_item(db: AsyncSession, conversation_id: uuid.UUID, lis
         item.updated_at = datetime.now(UTC)
 
 
-async def complete_trade_set(db: AsyncSession, ts: TradeSet, actor_id: uuid.UUID) -> list[MarketplaceAppointment]:
+async def complete_trade_set(
+    db: AsyncSession, ts: TradeSet, actor_id: uuid.UUID | None, *, actor_type: str = "user"
+) -> list[MarketplaceAppointment]:
     """세트의 INQUIRY/RESERVED 항목을 모두 거래완료(매물 SOLD, 세트 CLOSED)로 만든다. 세트 상태 변경과
     약속 완료(complete_appointment)가 공유하는 유일한 완료 경로(F-N-02 FR-7 ④). commit 은 호출부 몫.
     함께 COMPLETED 로 옮긴 ACCEPTED 약속을 돌려줘 호출부가 알림·라이브 액티비티를 붙일 수 있게 한다."""
@@ -409,7 +514,7 @@ async def complete_trade_set(db: AsyncSession, ts: TradeSet, actor_id: uuid.UUID
             listing.id,
             prev_status,
             "SOLD",
-            actor_type="user",
+            actor_type=actor_type,
             actor_id=actor_id,
             reason="trade_set_completed",
         )

@@ -1,7 +1,7 @@
 """F-X-01 FR-2(260924 승인안): 거래 취소 요청(PENDING) 24h 무응답 자동 취소.
 
 상대가 응답하지 않으면 요청 자체가 교착의 새 원인이 되지 않도록, 응답 없이 24시간이 지난
-요청은 [동의]와 같은 효력(약속·거래 CANCELLED, 매물 ON_SALE 복귀)으로 자동 종료한다.
+요청은 [동의]와 같은 효력(거래 초기화·세트 예약 항목 취소, 매물 ON_SALE 복귀)으로 자동 종료한다.
 """
 
 import logging
@@ -13,13 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import AsyncSessionLocal
 from ..models import (
-    MarketplaceAppointment,
     MarketplaceListing,
     MarketplaceTransaction,
     MarketplaceTransactionCancelRequest,
+    TradeSet,
 )
 from ..services import noti_events
-from ..services.trade_sets import cancel_reserved_item, release_listing_to_on_sale
+from ..services.trade_sets import cancel_set_trade
 
 log = logging.getLogger(__name__)
 
@@ -63,9 +63,11 @@ async def _expire_one(db: AsyncSession, request_id: uuid.UUID, now: datetime) ->
     ).scalar_one_or_none()
     if cancel_request is None or cancel_request.status != "PENDING" or cancel_request.expires_at > now:
         return
-    appt = await db.get(MarketplaceAppointment, cancel_request.appointment_id)
-    transaction = await db.get(MarketplaceTransaction, cancel_request.appointment_id)
-    if appt is None or transaction is None:
+    transaction = (
+        await db.get(MarketplaceTransaction, cancel_request.transaction_id) if cancel_request.transaction_id else None
+    )
+    ts = await db.get(TradeSet, transaction.trade_set_id) if transaction and transaction.trade_set_id else None
+    if transaction is None or ts is None:
         cancel_request.status = "EXPIRED"
         cancel_request.responded_at = now
         cancel_request.updated_at = now
@@ -76,22 +78,12 @@ async def _expire_one(db: AsyncSession, request_id: uuid.UUID, now: datetime) ->
             select(MarketplaceListing).where(MarketplaceListing.id == transaction.listing_id).with_for_update()
         )
     ).scalar_one_or_none()
-    if listing is not None and appt.status == "ACCEPTED" and listing.status == "RESERVED":
-        # 리뷰어 지적 #2 — 공유 헬퍼로 통일해 d1 알림 + 세트 항목 CANCELLED 전이까지 함께 처리한다.
-        await release_listing_to_on_sale(
-            db, listing, actor_id=None, actor_type="system", reason="transaction_cancel_request_expired"
-        )
-        await cancel_reserved_item(db, transaction.conversation_id, listing.id)
-    if appt.status == "ACCEPTED":
-        appt.status = "CANCELLED"
-        appt.cancel_reason = cancel_request.reason
-        appt.updated_at = now
-    # 운영자 롤백(admin_api/transactions.py::rollback_payment_report)과 동일하게 payment_status를
-    # 되돌린다 — 그대로 두면 어드민 PAYMENT_REPORTED 큐(list_transactions)에 해결된 건이 계속 쌓인다.
-    if transaction.payment_status == "PAYMENT_REPORTED":
-        transaction.payment_status = "AWAITING_PAYMENT"
-        transaction.buyer_reported_at = None
-        transaction.updated_at = now
+    # [동의]와 같은 효력 — 거래 취소(세트 예약 항목 CANCELLED · 매물 ON_SALE 복귀 · 결제 초기화). 약속은 그대로(FR-7).
+    # 운영자 롤백(admin_api/transactions.py::rollback_payment_report)과 동일하게 payment_status를 되돌려
+    # 어드민 PAYMENT_REPORTED 큐(list_transactions)에 해결된 건이 계속 쌓이지 않게 한다.
+    await cancel_set_trade(
+        db, ts, transaction, actor_id=None, actor_type="system", reason="transaction_cancel_request_expired"
+    )
     cancel_request.status = "EXPIRED"
     cancel_request.responded_at = now
     cancel_request.updated_at = now
@@ -100,7 +92,7 @@ async def _expire_one(db: AsyncSession, request_id: uuid.UUID, now: datetime) ->
             db,
             "market.transaction_cancel_expired",
             {
-                "appointment_id": str(appt.id),
+                "trade_set_id": str(ts.id),
                 "conversation_id": str(transaction.conversation_id),
                 "listing_title": listing.title if listing else "",
                 "recipient_id": str(recipient_id),

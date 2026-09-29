@@ -26,6 +26,7 @@ from ..models import (
     MarketplacePriceOffer,
     MarketplaceTransaction,
     Report,
+    TradeSet,
     TradeSetItem,
     User,
     UserBlock,
@@ -75,11 +76,13 @@ from ..services.push_i18n import t
 from ..services.trade_sets import (
     bundle_snapshot_meta,
     complete_trade_set,
+    ensure_set_transaction,
     get_active_set,
     get_or_create_active_set,
     is_reserved_for,
     release_listing_to_on_sale,
     reserve_listing_for_set,
+    set_has_reserved_item,
     set_total_vnd,
     trade_set_out,
     upsert_item,
@@ -146,23 +149,23 @@ def _resolve_dm_image(msg: DmMessage) -> str | None:
 
 
 async def _payment_qr_context(
-    db: AsyncSession, appointment_id: uuid.UUID, session_uid: uuid.UUID, *, lock: bool = False
-) -> tuple[MarketplaceAppointment, DmConversation, MarketplaceListing]:
-    appt_query = select(MarketplaceAppointment).where(MarketplaceAppointment.id == appointment_id)
+    db: AsyncSession, trade_set_id: uuid.UUID, session_uid: uuid.UUID, *, lock: bool = False
+) -> tuple[TradeSet, DmConversation]:
+    """결제 QR 은 거래 세트 소유(F-N-02 FR-7 ④) — 세트에 RESERVED 항목이 있어야 하고 약속과 무관하다."""
+    ts_query = select(TradeSet).where(TradeSet.id == trade_set_id)
     if lock:
-        appt_query = appt_query.with_for_update()
-    appt = (await db.execute(appt_query)).scalar_one_or_none()
-    if appt is None or appt.status != "ACCEPTED":
-        raise HTTPException(status_code=409, detail="Payment QR requires an accepted appointment")
-    conv = await db.get(DmConversation, appt.conversation_id)
+        ts_query = ts_query.with_for_update()
+    ts = (await db.execute(ts_query)).scalar_one_or_none()
+    if ts is None or not await set_has_reserved_item(db, ts.id):
+        raise HTTPException(status_code=409, detail="Payment QR requires a trade set with a reserved item")
+    conv = await db.get(DmConversation, ts.conversation_id)
     if conv is None or conv.conversation_type != "direct":
         raise HTTPException(status_code=403, detail="Payment QR requires a direct transaction conversation")
     counterpart = require_participant(conv, session_uid)
     await require_unblocked(db, session_uid, counterpart)
-    listing = await db.get(MarketplaceListing, appt.listing_id)
-    if listing is None or listing.seller_id not in (conv.participant_1, conv.participant_2):
+    if {ts.buyer_id, ts.seller_id} != {conv.participant_1, conv.participant_2}:
         raise HTTPException(status_code=403, detail="Invalid transaction")
-    return appt, conv, listing
+    return ts, conv
 
 
 def _payment_qr_message_out(msg: DmMessage) -> DmMessageOut:
@@ -1134,16 +1137,16 @@ async def register_payment_qr(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    """Replace the current seller-provided QR for one accepted appointment.
+    """Replace the current seller-provided QR for one trade set.
 
     This creates no payment state: the QR is only an external-payment instruction.
     """
-    appt, conv, listing = await _payment_qr_context(db, body.appointment_id, _session_uid, lock=True)
-    if conv.id != conv_id or listing.seller_id != _session_uid:
+    ts, conv = await _payment_qr_context(db, body.trade_set_id, _session_uid, lock=True)
+    if conv.id != conv_id or ts.seller_id != _session_uid:
         raise HTTPException(status_code=403, detail="Only the transaction seller can register a payment QR")
-    if listing.status != "RESERVED":
-        raise HTTPException(status_code=409, detail="Payment QR requires an active reserved listing")
-    transaction = await db.get(MarketplaceTransaction, appt.id)
+    transaction = (
+        await db.execute(select(MarketplaceTransaction).where(MarketplaceTransaction.trade_set_id == ts.id))
+    ).scalar_one_or_none()
     if transaction is None:
         raise HTTPException(status_code=409, detail="Transaction not found")
     if transaction.payment_status != "AWAITING_PAYMENT":
@@ -1175,9 +1178,13 @@ async def register_payment_qr(
             .with_for_update()
         )
     ).scalars()
-    # A direct conversation may cover many listings; appointmentId is the authoritative binding.
+    # A direct conversation may hold many sets over time; tradeSetId is the authoritative binding
+    # (legacy rows are bound by appointmentId).
     for prior in prior_qrs:
-        if prior.meta and prior.meta.get("appointmentId") == str(appt.id):
+        if prior.meta and (
+            prior.meta.get("tradeSetId") == str(ts.id)
+            or (transaction.appointment_id and prior.meta.get("appointmentId") == str(transaction.appointment_id))
+        ):
             prior.deleted_at = now
             prior.updated_at = now
 
@@ -1186,7 +1193,11 @@ async def register_payment_qr(
         sender_id=_session_uid,
         content=None,
         message_type="payment_qr",
-        meta={"appointmentId": str(appt.id), "listingId": str(listing.id)},
+        meta={
+            "tradeSetId": str(ts.id),
+            "transactionId": str(transaction.id),
+            "listingId": str(transaction.listing_id),
+        },
         image_content_id=image.id,
         created_at=now,
         updated_at=now,
@@ -1231,20 +1242,31 @@ async def get_payment_qr_image(
             )
         )
     ).scalar_one_or_none()
-    if msg is None or not msg.meta or not msg.meta.get("appointmentId"):
+    if msg is None or not msg.meta or not (msg.meta.get("tradeSetId") or msg.meta.get("appointmentId")):
         raise HTTPException(status_code=404, detail="Payment QR not found")
     try:
-        appointment_id = uuid.UUID(msg.meta["appointmentId"])
+        if msg.meta.get("tradeSetId"):
+            trade_set_id = uuid.UUID(msg.meta["tradeSetId"])
+        else:  # 레거시(약속 소유 시절) QR — 거래의 세트로 해석한다
+            trade_set_id = (
+                await db.execute(
+                    select(MarketplaceTransaction.trade_set_id).where(
+                        MarketplaceTransaction.appointment_id == uuid.UUID(msg.meta["appointmentId"])
+                    )
+                )
+            ).scalar_one_or_none()
     except (TypeError, ValueError):
         raise HTTPException(status_code=404, detail="Payment QR not found") from None
+    if trade_set_id is None:
+        raise HTTPException(status_code=404, detail="Payment QR not found")
 
-    _appt, conv, listing = await _payment_qr_context(db, appointment_id, _session_uid)
+    ts, conv = await _payment_qr_context(db, trade_set_id, _session_uid)
     image = await db.get(Content, msg.image_content_id) if msg.image_content_id else None
     if (
         conv.id != conv_id
-        or msg.sender_id != listing.seller_id
+        or msg.sender_id != ts.seller_id
         or image is None
-        or image.owner_id != listing.seller_id
+        or image.owner_id != ts.seller_id
         or not image.is_private
         or image.owner_type != "user"
         or image.mime_type not in {"image/jpeg", "image/png", "image/gif", "image/webp"}
@@ -2265,16 +2287,11 @@ async def _load_conversation_for_set(db: AsyncSession, conv_id: uuid.UUID, sessi
     return conv
 
 
-async def _payment_locked(db: AsyncSession, conversation_id: uuid.UUID, listing_id: uuid.UUID) -> bool:
-    """송금 신고 이후 세트 편집 잠금 — appointment/transaction 을 이 (대화, 매물) 로 좁혀 조회."""
+async def _payment_locked(db: AsyncSession, ts: TradeSet) -> bool:
+    """송금 신고 이후 세트 편집 잠금 — 세트가 소유한 결제 거래의 상태로 판단한다."""
     row = (
         await db.execute(
-            select(MarketplaceTransaction.payment_status)
-            .join(MarketplaceAppointment, MarketplaceAppointment.id == MarketplaceTransaction.appointment_id)
-            .where(
-                MarketplaceAppointment.conversation_id == conversation_id,
-                MarketplaceAppointment.listing_id == listing_id,
-            )
+            select(MarketplaceTransaction.payment_status).where(MarketplaceTransaction.trade_set_id == ts.id)
         )
     ).scalar_one_or_none()
     return row in ("PAYMENT_REPORTED", "PAYMENT_CONFIRMED")
@@ -2334,6 +2351,7 @@ async def add_trade_set_items(
         await upsert_item(db, ts.id, listing.id, session_uid)
         await _link_conversation_listing(db, conv_id, listing.id, source="inquiry")
 
+    await ensure_set_transaction(db, ts)
     total = await set_total_vnd(db, ts)
     # DM-5 원칙(위 conversations 목록 주석 참조): content 에 한국어를 하드코딩하지 않고 meta 를
     # 내려 프론트가 dm.tradeSetBundleRequest / dm.tradeSetItemAddedBySeller 로 렌더한다.
@@ -2390,7 +2408,7 @@ async def remove_trade_set_item(
     ).scalar_one_or_none()
     if item is None or item.status in ("REMOVED", "CANCELLED"):
         raise HTTPException(status_code=404, detail="Item not found")
-    if await _payment_locked(db, conv_id, listing_id):
+    if await _payment_locked(db, ts):
         raise HTTPException(status_code=409, detail={"code": "payment_reported"})
 
     listing = await db.get(MarketplaceListing, listing_id)
@@ -2418,6 +2436,7 @@ async def remove_trade_set_item(
             "totalVnd": total,
         }
 
+    await ensure_set_transaction(db, ts)
     db.add(
         DmMessage(
             conversation_id=conv_id,
@@ -2463,9 +2482,8 @@ async def update_trade_set_status(
             .scalars()
             .all()
         )
-        for item in items:
-            if await _payment_locked(db, conv_id, item.listing_id):
-                raise HTTPException(status_code=409, detail={"code": "payment_reported"})
+        if await _payment_locked(db, ts):
+            raise HTTPException(status_code=409, detail={"code": "payment_reported"})
         for item in items:
             listing = (
                 await db.execute(
@@ -2477,6 +2495,7 @@ async def update_trade_set_status(
             await release_listing_to_on_sale(db, listing, actor_id=session_uid, reason="trade_set_on_sale")
             item.status = "INQUIRY"
             item.updated_at = now
+        await ensure_set_transaction(db, ts)
 
     elif body.status == "RESERVED":
         items = (

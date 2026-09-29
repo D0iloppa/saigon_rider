@@ -2,7 +2,8 @@
 
 두 조건 중 하나면 양측에게 "문제가 있나요?" 출구 안내를 1회 보낸다(``stall_notice_sent_at`` 가드):
   ⓐ PAYMENT_REPORTED 후 24시간 동안 판매자 미확인(수신확인 없음)
-  ⓑ ACCEPTED 약속 시각(when_at) 이후 3시간 동안 결제 신고도 없이 무응답
+  ⓑ 방의 최신 ACCEPTED 약속 시각(when_at) 이후 3시간 동안 결제 신고도 없이 무응답
+     (F-N-02 FR-7: 결제는 세트 소유 — 약속은 시각 앵커일 뿐이라 약속이 없는 세트는 ⓑ 대상이 아니다)
 
 상태 자체를 바꾸지 않는다 — 사용자 수준 출구(신고 취소·취소 요청)로 넘어가는 안내일 뿐이다.
 """
@@ -10,10 +11,10 @@
 import logging
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..database import AsyncSessionLocal
-from ..models import MarketplaceAppointment, MarketplaceListing, MarketplaceTransaction
+from ..models import MarketplaceAppointment, MarketplaceListing, MarketplaceTransaction, TradeSet
 from ..services import noti_events
 
 log = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ async def _nudge_payment_reported(db, now: datetime) -> None:
                 db,
                 "market.transaction_stalled",
                 {
-                    "appointment_id": str(tx.appointment_id),
+                    "trade_set_id": str(tx.trade_set_id),
                     "conversation_id": str(tx.conversation_id),
                     "listing_title": listing_title,
                     "recipient_id": str(recipient_id),
@@ -68,20 +69,28 @@ async def _nudge_payment_reported(db, now: datetime) -> None:
 
 async def _nudge_accepted_no_response(db, now: datetime) -> None:
     cutoff = now - _ACCEPTED_NO_RESPONSE_STALL_AFTER
+    # 방별 최신 ACCEPTED 약속 시각 — 세트 거래의 "약속 이후 무응답" 앵커.
+    latest = (
+        select(MarketplaceAppointment.conversation_id, func.max(MarketplaceAppointment.when_at).label("last_when"))
+        .where(MarketplaceAppointment.status == "ACCEPTED")
+        .group_by(MarketplaceAppointment.conversation_id)
+        .subquery()
+    )
     rows = (
         await db.execute(
-            select(MarketplaceAppointment, MarketplaceTransaction, MarketplaceListing.title)
-            .join(MarketplaceTransaction, MarketplaceTransaction.appointment_id == MarketplaceAppointment.id)
+            select(MarketplaceTransaction, MarketplaceListing.title)
+            .join(latest, latest.c.conversation_id == MarketplaceTransaction.conversation_id)
+            .join(TradeSet, TradeSet.id == MarketplaceTransaction.trade_set_id)
             .join(MarketplaceListing, MarketplaceListing.id == MarketplaceTransaction.listing_id)
             .where(
-                MarketplaceAppointment.status == "ACCEPTED",
-                MarketplaceAppointment.when_at < cutoff,
+                TradeSet.status == "ACTIVE",
+                latest.c.last_when < cutoff,
                 MarketplaceTransaction.payment_status == "AWAITING_PAYMENT",
                 MarketplaceTransaction.stall_notice_sent_at.is_(None),
             )
         )
     ).all()
-    for appt, tx, listing_title in rows:
+    for tx, listing_title in rows:
         tx.stall_notice_sent_at = now
         tx.updated_at = now
         for recipient_id in (tx.buyer_id, tx.seller_id):
@@ -89,7 +98,7 @@ async def _nudge_accepted_no_response(db, now: datetime) -> None:
                 db,
                 "market.transaction_stalled",
                 {
-                    "appointment_id": str(appt.id),
+                    "trade_set_id": str(tx.trade_set_id),
                     "conversation_id": str(tx.conversation_id),
                     "listing_title": listing_title,
                     "recipient_id": str(recipient_id),

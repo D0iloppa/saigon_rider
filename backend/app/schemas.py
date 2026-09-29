@@ -1455,7 +1455,8 @@ class TransactionCancelRequestRespond(BaseModel):
 
 class TransactionCancelRequestOut(BaseModel):
     id: UUID
-    appointment_id: UUID
+    transaction_id: UUID
+    appointment_id: UUID | None = None
     requester_id: UUID
     reason: str
     status: Literal["PENDING", "AGREED", "REJECTED", "EXPIRED"]
@@ -1526,7 +1527,11 @@ class AppointmentTravelStatusOut(BaseModel):
 
 
 class MarketplaceTransactionOut(BaseModel):
-    appointment_id: UUID
+    id: UUID
+    trade_set_id: UUID | None = None
+    trade_set_status: str | None = None
+    # 표시 전용 — 방의 최신 ACCEPTED 약속(있을 때만). 결제와 무관(F-N-02 FR-7 ④).
+    appointment_id: UUID | None = None
     conversation_id: UUID
     listing_id: UUID
     listing_title: str
@@ -1537,8 +1542,8 @@ class MarketplaceTransactionOut(BaseModel):
     payment_method: str
     payment_status: str
     qr_message_id: UUID | None = None
-    appointment_status: str
-    when_at: datetime
+    appointment_status: str | None = None
+    when_at: datetime | None = None
     buyer_inspected_at: datetime | None = None
     buyer_reported_at: datetime | None = None
     seller_confirmed_at: datetime | None = None
@@ -1751,7 +1756,7 @@ class DmMessageCreateRequest(BaseModel):
 
 
 class DmPaymentQrRequest(BaseModel):
-    appointment_id: UUID
+    trade_set_id: UUID
     image_content_id: UUID
 
 

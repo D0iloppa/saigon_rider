@@ -113,14 +113,18 @@ from ..services.search_norm import norm
 from ..services.service_area import in_service_area
 from ..services.trade_sets import (
     cancel_reserved_item,
+    cancel_set_trade,
     complete_trade_set,
+    ensure_set_transaction,
     find_accepted_appointment,
     get_active_set,
     get_or_create_active_set,
     is_item_reserved,
     is_reserved_for,
+    latest_accepted_appointment,
     release_listing_to_on_sale,
     reserve_listing_for_set,
+    set_has_reserved_item,
     set_total_vnd,
     trade_set_out,
     upsert_item,
@@ -137,8 +141,6 @@ _AD_EVENTS_VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")  # stat_date 는 VN 로컬 일�
 # "어제(VN) 하루"만 재계산하는 창을 벗어나 조용히 유실(또는 훗날 수동 백필 시 예기치 않게 되살아남)되므로
 # 적재 자체를 거부한다. 48h 는 배치 지연·클라 오프라인 큐잉을 감안한 여유치(리뷰 제안값).
 _AD_EVENT_MAX_AGE = timedelta(hours=48)
-_PAYMENT_REPORT_EARLY_WINDOW = timedelta(minutes=30)
-_PAYMENT_REPORT_LATE_WINDOW = timedelta(minutes=60)
 
 _VALID_STATUSES = {"ON_SALE", "RESERVED", "SOLD", "WITHDRAWN"}
 _BUMP_COOLDOWN = timedelta(hours=4)  # 끌올 쿨다운
@@ -1092,7 +1094,7 @@ async def update_status(
         ).first()
         reported_tx = (
             await db.execute(
-                select(MarketplaceTransaction.appointment_id).where(
+                select(MarketplaceTransaction.id).where(
                     MarketplaceTransaction.listing_id == listing_id,
                     MarketplaceTransaction.payment_status == "PAYMENT_REPORTED",
                 )
@@ -1356,6 +1358,17 @@ async def block_user(
         # CS 자동 접수(운영자 큐에 남긴다) + 상대에게 "약속이 취소되었어요"만 통지.
         now = datetime.now(UTC)
         if direct_conv_id is not None:
+            # 결제 거래는 세트 소유(F-N-02 FR-7 ④) — 방의 활성 세트 거래로 조회한다.
+            block_set = await get_active_set(db, direct_conv_id)
+            transaction = (
+                (
+                    await db.execute(
+                        select(MarketplaceTransaction).where(MarketplaceTransaction.trade_set_id == block_set.id)
+                    )
+                ).scalar_one_or_none()
+                if block_set
+                else None
+            )
             appts = (
                 (
                     await db.execute(
@@ -1387,25 +1400,6 @@ async def block_user(
                         )
                         await cancel_reserved_item(db, appt.conversation_id, locked_listing.id)
                 if was_accepted:
-                    transaction = (
-                        await db.execute(
-                            select(MarketplaceTransaction).where(MarketplaceTransaction.appointment_id == appt.id)
-                        )
-                    ).scalar_one_or_none()
-                    # F-X-01 FR-2 정합(9a3cdf99 관례 승계) — 차단으로 강제 취소되면 PENDING 양측
-                    # 합의 취소 요청도 응답 없이 종료된 것과 같은 의미로 EXPIRED 처리한다.
-                    pending_cancel_request = (
-                        await db.execute(
-                            select(MarketplaceTransactionCancelRequest).where(
-                                MarketplaceTransactionCancelRequest.appointment_id == appt.id,
-                                MarketplaceTransactionCancelRequest.status == "PENDING",
-                            )
-                        )
-                    ).scalar_one_or_none()
-                    if pending_cancel_request is not None:
-                        pending_cancel_request.status = "EXPIRED"
-                        pending_cancel_request.responded_at = now
-                        pending_cancel_request.updated_at = now
                     noti_events.enqueue(
                         db,
                         "market.appointment_cancelled",
@@ -1440,6 +1434,19 @@ async def block_user(
                                 "blocked_user_id": str(user_id),
                             },
                         )
+                    )
+            # F-X-01 FR-2 정합(9a3cdf99 관례 승계) — 차단으로 거래가 강제 종료되면 PENDING 양측 합의
+            # 취소 요청도 응답 없이 종료된 것과 같은 의미로 EXPIRED 처리하고, 남은 예약 항목을 해제한다
+            # (약속이 없는 세트 예약도 교착을 만들지 않게).
+            if transaction is not None:
+                pending_cancel_request = await _active_cancel_request(db, transaction.id)
+                if pending_cancel_request is not None:
+                    pending_cancel_request.status = "EXPIRED"
+                    pending_cancel_request.responded_at = now
+                    pending_cancel_request.updated_at = now
+                if await set_has_reserved_item(db, block_set.id):
+                    await cancel_set_trade(
+                        db, block_set, transaction, actor_id=session_uid, reason="blocked_counterpart"
                     )
         await db.commit()
 
@@ -2575,62 +2582,21 @@ async def record_appointment_arrival(
     )
 
 
-async def _ensure_marketplace_transaction(
+async def _load_set_transaction(
     db: AsyncSession,
-    appt: MarketplaceAppointment,
-    conv: DmConversation,
-    listing: MarketplaceListing,
-) -> MarketplaceTransaction:
-    """Create the one transaction row for an accepted appointment, if absent."""
-    existing = await db.get(MarketplaceTransaction, appt.id)
-    if existing is not None:
-        return existing
-    buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1
-    if buyer_id is None or buyer_id == listing.seller_id:
-        raise HTTPException(status_code=403, detail="Invalid transaction participants")
-    accepted_offer_amount = (
-        await db.execute(
-            select(MarketplacePriceOffer.amount)
-            .where(
-                MarketplacePriceOffer.conversation_id == conv.id,
-                MarketplacePriceOffer.listing_id == listing.id,
-                MarketplacePriceOffer.status == "ACCEPTED",
-            )
-            .order_by(MarketplacePriceOffer.updated_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    now = datetime.now(UTC)
-    transaction = MarketplaceTransaction(
-        appointment_id=appt.id,
-        conversation_id=conv.id,
-        listing_id=listing.id,
-        buyer_id=buyer_id,
-        seller_id=listing.seller_id,
-        amount_vnd=accepted_offer_amount if accepted_offer_amount is not None else listing.price_vnd,
-        payment_method="zalopay_qr_manual",
-        payment_status="AWAITING_PAYMENT",
-        created_at=now,
-        updated_at=now,
-    )
-    db.add(transaction)
-    return transaction
-
-
-async def _load_marketplace_transaction(
-    db: AsyncSession,
-    appointment_id: uuid.UUID,
+    trade_set_id: uuid.UUID,
     session_uid: uuid.UUID,
     *,
     lock: bool = False,
-) -> tuple[MarketplaceTransaction, MarketplaceAppointment, DmConversation, MarketplaceListing]:
-    query = select(MarketplaceTransaction).where(MarketplaceTransaction.appointment_id == appointment_id)
-    transaction = (await db.execute(query)).scalar_one_or_none()
-    if transaction is None:
+) -> tuple[MarketplaceTransaction, TradeSet, DmConversation, MarketplaceListing]:
+    """세트가 소유한 결제 거래를 불러온다(F-N-02 FR-7 ④). 호출자는 세트의 구매자/판매자여야 한다."""
+    ts = await db.get(TradeSet, trade_set_id)
+    if ts is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    appt = await db.get(MarketplaceAppointment, appointment_id)
-    conv = await db.get(DmConversation, transaction.conversation_id)
-    if appt is None or conv is None:
+    query = select(MarketplaceTransaction).where(MarketplaceTransaction.trade_set_id == trade_set_id)
+    transaction = (await db.execute(query)).scalar_one_or_none()
+    conv = await db.get(DmConversation, ts.conversation_id)
+    if transaction is None or conv is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
     counterpart_id = require_participant(conv, session_uid)
     await require_unblocked(db, session_uid, counterpart_id)
@@ -2644,7 +2610,7 @@ async def _load_marketplace_transaction(
         transaction = (
             await db.execute(
                 select(MarketplaceTransaction)
-                .where(MarketplaceTransaction.appointment_id == appointment_id)
+                .where(MarketplaceTransaction.trade_set_id == trade_set_id)
                 .with_for_update()
                 .execution_options(populate_existing=True)
             )
@@ -2654,20 +2620,25 @@ async def _load_marketplace_transaction(
     if (
         listing is None
         or conv.conversation_type != "direct"
-        or conv.id != appt.conversation_id
-        or conv.context_type != "listing"
-        or conv.context_id != listing.id
-        or transaction.listing_id != appt.listing_id
-        or transaction.seller_id != listing.seller_id
+        or transaction.conversation_id != conv.id
+        or transaction.seller_id != ts.seller_id
+        or transaction.buyer_id != ts.buyer_id
         or {transaction.buyer_id, transaction.seller_id} != {conv.participant_1, conv.participant_2}
     ):
         raise HTTPException(status_code=403, detail="Invalid transaction context")
-    return transaction, appt, conv, listing
+    return transaction, ts, conv, listing
+
+
+async def _require_open_reserved_set(db: AsyncSession, ts: TradeSet, detail: str) -> None:
+    """새 결제 행위는 진행 중인 세트(미종결 · RESERVED 항목 있음)에서만 — 약속과 무관(FR-7 ④)."""
+    if ts.status != "ACTIVE" or not await set_has_reserved_item(db, ts.id):
+        raise HTTPException(status_code=409, detail=detail)
 
 
 def _cancel_request_out(cancel_request: MarketplaceTransactionCancelRequest) -> TransactionCancelRequestOut:
     return TransactionCancelRequestOut(
         id=cancel_request.id,
+        transaction_id=cancel_request.transaction_id,
         appointment_id=cancel_request.appointment_id,
         requester_id=cancel_request.requester_id,
         reason=cancel_request.reason,
@@ -2679,12 +2650,12 @@ def _cancel_request_out(cancel_request: MarketplaceTransactionCancelRequest) -> 
 
 
 async def _active_cancel_request(
-    db: AsyncSession, appointment_id: uuid.UUID
+    db: AsyncSession, transaction_id: uuid.UUID
 ) -> MarketplaceTransactionCancelRequest | None:
     return (
         await db.execute(
             select(MarketplaceTransactionCancelRequest).where(
-                MarketplaceTransactionCancelRequest.appointment_id == appointment_id,
+                MarketplaceTransactionCancelRequest.transaction_id == transaction_id,
                 MarketplaceTransactionCancelRequest.status == "PENDING",
             )
         )
@@ -2694,14 +2665,19 @@ async def _active_cancel_request(
 async def _marketplace_transaction_out(
     db: AsyncSession,
     transaction: MarketplaceTransaction,
-    appt: MarketplaceAppointment,
+    ts: TradeSet,
     listing: MarketplaceListing,
     session_uid: uuid.UUID,
 ) -> MarketplaceTransactionOut:
-    qr_message_id = await _current_payment_qr_message_id(db, transaction) if appt.status == "ACCEPTED" else None
-    active_cancel_request = await _active_cancel_request(db, appt.id)
+    qr_message_id = await _current_payment_qr_message_id(db, transaction) if ts.status == "ACTIVE" else None
+    active_cancel_request = await _active_cancel_request(db, transaction.id)
+    # 표시 전용 — 방의 최신 ACCEPTED 약속. 없으면 None(약속 없는 거래도 정상).
+    appt = await latest_accepted_appointment(db, transaction.conversation_id)
     return MarketplaceTransactionOut(
-        appointment_id=transaction.appointment_id,
+        id=transaction.id,
+        trade_set_id=transaction.trade_set_id,
+        trade_set_status=ts.status,
+        appointment_id=appt.id if appt else None,
         conversation_id=transaction.conversation_id,
         listing_id=transaction.listing_id,
         listing_title=listing.title,
@@ -2712,8 +2688,8 @@ async def _marketplace_transaction_out(
         payment_method=transaction.payment_method,
         payment_status=transaction.payment_status,
         qr_message_id=qr_message_id,
-        appointment_status=appt.status,
-        when_at=appt.when_at,
+        appointment_status=appt.status if appt else None,
+        when_at=appt.when_at if appt else None,
         buyer_inspected_at=getattr(transaction, "buyer_inspected_at", None),
         buyer_reported_at=transaction.buyer_reported_at,
         seller_confirmed_at=transaction.seller_confirmed_at,
@@ -2724,6 +2700,10 @@ async def _marketplace_transaction_out(
 
 
 async def _current_payment_qr_message_id(db: AsyncSession, transaction: MarketplaceTransaction) -> uuid.UUID | None:
+    # 세트 소유 QR(meta.tradeSetId) 우선, 약속 소유 시절의 레거시 QR(meta.appointmentId)은 폴백.
+    bound = DmMessage.meta["tradeSetId"].as_string() == str(transaction.trade_set_id)
+    if transaction.appointment_id is not None:
+        bound = bound | (DmMessage.meta["appointmentId"].as_string() == str(transaction.appointment_id))
     return (
         await db.execute(
             select(DmMessage.id)
@@ -2732,7 +2712,7 @@ async def _current_payment_qr_message_id(db: AsyncSession, transaction: Marketpl
                 DmMessage.sender_id == transaction.seller_id,
                 DmMessage.message_type == "payment_qr",
                 DmMessage.deleted_at.is_(None),
-                DmMessage.meta["appointmentId"].as_string() == str(transaction.appointment_id),
+                bound,
             )
             .order_by(DmMessage.created_at.desc())
             .limit(1)
@@ -2761,7 +2741,6 @@ async def accept_appointment(
     now = datetime.now(UTC)
     appt.status = "ACCEPTED"
     appt.updated_at = now
-    await _ensure_marketplace_transaction(db, appt, conv, listing)
     # 이 방의 항목이 이미 예약중이면 프롬프트를 또 띄우지 않는다.
     if not await is_item_reserved(db, conv.id, listing.id):
         buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1
@@ -2789,99 +2768,87 @@ async def accept_appointment(
 
 
 @router.get(
-    "/appointments/{appointment_id}/transaction",
+    "/trade-sets/{trade_set_id}/transaction",
     response_model=MarketplaceTransactionOut,
     summary="거래 절차 상세",
 )
 async def get_marketplace_transaction(
-    appointment_id: uuid.UUID,
+    trade_set_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid)
-    return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
+    transaction, ts, _conv, listing = await _load_set_transaction(db, trade_set_id, session_uid)
+    return await _marketplace_transaction_out(db, transaction, ts, listing, session_uid)
 
 
 @router.patch(
-    "/appointments/{appointment_id}/transaction/item-inspected",
+    "/trade-sets/{trade_set_id}/transaction/item-inspected",
     response_model=MarketplaceTransactionOut,
     summary="구매자 물품 확인",
 )
 async def confirm_marketplace_item_inspection(
-    appointment_id: uuid.UUID,
+    trade_set_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     """Record the buyer's in-person inspection before manual-payment reporting."""
-    transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
+    transaction, ts, _conv, listing = await _load_set_transaction(db, trade_set_id, session_uid, lock=True)
     if session_uid != transaction.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can confirm item inspection")
-    if appt.status != "ACCEPTED" or transaction.payment_status != "AWAITING_PAYMENT":
+    if transaction.payment_status != "AWAITING_PAYMENT":
         raise HTTPException(status_code=409, detail="Item inspection is no longer available for this transaction")
+    await _require_open_reserved_set(db, ts, "Item inspection is no longer available for this transaction")
     if getattr(transaction, "buyer_inspected_at", None) is None:
         now = datetime.now(UTC)
         transaction.buyer_inspected_at = now
         transaction.updated_at = now
         await db.commit()
-    return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
-
-
-def _payment_report_window_error(when_at: datetime, now: datetime) -> str | None:
-    if now < when_at - _PAYMENT_REPORT_EARLY_WINDOW:
-        return "payment_report_too_early"
-    if now > when_at + _PAYMENT_REPORT_LATE_WINDOW:
-        return "payment_report_window_expired"
-    return None
+    return await _marketplace_transaction_out(db, transaction, ts, listing, session_uid)
 
 
 @router.patch(
-    "/appointments/{appointment_id}/transaction/payment-reported",
+    "/trade-sets/{trade_set_id}/transaction/payment-reported",
     response_model=MarketplaceTransactionOut,
     summary="구매자 송금 완료 신고",
 )
 async def report_marketplace_payment(
-    appointment_id: uuid.UUID,
+    trade_set_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
+    transaction, ts, _conv, listing = await _load_set_transaction(db, trade_set_id, session_uid, lock=True)
     if session_uid != transaction.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can report payment")
-    if appt.status != "ACCEPTED":
-        raise HTTPException(status_code=409, detail="Payment can only be reported for an active transaction")
+    await _require_open_reserved_set(db, ts, "Payment can only be reported for an active transaction")
     if transaction.payment_status == "AWAITING_PAYMENT":
         if await _current_payment_qr_message_id(db, transaction) is None:
             raise HTTPException(status_code=409, detail="The seller has not registered a payment QR")
         now = datetime.now(UTC)
         if getattr(transaction, "buyer_inspected_at", None) is None:
             raise HTTPException(status_code=409, detail={"code": "item_inspection_required"})
-        window_error = _payment_report_window_error(appt.when_at, now)
-        if window_error is not None:
-            raise HTTPException(status_code=409, detail={"code": window_error, "when_at": appt.when_at.isoformat()})
         transaction.payment_status = "PAYMENT_REPORTED"
         transaction.buyer_reported_at = now
         # 이전 단계(ACCEPTED +3h 무응답)의 넛지 가드를 새 단계에서 재사용하지 않는다 — F-X-01 FR-2 ⑤.
         transaction.stall_notice_sent_at = None
         transaction.updated_at = now
         await db.commit()
-    return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
+    return await _marketplace_transaction_out(db, transaction, ts, listing, session_uid)
 
 
 @router.patch(
-    "/appointments/{appointment_id}/transaction/payment-confirmed",
+    "/trade-sets/{trade_set_id}/transaction/payment-confirmed",
     response_model=MarketplaceTransactionOut,
     summary="판매자 입금 수령 확인",
 )
 async def confirm_marketplace_payment(
-    appointment_id: uuid.UUID,
+    trade_set_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
+    transaction, ts, _conv, listing = await _load_set_transaction(db, trade_set_id, session_uid, lock=True)
     if session_uid != transaction.seller_id:
         raise HTTPException(status_code=403, detail="Only the seller can confirm receipt")
-    if appt.status != "ACCEPTED":
-        raise HTTPException(status_code=409, detail="Receipt can only be confirmed for an active transaction")
+    await _require_open_reserved_set(db, ts, "Receipt can only be confirmed for an active transaction")
     if transaction.payment_status == "AWAITING_PAYMENT":
         raise HTTPException(status_code=409, detail="The buyer has not reported payment")
     if transaction.payment_status == "PAYMENT_REPORTED":
@@ -2890,19 +2857,19 @@ async def confirm_marketplace_payment(
         transaction.seller_confirmed_at = now
         transaction.updated_at = now
         await db.commit()
-    return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
+    return await _marketplace_transaction_out(db, transaction, ts, listing, session_uid)
 
 
 _TRANSACTION_CANCEL_REQUEST_WINDOW = timedelta(hours=24)
 
 
 @router.patch(
-    "/appointments/{appointment_id}/transaction/payment-report-cancel",
+    "/trade-sets/{trade_set_id}/transaction/payment-report-cancel",
     response_model=MarketplaceTransactionOut,
     summary="구매자 송금 신고 취소(오신고 철회)",
 )
 async def cancel_marketplace_payment_report(
-    appointment_id: uuid.UUID,
+    trade_set_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
@@ -2910,11 +2877,10 @@ async def cancel_marketplace_payment_report(
 
     판매자가 이미 입금을 확인했으면(PAYMENT_CONFIRMED) 되돌릴 수 없다 — 확인된 기록은
     구매자가 지울 수 없다(요소 표 근거)."""
-    transaction, appt, conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
+    transaction, ts, conv, listing = await _load_set_transaction(db, trade_set_id, session_uid, lock=True)
     if session_uid != transaction.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can cancel their own payment report")
-    if appt.status != "ACCEPTED":
-        raise HTTPException(status_code=409, detail="Payment report can only be cancelled for an active transaction")
+    await _require_open_reserved_set(db, ts, "Payment report can only be cancelled for an active transaction")
     if transaction.payment_status != "PAYMENT_REPORTED":
         raise HTTPException(status_code=409, detail="No payment report to cancel")
 
@@ -2927,24 +2893,24 @@ async def cancel_marketplace_payment_report(
         db,
         "market.payment_report_cancelled",
         {
-            "appointment_id": str(appt.id),
+            "trade_set_id": str(ts.id),
             "conversation_id": str(conv.id),
             "listing_title": listing.title,
             "recipient_id": str(transaction.seller_id),
         },
     )
     await db.commit()
-    return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
+    return await _marketplace_transaction_out(db, transaction, ts, listing, session_uid)
 
 
 @router.post(
-    "/appointments/{appointment_id}/transaction/cancel-requests",
+    "/trade-sets/{trade_set_id}/transaction/cancel-requests",
     response_model=TransactionCancelRequestOut,
     status_code=201,
     summary="거래 취소 요청(양측 합의 취소)",
 )
 async def create_transaction_cancel_request(
-    appointment_id: uuid.UUID,
+    trade_set_id: uuid.UUID,
     body: TransactionCancelRequestCreate,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
@@ -2954,16 +2920,16 @@ async def create_transaction_cancel_request(
     상대가 24시간 안에 동의·거절하지 않으면 ``expire_transaction_cancel_requests`` 잡이
     같은 효력(취소 + 매물 판매중 복귀)으로 자동 종료한다. 거래당 활성 요청은 1건(DB 부분
     유니크 인덱스로도 이중 보장)."""
-    transaction, appt, conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
+    transaction, ts, conv, listing = await _load_set_transaction(db, trade_set_id, session_uid, lock=True)
     if transaction.payment_status != "PAYMENT_REPORTED":
         raise HTTPException(status_code=409, detail="Cancel requests are only available after a payment report")
-    if await _active_cancel_request(db, appt.id) is not None:
+    if await _active_cancel_request(db, transaction.id) is not None:
         raise HTTPException(status_code=409, detail="A cancel request is already pending")
 
     now = datetime.now(UTC)
     counterpart_id = require_participant(conv, session_uid)
     cancel_request = MarketplaceTransactionCancelRequest(
-        appointment_id=appt.id,
+        transaction_id=transaction.id,
         requester_id=session_uid,
         reason=body.reason,
         status="PENDING",
@@ -2976,7 +2942,7 @@ async def create_transaction_cancel_request(
         db,
         "market.transaction_cancel_requested",
         {
-            "appointment_id": str(appt.id),
+            "trade_set_id": str(ts.id),
             "conversation_id": str(conv.id),
             "listing_title": listing.title,
             "reason": body.reason,
@@ -2999,8 +2965,8 @@ async def respond_transaction_cancel_request(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    """F-X-01 FR-2 ②: 요청자 본인이 아닌 상대만 응답할 수 있다. 동의(AGREE)는 즉시 약속·거래를
-    CANCELLED 로, 매물을 ON_SALE 로 되돌린다(취소됨(합의))."""
+    """F-X-01 FR-2 ②: 요청자 본인이 아닌 상대만 응답할 수 있다. 동의(AGREE)는 즉시 거래를
+    초기화하고 세트의 예약 항목을 취소, 매물을 ON_SALE 로 되돌린다(취소됨(합의)). 약속은 건드리지 않는다."""
     cancel_request = (
         await db.execute(
             select(MarketplaceTransactionCancelRequest)
@@ -3017,9 +2983,10 @@ async def respond_transaction_cancel_request(
     if cancel_request.expires_at <= now:
         raise HTTPException(status_code=409, detail="Cancel request has expired")
 
-    transaction, appt, conv, listing = await _load_marketplace_transaction(
-        db, cancel_request.appointment_id, session_uid, lock=True
-    )
+    cancel_tx = await db.get(MarketplaceTransaction, cancel_request.transaction_id)
+    if cancel_tx is None or cancel_tx.trade_set_id is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    transaction, ts, conv, listing = await _load_set_transaction(db, cancel_tx.trade_set_id, session_uid, lock=True)
     if session_uid == cancel_request.requester_id:
         raise HTTPException(status_code=403, detail="Only the counterpart can respond to this request")
 
@@ -3031,7 +2998,7 @@ async def respond_transaction_cancel_request(
             db,
             "market.transaction_cancel_rejected",
             {
-                "appointment_id": str(appt.id),
+                "trade_set_id": str(ts.id),
                 "conversation_id": str(conv.id),
                 "listing_title": listing.title,
                 "recipient_id": str(cancel_request.requester_id),
@@ -3040,19 +3007,9 @@ async def respond_transaction_cancel_request(
         await db.commit()
         return _cancel_request_out(cancel_request)
 
-    # AGREE — mutual cancellation, the deadlock exit. 리뷰어 지적 #2: 공유 헬퍼로 매물 복귀
-    # + d1 알림을 통일하고, 예약중 세트 항목도 CANCELLED 로 맞춘다(재예약 부분 유니크 해제).
-    if appt.status == "ACCEPTED" and listing.status == "RESERVED":
-        await release_listing_to_on_sale(db, listing, actor_id=session_uid, reason="transaction_cancel_agreed")
-        await cancel_reserved_item(db, conv.id, listing.id)
-    appt.status = "CANCELLED"
-    appt.cancel_reason = cancel_request.reason
-    appt.updated_at = now
-    # 운영자 롤백(admin_api/transactions.py::rollback_payment_report)과 동일하게 payment_status를
-    # 되돌린다 — 그대로 두면 어드민 PAYMENT_REPORTED 큐(list_transactions)에 해결된 건이 계속 쌓인다.
-    transaction.payment_status = "AWAITING_PAYMENT"
-    transaction.buyer_reported_at = None
-    transaction.updated_at = now
+    # AGREE — mutual cancellation, the deadlock exit. 세트의 예약 항목을 모두 CANCELLED 로 종결하고 매물을
+    # ON_SALE 로 되돌린다(F-N-02 FR-7: 거래 취소일 뿐 약속은 그대로 — 재예약 부분 유니크 해제 + d1 알림 포함).
+    await cancel_set_trade(db, ts, transaction, actor_id=session_uid, reason="transaction_cancel_agreed")
     cancel_request.status = "AGREED"
     cancel_request.responded_at = now
     cancel_request.updated_at = now
@@ -3061,7 +3018,7 @@ async def respond_transaction_cancel_request(
             db,
             "market.transaction_cancel_agreed",
             {
-                "appointment_id": str(appt.id),
+                "trade_set_id": str(ts.id),
                 "conversation_id": str(conv.id),
                 "listing_title": listing.title,
                 "recipient_id": str(recipient_id),
@@ -3228,17 +3185,6 @@ async def cancel_appointment(
         return await _appt_out(db, appt, listing.seller_id)
     if appt.status == "COMPLETED":
         raise HTTPException(status_code=409, detail="Cannot cancel a completed appointment")
-    transaction = (
-        await db.execute(
-            select(MarketplaceTransaction)
-            .where(MarketplaceTransaction.appointment_id == appt.id)
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
-    ).scalar_one_or_none()
-    if transaction is not None and transaction.payment_status in {"PAYMENT_REPORTED", "PAYMENT_CONFIRMED"}:
-        raise HTTPException(status_code=409, detail="Cannot cancel after payment is reported")
-
     now = datetime.now(UTC)
     appt.status = "CANCELLED"
     appt.cancel_reason = body.reason if body else None
@@ -3520,6 +3466,10 @@ async def accept_price_offer(
     now = datetime.now(UTC)
     offer.status = "ACCEPTED"
     offer.updated_at = now
+    # 합의가는 세트 합계(=결제 금액)에 들어간다 — 송금 전 거래가 있으면 금액을 다시 맞춘다.
+    offer_set = await get_active_set(db, offer.conversation_id)
+    if offer_set is not None:
+        await ensure_set_transaction(db, offer_set)
     await db.commit()
     return _offer_out(offer, listing.seller_id)
 

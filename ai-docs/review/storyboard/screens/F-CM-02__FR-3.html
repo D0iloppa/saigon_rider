@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=390, initial-scale=1">
-<title>커뮤니티 · 그룹</title>
+<title>그룹 초대하기</title>
 <style>
 /* ═══════════════════════════════════════════════════════════════════════
  * 사이공라이더 스토리보드 화면 샘플 — 공용 스킨 (v1 · 2026-09-20)
@@ -975,6 +975,20 @@ body {
 .gBadge { flex-shrink: 0; padding: 3px 8px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--brand-600); font-size: 11px; font-weight: 700; }
 .gChevron { flex-shrink: 0; display: flex; color: var(--text-3); }
 .fabLabel { position: absolute; right: 18px; bottom: 90px; display: inline-flex; align-items: center; gap: 6px; height: 48px; padding: 0 18px; border-radius: var(--r-pill); background: var(--brand-500); color: #fff; font-size: 14px; font-weight: 700; box-shadow: var(--shadow-pop); }
+.invBody { flex: 1; min-height: 0; overflow: hidden; background: var(--bg); padding-bottom: 96px; }
+.invHint { padding: 8px 20px 4px; font-size: 12px; color: var(--text-3); }
+.invSection { padding: 12px 20px 6px; font-size: 13px; font-weight: 700; color: var(--text-2); }
+.invRow { display: flex; align-items: center; gap: 12px; padding: 10px 20px; }
+.invRow--off { opacity: .5; }
+.invAv { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; }
+.invInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.invName { font-size: 15px; font-weight: 700; color: var(--text); }
+.invSub { font-size: 12px; color: var(--text-3); }
+.invChk { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; }
+.invChk--on { background: var(--brand-500); border-color: var(--brand-500); }
+.invState { flex-shrink: 0; padding: 3px 8px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-3); font-size: 11px; font-weight: 700; }
+.invBar { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 20px 20px; background: var(--surface); border-top: 1px solid var(--line); }
+.invCta { display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 16px; background: var(--brand-500); color: #fff; font-size: 15px; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -990,70 +1004,23 @@ body {
     <div class="page">
     <header class="topbar">
       <div class="topbarContent">
-        <div class="domainTabs"><span class="domainTab">피드</span><span class="domainTab domainTabActive">그룹</span></div>
-        <div class="topbarSide topbarRight"><span class="iconBtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg></span></div>
+        <div class="topbarSide"><span class="iconBtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span></div>
+        <div class="topbarTitle">그룹 초대하기</div>
+        <div class="topbarSide topbarRight"></div>
       </div>
     </header>
-
-    <div class="groupBody">
-      <div class="gSearchWrap"><div class="gSearch"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>그룹 이름·소개로 검색</div></div>
-      <div class="gTopicRow"><span class="gTopicChip gTopicChipActive">전체</span><span class="gTopicChip">동네친구</span><span class="gTopicChip">라이딩/투어</span><span class="gTopicChip">운동</span><span class="gTopicChip">맛집/카페</span><span class="gTopicChip">언어교환</span><span class="gTopicChip">취미</span><span class="gTopicChip">자기계발</span><span class="gTopicChip">육아/가족</span><span class="gTopicChip">반려동물</span><span class="gTopicChip">기타</span></div>
-
-      <div class="gSection">내 그룹</div>
-      <div class="gRail"><span class="gRailItem"><span class="gRailCover ph ph--moto"></span><span class="gRailName">사이공 라이더 클럽</span></span><span class="gRailItem"><span class="gRailCover gTile gTile--b">사</span><span class="gRailName">사이공 야간 라이딩</span></span><span class="gRailItem"><span class="gRailCover ph ph--helmet"></span><span class="gRailName">헬멧 &amp; 라이딩 기어</span></span></div>
-
-      <div class="gSection">그룹 둘러보기</div>
-      <div class="gList">
-        <div class="gCard">
-          <span class="gCover ph ph--moto"></span>
-          <span class="gInfo">
-            <span class="gName">사이공 라이더 클럽</span>
-            <span class="gDesc">호치민 전역 주말 투어 모임</span>
-            <span class="gMeta"><span class="gTopic">라이딩/투어</span> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>멤버 <span class="num">212</span>명</span></span>
-          </span>
-          <span class="gBadge">가입됨</span>
-        </div>
-        <div class="gCard">
-          <span class="gCover gTile gTile--a">H</span>
-          <span class="gInfo">
-            <span class="gName">Honda Vision 오너 모임</span>
-            <span class="gDesc">비전 오너들의 정비·튜닝 이야기</span>
-            <span class="gMeta"><span class="gTopic">취미</span> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>멤버 <span class="num">188</span>명</span></span>
-          </span>
-          <span class="gChevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
-        </div>
-        <div class="gCard">
-          <span class="gCover ph ph--helmet"></span>
-          <span class="gInfo">
-            <span class="gName">헬멧 &amp; 라이딩 기어</span>
-            <span class="gDesc">기어 리뷰와 공동구매 소식</span>
-            <span class="gMeta"><span class="gTopic">취미</span> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>멤버 <span class="num">156</span>명</span></span>
-          </span>
-          <span class="gBadge">가입됨</span>
-        </div>
-        <div class="gCard">
-          <span class="gCover gTile gTile--c">7</span>
-          <span class="gInfo">
-            <span class="gName">7군 출퇴근 라이더</span>
-            <span class="gDesc">Phú Mỹ Hưng 출퇴근 경로 공유</span>
-            <span class="gMeta"><span class="gTopic">동네친구</span> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>멤버 <span class="num">89</span>명</span></span>
-          </span>
-          <span class="gChevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
-        </div>
-        <div class="gCard">
-          <span class="gCover ph ph--parts"></span>
-          <span class="gInfo">
-            <span class="gName">Bình Thạnh 정비 정보방</span>
-            <span class="gDesc">동네 정비소·부품 가격 공유합니다</span>
-            <span class="gMeta"><span class="gTopic">기타</span> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>멤버 <span class="num">64</span>명</span></span>
-          </span>
-          <span class="gChevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
-        </div>
-      </div>
+    <div class="invBody">
+      <div class="gSearchWrap"><div class="gSearch"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>닉네임으로 검색</div></div>
+      <div class="invHint">팔로잉 · 팔로워 · 채팅 상대 중에서 고를 수 있어요</div>
+      <div class="invRow"><span class="invAv ph ph--avatar"></span><span class="invInfo"><span class="invName">민준 라이더</span><span class="invSub">팔로잉 · 채팅</span></span><span class="invChk invChk--on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></div>
+      <div class="invRow"><span class="invAv ph ph--avatar2"></span><span class="invInfo"><span class="invName">Linh Nguyen</span><span class="invSub">팔로워</span></span><span class="invChk invChk--on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></div>
+      <div class="invRow"><span class="invAv ph ph--avatar"></span><span class="invInfo"><span class="invName">하은</span><span class="invSub">팔로잉</span></span><span class="invChk"></span></div>
+      <div class="invRow"><span class="invAv ph ph--avatar2"></span><span class="invInfo"><span class="invName">Tuan Anh</span><span class="invSub">채팅 상대</span></span><span class="invChk invChk--on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></div>
+      <div class="invRow invRow--off"><span class="invAv ph ph--avatar"></span><span class="invInfo"><span class="invName">지우 · 7군</span><span class="invSub">팔로잉 · 팔로워</span></span><span class="invState">멤버</span></div>
+      <div class="invRow invRow--off"><span class="invAv ph ph--avatar2"></span><span class="invInfo"><span class="invName">Minh Khoa</span><span class="invSub">채팅 상대</span></span><span class="invState">초대됨</span></div>
+      <div class="invRow"><span class="invAv ph ph--avatar"></span><span class="invInfo"><span class="invName">서연</span><span class="invSub">팔로워</span></span><span class="invChk"></span></div>
     </div>
-    <span class="fabLabel"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>그룹 만들기</span>
-
-    <nav class="tabbar"><span class="tab"><span class="tabIconWrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="tabLabel">홈</span></span><span class="tab"><span class="tabIconWrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></svg></span><span class="tabLabel">마켓</span></span><span class="tab"><span class="tabIconWrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg></span><span class="tabLabel">동네지도</span></span><span class="tab"><span class="tabIconWrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span class="navBadge num">3</span></span><span class="tabLabel">채팅</span></span><span class="tab tabActive"><span class="tabIconWrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="tabLabel">커뮤니티</span></span><span class="tab"><span class="tabIconWrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="tabLabel">프로필</span></span></nav>
+    <div class="invBar"><span class="invCta">3명 초대하기</span></div>
   </div>
 </div>
 </body>

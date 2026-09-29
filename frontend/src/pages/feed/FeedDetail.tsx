@@ -31,6 +31,7 @@ import { ImageViewer } from '@/components/ui/ImageViewer';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import feedStyles from './FeedList.module.css';
 import { GroupSourceChip } from './GroupSourceChip';
+import { feedWriteErrorMessage } from './feedWriteErrors';
 import styles from './FeedDetail.module.css';
 
 /** 피드 상세 — 상품(매물) 상세(/market/:id)와 레이아웃 통일 (2026-07-12). 게시글 + 댓글 인라인 + 하단 액션바(응원·댓글 입력). */
@@ -41,6 +42,7 @@ export default function FeedDetail() {
   const user = useUserStore((s) => s.user);
   const { hash } = useLocation();
   const commentsRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
 
   const [post, setPost] = useState<FeedPost | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,16 +78,13 @@ export default function FeedDetail() {
     if (!loading && hash === '#comments') commentsRef.current?.scrollIntoView();
   }, [loading, hash]);
 
-  // 그룹 글 좋아요·댓글은 ACTIVE 멤버만(F-CM-02 FR-2 r21) — 403 group_member_required 는 가입 안내 토스트.
-  const toastWriteError = (err: unknown) => {
-    toast.error(t(extractErrorCode(err) === 'group_member_required' ? 'feed.groupMemberRequired' : 'common.errorUnexpected'));
-  };
+  const toastWriteError = (err: unknown) => toast.error(feedWriteErrorMessage(err, t));
 
   const handleCheer = async () => {
     if (!post) return;
     try {
       const { cheered, count } = await toggleCheer(post.id);
-      setPost({ ...post, iCheered: cheered, cheerCount: count });
+      setPost((p) => p && { ...p, iCheered: cheered, cheerCount: count });
     } catch (err) {
       toastWriteError(err);
     }
@@ -185,32 +184,33 @@ export default function FeedDetail() {
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || !post) return;
+    if (!text || !post || sendingRef.current) return;
     const session = loadSession();
     if (!session) return;
-    let id: string;
-    let createdAt: string;
-    try {
-      ({ id, createdAt } = await postComment(post.id, text, session.userId));
-    } catch (err) {
-      toastWriteError(err);
-      return;
-    }
+    sendingRef.current = true;
     setInput('');
-    setComments((prev) => [
-      ...prev,
-      {
-        id,
-        postId: post.id,
-        userNickname: user?.nickname ?? session.userId,
-        userAvatarUrl: user?.avatarUrl ?? undefined,
-        content: text,
-        createdAt,
-        likeCount: 0,
-        iLiked: false,
-      },
-    ]);
-    setPost({ ...post, commentCount: post.commentCount + 1 });
+    try {
+      const { id, createdAt } = await postComment(post.id, text, session.userId);
+      setComments((prev) => [
+        ...prev,
+        {
+          id,
+          postId: post.id,
+          userNickname: user?.nickname ?? session.userId,
+          userAvatarUrl: user?.avatarUrl ?? undefined,
+          content: text,
+          createdAt,
+          likeCount: 0,
+          iLiked: false,
+        },
+      ]);
+      setPost((p) => p && { ...p, commentCount: p.commentCount + 1 });
+    } catch (err) {
+      setInput((cur) => (cur ? cur : text));
+      toastWriteError(err);
+    } finally {
+      sendingRef.current = false;
+    }
   };
 
   const handleAuthorTap = () => {

@@ -72,6 +72,28 @@ async def _get_post_or_404(post_id: uuid.UUID, db: AsyncSession) -> FeedPost:
     return post
 
 
+def _post_visible(session_uid: uuid.UUID | None):
+    """Q-10: private 그룹 글은 그 그룹의 ACTIVE 멤버에게만 보인다 (상세·댓글·쓰기 공통)."""
+    visible = FeedPost.group_id.is_(None) | FeedPost.group_id.in_(
+        select(CommunityGroup.id).where(CommunityGroup.visibility == "public")
+    )
+    if session_uid is not None:
+        visible = visible | FeedPost.group_id.in_(
+            select(CommunityGroupMember.group_id).where(
+                CommunityGroupMember.user_id == session_uid, CommunityGroupMember.status == "ACTIVE"
+            )
+        )
+    return visible
+
+
+async def _get_visible_post_or_404(post_id: uuid.UUID, session_uid: uuid.UUID | None, db: AsyncSession) -> FeedPost:
+    result = await db.execute(select(FeedPost).where(FeedPost.id == post_id, _post_visible(session_uid)))
+    post = result.scalar_one_or_none()
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return post
+
+
 def _resolve_image_urls(post: FeedPost) -> list[str]:
     urls = []
     for img in post.images or []:
@@ -343,17 +365,7 @@ async def get_feed_post(
         blocked_users = select(UserBlock.blocked_id).where(UserBlock.blocker_id == session_uid)
         blocking_users = select(UserBlock.blocker_id).where(UserBlock.blocked_id == session_uid)
         query = query.where(FeedPost.user_id.notin_(blocked_users), FeedPost.user_id.notin_(blocking_users))
-    # Q-10(목록과 동일): private 그룹 글은 그 그룹의 ACTIVE 멤버에게만 — 상세 링크로 본문·그룹명이 새지 않게.
-    visible = FeedPost.group_id.is_(None) | FeedPost.group_id.in_(
-        select(CommunityGroup.id).where(CommunityGroup.visibility == "public")
-    )
-    if session_uid is not None:
-        visible = visible | FeedPost.group_id.in_(
-            select(CommunityGroupMember.group_id).where(
-                CommunityGroupMember.user_id == session_uid, CommunityGroupMember.status == "ACTIVE"
-            )
-        )
-    query = query.where(visible)
+    query = query.where(_post_visible(session_uid))
     row = (await db.execute(query)).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -388,17 +400,7 @@ async def create_feed_post(
         ).scalar_one_or_none()
         if group is None:
             raise HTTPException(status_code=404, detail="Group not found")
-        member = (
-            await db.execute(
-                select(CommunityGroupMember).where(
-                    CommunityGroupMember.group_id == body.group_id,
-                    CommunityGroupMember.user_id == _session_uid,
-                    CommunityGroupMember.status == "ACTIVE",
-                )
-            )
-        ).scalar_one_or_none()
-        if member is None:
-            raise HTTPException(status_code=403, detail="Not an active member of this group")
+        await _require_group_member(body.group_id, _session_uid, db)
 
     now = datetime.now(UTC)
     first_content_id = body.image_content_ids[0] if body.image_content_ids else body.image_content_id
@@ -585,21 +587,21 @@ async def delete_feed_post(
     await db.commit()
 
 
-async def _require_group_member(post: FeedPost, user_id: uuid.UUID, db: AsyncSession) -> None:
-    """그룹 글(group_id 설정)의 좋아요·댓글은 해당 그룹 ACTIVE 멤버만 (F-CM-02 FR-2 r21)."""
-    if post.group_id is None:
+async def _require_group_member(group_id: uuid.UUID | None, user_id: uuid.UUID, db: AsyncSession) -> None:
+    """그룹 글 쓰기(글·좋아요·댓글)는 해당 그룹 ACTIVE 멤버만 (F-CM-02 FR-2 r21)."""
+    if group_id is None:
         return
     member = (
         await db.execute(
             select(CommunityGroupMember.user_id).where(
-                CommunityGroupMember.group_id == post.group_id,
+                CommunityGroupMember.group_id == group_id,
                 CommunityGroupMember.user_id == user_id,
                 CommunityGroupMember.status == "ACTIVE",
             )
         )
     ).scalar_one_or_none()
     if member is None:
-        raise HTTPException(status_code=403, detail={"code": "group_member_required", "group_id": str(post.group_id)})
+        raise HTTPException(status_code=403, detail={"code": "group_member_required"})
 
 
 # F-4
@@ -612,9 +614,9 @@ async def toggle_like(
 ):
     if body.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
-    post = await _get_post_or_404(post_id, db)
+    post = await _get_visible_post_or_404(post_id, _session_uid, db)
     await require_unblocked(db, _session_uid, post.user_id)
-    await _require_group_member(post, _session_uid, db)
+    await _require_group_member(post.group_id, _session_uid, db)
 
     existing = await db.get(PostLike, {"post_id": post_id, "user_id": body.user_id})
     if existing:
@@ -662,7 +664,7 @@ async def get_comments(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID | None = Depends(optional_user_session),
 ):
-    post = await _get_post_or_404(post_id, db)
+    post = await _get_visible_post_or_404(post_id, session_uid, db)
     if session_uid is not None:
         await require_unblocked(db, session_uid, post.user_id)
     q = select(PostComment, User).outerjoin(User, PostComment.user_id == User.id).where(PostComment.post_id == post_id)
@@ -688,10 +690,10 @@ async def post_comment(
     if body.content is None and body.image_url is None:
         raise HTTPException(status_code=400, detail="content or image_url is required")
 
-    post = await _get_post_or_404(post_id, db)
+    post = await _get_visible_post_or_404(post_id, _session_uid, db)
     if post.user_id != body.user_id:
         await require_unblocked(db, body.user_id, post.user_id)
-    await _require_group_member(post, body.user_id, db)
+    await _require_group_member(post.group_id, body.user_id, db)
 
     user = await db.get(User, body.user_id)
 
@@ -757,9 +759,9 @@ async def toggle_comment_like(
 ):
     if body.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
-    post = await _get_post_or_404(post_id, db)
+    post = await _get_visible_post_or_404(post_id, _session_uid, db)
     await require_unblocked(db, _session_uid, post.user_id)
-    await _require_group_member(post, _session_uid, db)
+    await _require_group_member(post.group_id, _session_uid, db)
 
     result = await db.execute(select(PostComment).where(PostComment.id == comment_id, PostComment.post_id == post_id))
     comment = result.scalar_one_or_none()

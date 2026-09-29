@@ -153,6 +153,21 @@ test.describe('feed groups r18', () => {
     await json(await comment(c, plain.id));
   });
 
+  test('r21: private 그룹 글은 비멤버에게 404(댓글 목록·좋아요·댓글)', async ({ request }) => {
+    const topics = await json(await request.get(`${API}/community/group-topics`));
+    const priv = await json(await request.post(`${API}/community/groups`, {
+      headers: H(a),
+      data: { name: `${GROUP_NAME}비공개글`, description: 'e2e', topic: topics[0].code, visibility: 'private' },
+    }));
+    const pp = await json(await request.post(`${API}/feed`, {
+      headers: H(a),
+      data: { user_id: a.userId, content: `e2e비공개글${uniqueTag('')}`, image_content_ids: [], is_story: false, group_id: priv.id },
+    }));
+    expect((await request.get(`${API}/feed/${pp.id}/comments`, { headers: H(c) })).status()).toBe(404);
+    expect((await request.post(`${API}/feed/${pp.id}/like`, { headers: H(c), data: { user_id: c.userId } })).status()).toBe(404);
+    expect((await request.get(`${API}/feed/${pp.id}/comments`, { headers: H(a) })).status()).toBe(200);
+  });
+
   test('r21: 비멤버가 그룹 글 응원 탭 → 토스트, 카운트 불변', async ({ page }) => {
     await open(page, c, '/feed');
     const card = page.getByTestId('feed-post-card').filter({ hasText: POST_TEXT });

@@ -128,7 +128,7 @@ export async function createFeedPost(params: CreateFeedPostParams): Promise<void
       is_story: params.isStory ?? false,
       group_id: params.groupId ?? null,
     }),
-  });
+  }, 'bff', { rethrow: true });
 }
 
 export async function fetchFeedPost(postId: string): Promise<FeedPost> {

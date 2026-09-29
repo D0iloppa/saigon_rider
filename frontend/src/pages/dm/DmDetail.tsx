@@ -1751,6 +1751,17 @@ export default function DmDetail() {
         }
       />
 
+      {conv?.communityGroupId && (
+        <button
+          type="button"
+          className={styles.groupRoomLink}
+          data-testid="dm-room-group-link"
+          onClick={() => navigate(`/group/${conv.communityGroupId}`)}
+        >
+          {t('dm.groupOfficialChat', { name: roomTitle })}
+        </button>
+      )}
+
       {/* ① 거래 진행상태 배너 — direct 방 전용 */}
       {tradeBannerVisible && tradeSetId && (
         <div className={styles.tradeStatusBanner}>
@@ -2986,14 +2997,18 @@ export default function DmDetail() {
               {t('dm.moreMenuSettings', { defaultValue: '설정' })}
             </button>
           )}
-          <button
-            className={`${styles.reportItem} ${styles.leaveItem}`}
-            type="button"
-            onClick={handleLeaveRoom}
-          >
-            <LogOut size={17} />
-            {t('dm.leaveRoom')}
-          </button>
+          {conv?.communityGroupId ? (
+            <p className={styles.groupLeaveHint}>{t('dm.groupLeaveHint')}</p>
+          ) : (
+            <button
+              className={`${styles.reportItem} ${styles.leaveItem}`}
+              type="button"
+              onClick={handleLeaveRoom}
+            >
+              <LogOut size={17} />
+              {t('dm.leaveRoom')}
+            </button>
+          )}
         </div>
       </BottomSheet>
 

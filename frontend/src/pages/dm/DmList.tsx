@@ -231,6 +231,7 @@ export default function DmList() {
                     <BellOff size={22} strokeWidth={2} />
                     <span>{t('dm.notificationsAction', { defaultValue: '알림' })}</span>
                   </button>
+                  {!c.communityGroupId && (
                   <button
                     type="button"
                     className={styles.leaveAction}
@@ -241,6 +242,7 @@ export default function DmList() {
                     <Trash2 size={22} strokeWidth={2} />
                     <span>{t('dm.leaveAction', { defaultValue: '나가기' })}</span>
                   </button>
+                  )}
                 </div>
                   <div
                     className={styles.rowForeground}
@@ -265,6 +267,9 @@ export default function DmList() {
                   <div className={styles.info}>
                     <div className={styles.nameRow}>
                       <span className={styles.name}>
+                        {c.communityGroupId && (
+                          <span className={styles.groupBadge} data-testid="dm-row-group-badge">{t('dm.groupBadge')}</span>
+                        )}
                         {rowName(c)}
                         {c.conversationType !== 'direct' && (
                           <span className={styles.memberCount}> ({c.memberCount})</span>

@@ -1980,6 +1980,9 @@ async def leave_conversation(
         require_participant(conv, _session_uid)
         await _set_direct_visibility(db, conv, _session_uid, left_at=datetime.now(UTC))
     else:
+        # 그룹 공식 채팅방은 그룹 탈퇴로만 나간다(대표 판정 260929) — 알림 끄기(mute)는 별도 유지.
+        if conv.community_group_id is not None:
+            raise HTTPException(status_code=409, detail={"code": "group_room_leave_forbidden"})
         member = await require_member(db, conv, _session_uid)
         member.left_at = datetime.now(UTC)
         conv.member_count = max(conv.member_count - 1, 0)

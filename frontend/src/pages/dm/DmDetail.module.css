@@ -1181,3 +1181,24 @@
   flex-shrink: 0;
   color: var(--text-3);
 }
+
+.groupRoomLink {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border, #eee);
+  background: #f3faf6;
+  color: #1f8a4c;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.groupLeaveHint {
+  margin: 0;
+  padding: 10px 16px;
+  font-size: 12px;
+  color: var(--text-3);
+}

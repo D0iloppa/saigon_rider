@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=390, initial-scale=1">
-<title>커뮤니티 · 그룹 상세</title>
+<title>그룹 상세 · 게시판</title>
 <style>
 /* ═══════════════════════════════════════════════════════════════════════
  * 사이공라이더 스토리보드 화면 샘플 — 공용 스킨 (v1 · 2026-09-20)
@@ -944,6 +944,77 @@ body {
 .phLarge { width: 100%; height: 100%; }
 
 /* ── 화면 전용 ── */
+.feedBodyWrap { padding: 0 20px 20px; }
+.feedFilterRow { display: flex; gap: 8px; padding: 12px 0 12px; overflow: hidden; }
+.fChip {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  color: var(--text-2); background: var(--surface); border: 1px solid var(--line);
+}
+.fChipActive { background: var(--text); border-color: var(--text); color: var(--surface); }
+.feedGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.fCard { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.fThumb { position: relative; width: 100%; aspect-ratio: 1.15; overflow: hidden; flex-shrink: 0; background: var(--surface-2); }
+.fThumb .phLarge { height: 100%; }
+.fBody { display: flex; flex-direction: column; gap: 6px; padding: 10px 11px 12px; }
+.fAuthor { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; column-gap: 6px; }
+.fAvatar { width: 22px; height: 22px; border-radius: 50%; grid-row: span 2; }
+.fNick { overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.fTime { color: var(--text-3); font-size: 10px; }
+.fCaption { display: -webkit-box; min-height: 36px; overflow: hidden; color: var(--text-2); font-size: 13px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.fMeta { display: flex; align-items: center; gap: 9px; color: var(--text-3); font-size: 11px; font-weight: 600; }
+.fMeta > span { display: flex; align-items: center; gap: 3px; }
+.fMetaOn { color: var(--brand-600); }
+.feedList { display: flex; flex-direction: column; gap: 8px; }
+.pCard { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.pAuthor { display: flex; align-items: center; gap: 8px; }
+.pAvatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
+.pWho { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.pNick { font-size: 13px; font-weight: 700; }
+.pSub { color: var(--text-3); font-size: 11px; }
+.pMore { color: var(--text-3); display: flex; }
+.pPhoto { position: relative; display: block; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 12px; background: var(--surface-2); }
+.pPhoto .phLarge { height: 100%; }
+.pBadge { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: var(--r-pill); background: rgba(11,13,20,.6); color: #fff; font-size: 11px; font-weight: 700; }
+.pText { display: -webkit-box; overflow: hidden; color: var(--text-2); font-size: 14px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.pCardText .pText { -webkit-line-clamp: 6; }
+.pReact { display: flex; align-items: center; gap: 12px; color: var(--text-3); font-size: 12px; font-weight: 600; }
+.pReact > span { display: flex; align-items: center; gap: 4px; }
+.pOn { color: var(--brand-600); }
+.unreadDot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #F5333F; border: 1.5px solid var(--surface); }
+
+/* ── 화면 전용 (커뮤니티 셸 r13) ── */
+.cmSeg { display: flex; border-bottom: 1px solid var(--line); background: var(--surface); }
+.cmSegTab { flex: 1; padding: 12px 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-3); border-bottom: 2px solid transparent; }
+.cmSegActive { color: var(--text); border-bottom-color: var(--text); }
+.fChip {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  color: var(--text-2); background: var(--surface); border: 1px solid var(--line);
+}
+.fChipActive { background: var(--text); border-color: var(--text); color: var(--surface); }
+.phLarge { width: 100%; height: 100%; }
+.feedBodyWrap { padding: 0 20px 20px; }
+.feedFilterRow { display: flex; gap: 8px; padding: 12px 0 12px; overflow: hidden; }
+.feedList { display: flex; flex-direction: column; gap: 8px; }
+.pCard { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.pAuthor { display: flex; align-items: center; gap: 8px; }
+.pAvatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
+.pWho { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.pNick { font-size: 13px; font-weight: 700; }
+.pSub { color: var(--text-3); font-size: 11px; }
+.pMore { color: var(--text-3); display: flex; }
+.pPhoto { position: relative; display: block; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 12px; background: var(--surface-2); }
+.pPhoto .phLarge { height: 100%; }
+.pBadge { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: var(--r-pill); background: rgba(11,13,20,.6); color: #fff; font-size: 11px; font-weight: 700; }
+.pText { display: -webkit-box; overflow: hidden; color: var(--text-2); font-size: 14px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.pCardText .pText { -webkit-line-clamp: 6; }
+.pReact { display: flex; align-items: center; gap: 12px; color: var(--text-3); font-size: 12px; font-weight: 600; }
+.pReact > span { display: flex; align-items: center; gap: 4px; }
+.pOn { color: var(--brand-600); }
+.unreadDot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #F5333F; border: 1.5px solid var(--surface); }
 .gdBody { flex: 1; min-height: 0; overflow: hidden; background: var(--bg); }
 .gdHeader { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .gdDesc { font-size: 13px; line-height: 1.5; color: var(--text-2); }
@@ -951,30 +1022,9 @@ body {
 .gdTabRow { display: flex; border-bottom: 1px solid var(--line); background: var(--surface); }
 .gdTab { flex: 1; padding: 12px 0; text-align: center; font-size: 14px; font-weight: 600; color: var(--text-3); border-bottom: 2px solid transparent; }
 .gdTabActive { color: var(--text); border-bottom-color: var(--text); }
-.membersBody { padding: 0 16px; }
-.mSectionHead { display: flex; align-items: baseline; gap: 7px; padding: 16px 0 2px; }
-.mSectionLabel {
-  font-family: 'Space Grotesk', 'Pretendard', sans-serif; font-size: 11px; font-weight: 700;
-  letter-spacing: .08em; text-transform: uppercase; color: var(--text-3);
-}
-.mSectionCount { font-size: 12px; font-weight: 700; color: var(--text-3); }
-.memberRow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
-.mAvatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; }
-.mName { flex: 1; min-width: 0; font-size: 15px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mRole { flex-shrink: 0; font-size: 12px; color: var(--text-3); }
-/* 제안 ② 반영 — 아이콘만 있던 승인·강퇴에 라벨을 붙였다 */
-.approveBtn {
-  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
-  height: 32px; padding: 0 13px; border-radius: var(--r-pill);
-  background: var(--brand-50); color: var(--brand-700);
-  font-size: 12.5px; font-weight: 700; border: 0;
-}
-.removeBtn {
-  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
-  height: 32px; padding: 0 13px; border-radius: var(--r-pill);
-  background: var(--surface); color: var(--danger);
-  font-size: 12.5px; font-weight: 700; border: 1px solid rgba(239,59,59,.35);
-}
+
+.gdCover { display: flex; align-items: center; justify-content: center; width: 100%; height: 132px; color: #fff; font-size: 44px; font-weight: 800; background: linear-gradient(145deg, #7C8698 0%, #4C5566 55%, #2E3440 100%); }
+.gdBoard { padding: 8px 16px 90px; }
 </style>
 </head>
 <body>
@@ -987,86 +1037,52 @@ body {
         <svg width="25" height="12" viewBox="0 0 25 12" fill="none" aria-hidden="true"><rect x=".5" y=".5" width="21" height="11" rx="3" stroke="currentColor" opacity=".38"/><rect x="2" y="2" width="16" height="8" rx="1.8" fill="currentColor"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6" fill="currentColor" opacity=".45"/></svg>
       </span>
     </div>
-  <div class="page">
+    <div class="page">
     <header class="topbar">
       <div class="topbarContent">
-        <div class="topbarSide">
-          <span class="iconBtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></span>
-        </div>
+        <div class="topbarSide"><span class="iconBtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></span></div>
         <h1 class="topbarTitle">사이공 라이더 클럽</h1>
         <div class="topbarSide topbarRight"></div>
       </div>
     </header>
 
     <div class="gdBody">
+      <div class="gdCover ph ph--moto"></div>
       <div class="gdHeader">
         <div class="gdDesc">호치민 전역을 함께 도는 주말 투어 모임입니다. 매주 토요일 아침 6시 Bình Thạnh 출발.</div>
-        <div class="gdMeta">멤버 128명</div>
+        <div class="gdMeta">멤버 <span class="num">128</span>명</div>
       </div>
 
       <div class="gdTabRow">
-        <span class="gdTab">게시판</span>
+        <span class="gdTab gdTabActive">게시판</span>
         <span class="gdTab">채팅</span>
-        <span class="gdTab gdTabActive">멤버</span>
+        <span class="gdTab">멤버</span>
       </div>
 
-      <div class="membersBody">
-        <div class="mSectionHead"><span class="mSectionLabel">승인 대기</span><span class="mSectionCount num">2</span></div>
-        <div class="memberRow">
-          <span class="mAvatar ph ph--avatar"></span>
-          <span class="mName">Ngọc Mai</span>
-          <span class="approveBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>승인</span>
-        </div>
-        <div class="memberRow">
-          <span class="mAvatar ph ph--avatar2"></span>
-          <span class="mName">Quang Huy</span>
-          <span class="approveBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>승인</span>
-        </div>
-
-        <div class="mSectionHead"><span class="mSectionLabel">멤버</span><span class="mSectionCount num">128</span></div>
-        <div class="memberRow">
-          <span class="mAvatar ph ph--avatar2"></span>
-          <span class="mName">Minh Tuấn</span>
-          <span class="mRole">방장</span>
-        </div>
-        <div class="memberRow">
-          <span class="mAvatar ph ph--avatar"></span>
-          <span class="mName">Hà Linh</span>
-          <span class="mRole">매니저</span>
-          <span class="removeBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>강퇴</span>
-        </div>
-        <div class="memberRow">
-          <span class="mAvatar ph ph--avatar2"></span>
-          <span class="mName">Đức Anh</span>
-          <span class="mRole">멤버</span>
-          <span class="removeBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>강퇴</span>
-        </div>
-        <div class="memberRow">
-          <span class="mAvatar ph ph--avatar"></span>
-          <span class="mName">Thu Hà</span>
-          <span class="mRole">멤버</span>
-          <span class="removeBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>강퇴</span>
-        </div>
-        <div class="memberRow">
-          <span class="mAvatar ph ph--avatar2"></span>
-          <span class="mName">Bảo Ngọc</span>
-          <span class="mRole">멤버</span>
-          <span class="removeBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>강퇴</span>
-        </div>
-        <div class="memberRow">
-          <span class="mAvatar ph ph--avatar"></span>
-          <span class="mName">Văn Hùng</span>
-          <span class="mRole">멤버</span>
-          <span class="removeBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>강퇴</span>
-        </div>
-        <div class="memberRow">
-          <span class="mAvatar ph ph--avatar2"></span>
-          <span class="mName">Phương Anh</span>
-          <span class="mRole">멤버</span>
-          <span class="removeBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>강퇴</span>
+      <div class="gdBoard">
+        <div class="feedList">
+        <article class="pCard">
+          <span class="pAuthor"><span class="pAvatar ph ph--avatar2"></span><span class="pWho"><strong class="pNick">Minh Tuấn</strong><small class="pSub">2시간 전</small></span><span class="pMore"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span></span>
+          <span class="pPhoto"><span class="phLarge ph ph--moto"></span><span class="pBadge num">1/3</span></span>
+          <span class="pText">Thảo Điền 강변 야경 한 컷 찍었어요. 오늘 바람이 진짜 좋아서 한참 달렸는데 다들 주말에 어디 다녀오셨나요? 저는 강변 따라 쭉 내려가 봤습니다. 다음엔 같이 달려요 …더보기</span>
+          <span class="pReact"><span class="pOn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg><span class="num">12</span></span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span class="num">3</span></span></span>
+        </article>
+        <article class="pCard">
+          <span class="pAuthor"><span class="pAvatar ph ph--avatar"></span><span class="pWho"><strong class="pNick">Hà Linh</strong><small class="pSub">2시간 전</small></span><span class="pMore"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span></span>
+          <span class="pPhoto"><span class="phLarge ph ph--helmet"></span></span>
+          <span class="pText">비 오는 날 헬멧 김서림 막는 꿀팁 공유합니다. 안쪽에 김서림 방지제를 얇게 바르고 바이저를 살짝 열어두면 훨씬 덜해요. 저는 이 방법으로 우기를 났어요 …더보기</span>
+          <span class="pReact"><span class="pOn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg><span class="num">31</span></span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span class="num">8</span></span></span>
+        </article>
+        <article class="pCard pCardText">
+          <span class="pAuthor"><span class="pAvatar ph ph--avatar2"></span><span class="pWho"><strong class="pNick">Đức Anh</strong><small class="pSub">2시간 전</small></span><span class="pMore"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span></span>
+          
+          <span class="pText">퇴근길 7군 Nguyễn Văn Linh 정체 실화인가요. 오늘은 평소보다 40분은 더 걸린 것 같아요. 공사 구간 때문인지 사고가 났는지 모르겠는데 혹시 우회로 아시는 분 계신가요? 다들 안전 운전하세요. 내일 아침에도 막힐까 걱정입니다. 아시는 분 댓글 부탁드려요 …더보기</span>
+          <span class="pReact"><span class="pOn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg><span class="num">9</span></span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span class="num">14</span></span></span>
+        </article>
         </div>
       </div>
     </div>
+    <span class="writeFab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
   </div>
 </div>
 </body>

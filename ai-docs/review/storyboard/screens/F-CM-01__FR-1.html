@@ -983,6 +983,38 @@ body {
 .pReact > span { display: flex; align-items: center; gap: 4px; }
 .pOn { color: var(--brand-600); }
 .unreadDot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #F5333F; border: 1.5px solid var(--surface); }
+
+/* ── 화면 전용 (커뮤니티 셸 r13) ── */
+.cmSeg { display: flex; border-bottom: 1px solid var(--line); background: var(--surface); }
+.cmSegTab { flex: 1; padding: 12px 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-3); border-bottom: 2px solid transparent; }
+.cmSegActive { color: var(--text); border-bottom-color: var(--text); }
+.fChip {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  color: var(--text-2); background: var(--surface); border: 1px solid var(--line);
+}
+.fChipActive { background: var(--text); border-color: var(--text); color: var(--surface); }
+.phLarge { width: 100%; height: 100%; }
+.feedBodyWrap { padding: 0 20px 20px; }
+.feedFilterRow { display: flex; gap: 8px; padding: 12px 0 12px; overflow: hidden; }
+.feedList { display: flex; flex-direction: column; gap: 8px; }
+.pCard { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.pAuthor { display: flex; align-items: center; gap: 8px; }
+.pAvatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
+.pWho { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.pNick { font-size: 13px; font-weight: 700; }
+.pSub { color: var(--text-3); font-size: 11px; }
+.pMore { color: var(--text-3); display: flex; }
+.pPhoto { position: relative; display: block; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 12px; background: var(--surface-2); }
+.pPhoto .phLarge { height: 100%; }
+.pBadge { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: var(--r-pill); background: rgba(11,13,20,.6); color: #fff; font-size: 11px; font-weight: 700; }
+.pText { display: -webkit-box; overflow: hidden; color: var(--text-2); font-size: 14px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.pCardText .pText { -webkit-line-clamp: 6; }
+.pReact { display: flex; align-items: center; gap: 12px; color: var(--text-3); font-size: 12px; font-weight: 600; }
+.pReact > span { display: flex; align-items: center; gap: 4px; }
+.pOn { color: var(--brand-600); }
+.unreadDot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #F5333F; border: 1.5px solid var(--surface); }
 </style>
 </head>
 <body>
@@ -995,14 +1027,15 @@ body {
         <svg width="25" height="12" viewBox="0 0 25 12" fill="none" aria-hidden="true"><rect x=".5" y=".5" width="21" height="11" rx="3" stroke="currentColor" opacity=".38"/><rect x="2" y="2" width="16" height="8" rx="1.8" fill="currentColor"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6" fill="currentColor" opacity=".45"/></svg>
       </span>
     </div>
-  <div class="page">
+    <div class="page">
     <header class="topbar">
       <div class="topbarContent">
         <div class="topbarSide"></div>
-        <h1 class="topbarTitle">피드</h1>
-        <div class="topbarSide topbarRight"></div>
+        <h1 class="topbarTitle">커뮤니티</h1>
+        <div class="topbarSide topbarRight"><span class="iconBtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg></span></div>
       </div>
     </header>
+    <div class="cmSeg"><span class="cmSegTab cmSegActive">피드</span><span class="cmSegTab">그룹</span></div>
 
     <div class="scroll feedBodyWrap">
       <div class="feedFilterRow">
@@ -1010,7 +1043,6 @@ body {
         <span class="fChip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>내 동네</span>
         <span class="fChip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>팔로잉</span>
         <span class="fChip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg>인기</span>
-        <span class="fChip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/></svg>내 그룹</span>
       </div>
 
       <div class="feedList">

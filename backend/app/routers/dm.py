@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import resolve_tracking_ids, unpack_tracking_ids, verify_user_session
 from ..models import (
+    CommunityGroup,
+    CommunityGroupInvite,
     CommunityGroupMember,
     Content,
     DmConversation,
@@ -428,7 +430,7 @@ async def get_conversations(
                 last_msg
                 and last_msg.message_type == "card"
                 and last_msg.meta
-                and last_msg.meta.get("subtype") in ("appointment_cancelled", "appointment_accepted")
+                and last_msg.meta.get("subtype") in ("appointment_cancelled", "appointment_accepted", "group_invite")
             )
             or (last_msg and last_msg.message_type == "text" and last_msg.meta and last_msg.meta.get("kind"))
         ):
@@ -1045,6 +1047,36 @@ async def send_message(
             if not bundle_meta["listingIds"]:
                 raise HTTPException(status_code=409, detail="Trade set has no active items")
             body.meta = bundle_meta
+        elif card_subtype == "group_invite":
+            # 그룹 초대 카드 — 발신자가 소유한 pending 초대일 때만, 그리고 이 1:1 방의 상대가
+            # 초대받는 사람일 때만 허용. 스냅샷은 클라이언트 값을 믿지 않고 서버가 그룹에서 다시 만든다.
+            try:
+                invite_id = uuid.UUID(str((body.meta or {}).get("inviteId")))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid inviteId") from None
+            invite = await db.get(CommunityGroupInvite, invite_id)
+            if (
+                invite is None
+                or invite.inviter_id != _session_uid
+                or invite.status != "pending"
+                or conv.conversation_type != "direct"
+                or invite.invitee_id != _other_user_id(conv, _session_uid)
+            ):
+                raise HTTPException(status_code=403, detail="Invalid group invite")
+            card_group = await db.get(CommunityGroup, invite.group_id)
+            if card_group is None or card_group.status != "ACTIVE":
+                raise HTTPException(status_code=404, detail="Group not found")
+            body.meta = {
+                "subtype": "group_invite",
+                "inviteId": str(invite.id),
+                "groupId": str(card_group.id),
+                "groupName": card_group.name,
+                "coverUrl": build_imgproxy_url(card_group.cover_content.file_path)
+                if card_group.cover_content
+                else None,
+                "memberCount": card_group.member_count,
+                "joinPolicy": card_group.join_policy,
+            }
         else:
             raise HTTPException(status_code=400, detail="Unsupported card message")
 
@@ -1144,6 +1176,9 @@ async def send_message(
         if card_subtype == "bundle":
             preview_key = "dm_preview.bundle"
             preview_params = {"count": len(body.meta.get("listingIds") or [])}
+        elif card_subtype == "group_invite":
+            preview_key = "dm_preview.group_invite"
+            preview_params = {"name": body.meta["groupName"]}
         elif card_listing:
             preview_key = "dm_preview.item"
             preview_params = {"title": card_listing.title}

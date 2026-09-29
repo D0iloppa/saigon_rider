@@ -45,6 +45,9 @@ export default function DmList() {
         defaultValue: '[묶음] {{count}}개 물품',
       });
     }
+    if (c.lastMessageType === 'card' && c.lastMessageMeta?.subtype === 'group_invite') {
+      return t('dm.groupInvitePreview', { name: c.lastMessageMeta.groupName ?? '' });
+    }
     // F-X-01 FR-1(r8): 약속 취소 카드·되돌리기 프롬프트 — 취소 문구로 미리보기(프롬프트는 취소 종류만 존재).
     if (c.lastMessageType === 'card' && c.lastMessageMeta?.subtype === 'appointment_cancelled') {
       return t(

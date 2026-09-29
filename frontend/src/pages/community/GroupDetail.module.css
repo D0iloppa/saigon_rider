@@ -218,6 +218,13 @@
   color: var(--danger);
 }
 
+.inviteAction {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* ── 하단 CTA(비멤버 가입) — BizPublic .ctaBar/.ctaBtn 의 in-flow 판. 이 화면은 탭바가 보이므로 fixed 대신 흐름 배치 ── */
 .ctaBar {
   flex-shrink: 0;

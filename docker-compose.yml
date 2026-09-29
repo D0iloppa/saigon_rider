@@ -520,6 +520,10 @@ services:
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (248) ON CONFLICT DO NOTHING;"
       - "-f"
+      - "/migrations/249_community_group_invites.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (249) ON CONFLICT DO NOTHING;"
+      - "-f"
       - "/migrations/250_community_group_topics_table.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (250) ON CONFLICT DO NOTHING;"
@@ -627,6 +631,7 @@ services:
       - ./database/init/246_appointments_cancelled_by.sql:/migrations/246_appointments_cancelled_by.sql:ro
       - ./database/init/247_backfill_group_chat_members.sql:/migrations/247_backfill_group_chat_members.sql:ro
       - ./database/init/248_community_group_topic.sql:/migrations/248_community_group_topic.sql:ro
+      - ./database/init/249_community_group_invites.sql:/migrations/249_community_group_invites.sql:ro
       - ./database/init/250_community_group_topics_table.sql:/migrations/250_community_group_topics_table.sql:ro
     networks:
       - dev-net

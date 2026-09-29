@@ -92,6 +92,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "en": "Sent {count} items together",
         "vi": "Đã gửi {count} sản phẩm cùng lúc",
     },
+    "dm_preview.group_invite": {
+        "ko": "그룹 초대: {name}",
+        "en": "Group invite: {name}",
+        "vi": "Lời mời nhóm: {name}",
+    },
     "dm_preview.walkie_open": {
         "ko": "워키토키 채널을 열었어요",
         "en": "Opened a walkie-talkie channel",

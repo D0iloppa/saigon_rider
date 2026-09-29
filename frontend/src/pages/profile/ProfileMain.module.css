@@ -49,7 +49,7 @@
 }
 .settingsBtn:active { background: rgba(255,255,255,.34); }
 
-/* 헤더 배지 행: 한 줄 고정, 좁은 화면(vi 라벨)에서는 가로 스크롤 */
+/* 헤더 배지 행: 칩 묶음은 줄바꿈 허용, 칩 글자는 한 줄 (F-N-02 FR-8 ⑥) */
 .chipsRow {
   margin: 8px 0 10px;
   padding: 0 16px;

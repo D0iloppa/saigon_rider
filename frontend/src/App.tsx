@@ -114,6 +114,7 @@ const GroupCreate = lazyWithRetry(() => import('@/pages/community/GroupCreate'))
 const GroupDetail = lazyWithRetry(() => import('@/pages/community/GroupDetail'));
 const GroupInvite = lazyWithRetry(() => import('@/pages/community/GroupInvite'));
 const GroupManage = lazyWithRetry(() => import('@/pages/community/GroupManage'));
+const GroupTransfer = lazyWithRetry(() => import('@/pages/community/GroupTransfer'));
 const GroupBans = lazyWithRetry(() => import('@/pages/community/GroupBans'));
 const CommunityMe = lazyWithRetry(() => import('@/pages/community/CommunityMe'));
 const CommunityLiked = lazyWithRetry(() => import('@/pages/community/CommunityLiked'));
@@ -714,6 +715,7 @@ export default function App() {
           <Route path="/group/:slug/edit" element={<PrivateRoute><GroupCreate /></PrivateRoute>} />
           <Route path="/group/:slug/invite" element={<PrivateRoute><GroupInvite /></PrivateRoute>} />
           <Route path="/group/:slug/manage" element={<PrivateRoute><GroupManage /></PrivateRoute>} />
+          <Route path="/group/:slug/transfer" element={<PrivateRoute><GroupTransfer /></PrivateRoute>} />
           <Route path="/group/:slug/bans" element={<PrivateRoute><GroupBans /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><NotificationInbox /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />

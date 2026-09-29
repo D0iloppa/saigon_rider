@@ -29,6 +29,8 @@ from ..schemas import (
     CommunityGroupMemberOut,
     CommunityGroupOut,
     CommunityGroupPatchRequest,
+    CommunityGroupRoleRequest,
+    CommunityGroupTransferOwnerRequest,
     DmConversationCreateRequest,
     DmMessageCreateRequest,
     GroupInviteCandidateOut,
@@ -466,6 +468,71 @@ async def approve_member(
     return await _group_out(db, group, _session_uid)
 
 
+async def _require_owner(db: AsyncSession, group: CommunityGroup, uid: uuid.UUID) -> CommunityGroupMember:
+    actor = await _my_membership(db, group.id, uid)
+    if actor is None or actor.status != "ACTIVE" or actor.role != "owner":
+        raise HTTPException(status_code=403, detail={"code": "owner_only"})
+    return actor
+
+
+async def _set_room_role(db: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID, role: str) -> None:
+    """공식 채팅방 역할 미러 (그룹 manager = 방 admin). 방 멤버가 아니면(이탈 등) 건드리지 않는다."""
+    conv_id = (
+        await db.execute(select(DmConversation.id).where(DmConversation.community_group_id == group_id))
+    ).scalar_one_or_none()
+    if conv_id is None:
+        return
+    await db.execute(
+        update(DmConversationMember)
+        .where(
+            DmConversationMember.conversation_id == conv_id,
+            DmConversationMember.user_id == user_id,
+            DmConversationMember.left_at.is_(None),
+        )
+        .values(role=role)
+    )
+
+
+@router.patch("/{group_id}/members/{user_id}/role", summary="매니저 지정/해제 (방장 전용)")
+async def set_member_role(
+    group_id: uuid.UUID,
+    user_id: uuid.UUID,
+    body: CommunityGroupRoleRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    group = await _resolve_group(db, str(group_id))
+    await _require_owner(db, group, _session_uid)
+    target = await _my_membership(db, group.id, user_id)
+    if target is None or target.status != "ACTIVE" or target.role == "owner":
+        raise HTTPException(status_code=409, detail={"code": "target_not_active"})
+    target.role = body.role
+    await _set_room_role(db, group.id, user_id, "admin" if body.role == "manager" else "member")
+    await db.commit()
+    return {"ok": True, "role": target.role}
+
+
+@router.post("/{group_id}/transfer-owner", summary="방장 위임 (방장 전용, 이전 방장 → 매니저)")
+async def transfer_owner(
+    group_id: uuid.UUID,
+    body: CommunityGroupTransferOwnerRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    group = await _resolve_group(db, str(group_id))
+    actor = await _require_owner(db, group, _session_uid)
+    target = await _my_membership(db, group.id, body.user_id)
+    if body.user_id == _session_uid or target is None or target.status != "ACTIVE":
+        raise HTTPException(status_code=409, detail={"code": "target_not_active"})
+    target.role = "owner"
+    actor.role = "manager"
+    group.owner_id = body.user_id
+    await _set_room_role(db, group.id, body.user_id, "owner")
+    await _set_room_role(db, group.id, _session_uid, "admin")
+    await db.commit()
+    return {"ok": True}
+
+
 @router.delete("/{group_id}/members/{user_id}", summary="탈퇴 / 내보내기 (ban=true 면 영구 차단)")
 async def remove_member(
     group_id: uuid.UUID,
@@ -482,7 +549,7 @@ async def remove_member(
         raise HTTPException(status_code=403, detail="Not a member of this group")
     is_self = user_id == _session_uid
     if is_self and actor.role == "owner":
-        # 방장 위임 기능이 생기기 전까지 방장은 나갈 수 없다 (그룹이 방장 없이 남는 것 방지).
+        # 방장은 먼저 방장 위임(transfer-owner)을 해야 나갈 수 있다 (그룹이 방장 없이 남는 것 방지).
         raise HTTPException(status_code=409, detail={"code": "owner_cannot_leave"})
     if not is_self and actor.role not in _MANAGE_ROLES:
         raise HTTPException(status_code=403, detail="Only owner/manager can remove other members")

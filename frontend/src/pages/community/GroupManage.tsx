@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LogOut, Pencil, ShieldOff, UsersRound } from 'lucide-react';
+import { ArrowRightLeft, LogOut, Pencil, ShieldOff, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { SettingsRow } from '@/components/ui/SettingsRow';
@@ -90,6 +90,16 @@ export default function GroupManage() {
               onClick={() => navigate(`${base}/bans`)}
             />
           </div>
+          {group.myRole === 'owner' && (
+            <div data-testid="manage-transfer-row">
+              <SettingsRow
+                icon={<ArrowRightLeft size={18} />}
+                label={t('communityGroup.manageTransfer')}
+                arrow
+                onClick={() => navigate(`${base}/transfer`)}
+              />
+            </div>
+          )}
         </div>
         {group.myRole === 'manager' && (
           <div className={`${styles.card} ${styles.leaveCard}`}>

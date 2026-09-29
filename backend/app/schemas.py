@@ -1260,6 +1260,8 @@ class DmConversationOut(BaseModel):
     notice: DmNoticeOut | None = None
     # init/220 — 게시판 전체 미읽음(헤더 점). 목록에는 싣지 않는다(행마다 집계 비용).
     board_unread: int = 0
+    # F-DM-02 FR-8 — 방의 최신 활성(PROPOSED/ACCEPTED) 약속. 단건 조회(direct)에서만 채워진다.
+    active_appointment: "AppointmentOut | None" = None
     # F-X-02 FR-2 — 차단 후에도 기존 direct 방/이력은 읽을 수 있지만 새 전송은 막힌다.
     # blocked_by_me 는 내가 차단한 경우에만 true 로 내려 상대에게 차단 주체를 노출하지 않는다.
     messaging_disabled: bool = False
@@ -1423,6 +1425,10 @@ class AppointmentOut(BaseModel):
     cancel_reason: str | None = None
     # F-X-01 FR-1(r8): 취소 행위자 — 프론트가 취소 카드 문구의 주어(본인/상대)를 정한다.
     cancelled_by: UUID | None = None
+
+
+# DmConversationOut.active_appointment 가 뒤에 정의되는 AppointmentOut 을 전방 참조한다.
+DmConversationOut.model_rebuild()
 
 
 # F-X-01 FR-1(260924 승인안): 취소 사유 칩 3개 — DM 카드·거래 화면 공통.

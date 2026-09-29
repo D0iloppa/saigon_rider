@@ -123,6 +123,7 @@ function transformConversation(raw: any): DmConversation {
         }
       : null,
     boardUnread: raw.board_unread ?? 0,
+    activeAppointment: raw.active_appointment ? transformAppointment(raw.active_appointment) : null,
     messagingDisabled: raw.messaging_disabled ?? false,
     blockedByMe: raw.blocked_by_me ?? false,
   };

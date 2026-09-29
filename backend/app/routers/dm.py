@@ -484,6 +484,21 @@ async def get_conversation(
     other_id = require_participant(conv, _session_uid)
     messaging_disabled, blocked_by_me = await _direct_block_state(db, _session_uid, other_id)
     other_user = await db.get(User, other_id)
+    # F-DM-02 FR-8: 약속 카드가 로드 범위 밖이어도 고정 바/시트가 뜨도록 방의 최신 활성 약속을 함께 내린다.
+    active_appt = (
+        await db.execute(
+            select(MarketplaceAppointment)
+            .where(
+                MarketplaceAppointment.conversation_id == conv.id,
+                MarketplaceAppointment.status.in_(("PROPOSED", "ACCEPTED")),
+            )
+            .order_by(MarketplaceAppointment.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    appt_listing = (
+        await db.get(MarketplaceListing, active_appt.listing_id) if active_appt and active_appt.listing_id else None
+    )
     return DmConversationOut(
         id=conv.id,
         other_user_id=other_id,
@@ -492,6 +507,9 @@ async def get_conversation(
         last_message_preview=None,
         last_message_at=conv.last_message_at,
         unread_count=0,
+        active_appointment=await _appt_out(db, active_appt, appt_listing.seller_id if appt_listing else None)
+        if active_appt
+        else None,
         context_type=conv.context_type,
         context_id=conv.context_id,
         context_listing=await _listing_context(db, conv.context_id) if conv.context_type == "listing" else None,

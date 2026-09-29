@@ -419,6 +419,8 @@ export default function DmDetail() {
           if (fresh.some((m) => m.messageType === 'system' && m.meta?.kind === 'notice_set')) refreshConv();
           // F-DM-02(260928) — 상대가 세트를 바꾼(담기/제거/상태변경) 시스템·묶음카드가 도착하면 세트 재조회.
           if (fresh.some((m) => (typeof m.meta?.kind === 'string' && m.meta.kind.startsWith('trade_set')) || m.meta?.kind === 'reserve_prompt' || m.meta?.kind === 'revert_prompt' || m.meta?.subtype === 'bundle' || m.meta?.subtype === 'appointment_cancelled' || m.meta?.subtype === 'appointment_accepted')) refreshTradeSet();
+          // 방 밖에 있던 활성 약속 스냅샷(conv.activeAppointment)도 약속 관련 신규 메시지에서 다시 받는다.
+          if (fresh.some((m) => m.messageType === 'appointment' || m.meta?.subtype === 'appointment_cancelled' || m.meta?.subtype === 'appointment_accepted')) refreshConv();
           if (fresh.length > 0) markRead(conversationId).then(() => refreshUnread()).catch(() => {});
           else skipAutoScrollRef.current = true; // 수정/공감만 온 폴링은 바닥 스냅을 유발하지 않는다
         }
@@ -880,14 +882,18 @@ export default function DmDetail() {
   const currentAppointmentId = currentAppointment?.id ?? null;
 
   // 칩 행 [약속 잡기]/[📅]/제안 표시용 — 방의 최신 활성(PROPOSED/ACCEPTED) 약속. 세트·매물 스코프와 무관(약속 독립, F-N-02 FR-7).
+  // 로드된 메시지가 우선(폴링으로 최신). 카드가 로드 범위 밖이면 서버 스냅샷(conv.activeAppointment)으로 보완한다(F-DM-02 FR-8).
   const activeAppointment = useMemo<Appointment | null>(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const appt = messages[i].appointment;
       if (messages[i].messageType !== 'appointment' || !appt) continue;
       if (appt.status === 'PROPOSED' || appt.status === 'ACCEPTED') return appt;
     }
+    const server = conv?.activeAppointment;
+    if (server && (server.status === 'PROPOSED' || server.status === 'ACCEPTED')
+      && !messages.some((m) => m.appointment?.id === server.id)) return server;
     return null;
-  }, [messages]);
+  }, [messages, conv?.activeAppointment]);
 
   // 약속 시트 [대화에서 보기] — 카드 메시지가 로드 범위 안에 있을 때만 이동 대상이 있다.
   const apptCardMessageId = activeAppointment
@@ -1046,6 +1052,7 @@ export default function DmDetail() {
     setMessages((prev) =>
       prev.map((msg) => (msg.appointment?.id === appt.id ? { ...msg, appointment: appt } : msg)),
     );
+    setConv((prev) => (prev?.activeAppointment?.id === appt.id ? { ...prev, activeAppointment: appt } : prev));
   };
 
   const handleAppointmentAction = async (
@@ -1892,8 +1899,8 @@ export default function DmDetail() {
       )}
 
       {/* 거래완료 시: 내 후기 있으면 표시, 없으면 후기 보내기 (REF-05) — direct 전용 */}
-      {/* F-DM-02 FR-8 약속 고정 바 — 순수 약속 방(매물·세트 없음)만. 매물 방은 칩 행 약속 슬롯이 이 역할. */}
-      {isDirect && !tradeSet && !listing && activeAppointment && (
+      {/* F-DM-02 FR-8 약속 고정 바 — 칩 행이 없는 direct 방(세트 없음)에서만. 세트가 있으면 칩 행 약속 슬롯이 이 역할. */}
+      {isDirect && !tradeSet && activeAppointment && (
         <button className={styles.apptPinBar} type="button" onClick={() => setApptSheetOpen(true)}>
           <span className={styles.apptPinText}>
             {[

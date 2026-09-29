@@ -186,6 +186,15 @@ async def get_feed(
         base_q = base_q.where(public_group_filter)
         count_q = count_q.where(public_group_filter)
 
+    if filter == "liked":
+        # 내가 좋아요한 글 — 좋아요 시각 최신순. private 그룹 글은 위 public_group_filter 로 그대로 배제.
+        if session_uid is None:
+            raise HTTPException(status_code=401, detail="Login required")
+        liked_on = (PostLike.post_id == FeedPost.id) & (PostLike.user_id == session_uid)
+        base_q = base_q.join(PostLike, liked_on)
+        count_q = count_q.join(PostLike, liked_on)
+        order = [PostLike.created_at.desc(), FeedPost.id.desc()]
+
     if filter == "tag":
         if not tag:
             raise HTTPException(status_code=422, detail="tag is required when filter=tag")

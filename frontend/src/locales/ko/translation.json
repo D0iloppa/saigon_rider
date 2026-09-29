@@ -673,6 +673,7 @@
     "postNotFound": "게시글을 찾을 수 없어요",
     "noComments": "첫 댓글을 남겨보세요",
     "filterHot": "핫",
+    "filterPopular": "인기",
     "filterGroupLabel": "피드 필터",
     "emptyTitle": "첫 인증을 기다리고 있어요",
     "emptySub": "라이딩을 완료하고 사이공의 한 컷을 남겨보세요",
@@ -3067,6 +3068,20 @@
     "removeMember": "강퇴",
     "removeMemberConfirm": "이 멤버를 강퇴할까요?",
     "pendingMembers": "승인 대기",
-    "approveMember": "승인"
+    "approveMember": "승인",
+    "shellTitle": "커뮤니티",
+    "segFeed": "피드",
+    "segGroup": "그룹",
+    "hubTitle": "내 커뮤니티",
+    "myGroups": "내 그룹",
+    "myGroupsEmpty": "아직 가입한 그룹이 없어요",
+    "browseTitle": "그룹 둘러보기",
+    "typeNeighborhood": "동네",
+    "typeInterest": "관심사",
+    "coverLabel": "커버 사진",
+    "coverRemove": "커버 사진 삭제",
+    "myPosts": "내가 쓴 글",
+    "likedPosts": "좋아요한 글",
+    "likedEmpty": "아직 좋아요한 글이 없어요"
   }
 }

@@ -20,7 +20,7 @@ const TAB_PATH_PREFIXES: Record<string, string[]> = {
   '/map': ['/map'],
   // S-5: 채팅은 프로필 소속이 아니라 독립 탭 — 거래 대화가 프로필 안쪽에 묻혀 응답이 늦던 문제.
   '/dm': ['/dm'],
-  '/feed': ['/feed'],
+  '/feed': ['/feed', '/community', '/group'],
   '/profile': [
     '/profile', '/settings', '/notices', '/faq', '/notifications',
     '/trades', '/followers', '/following', '/friends',

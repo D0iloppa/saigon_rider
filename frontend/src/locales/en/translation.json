@@ -673,6 +673,7 @@
     "postNotFound": "Post not found",
     "noComments": "Be the first to comment",
     "filterHot": "Hot",
+    "filterPopular": "Popular",
     "filterGroupLabel": "Feed filters",
     "emptyTitle": "Waiting for the first check-in",
     "emptySub": "Complete a ride and capture a moment in Saigon",
@@ -3067,6 +3068,20 @@
     "removeMember": "Remove member",
     "removeMemberConfirm": "Remove this member from the group?",
     "pendingMembers": "Pending approval",
-    "approveMember": "Approve"
+    "approveMember": "Approve",
+    "shellTitle": "Community",
+    "segFeed": "Feed",
+    "segGroup": "Groups",
+    "hubTitle": "My community",
+    "myGroups": "My groups",
+    "myGroupsEmpty": "You haven't joined any groups yet",
+    "browseTitle": "Explore groups",
+    "typeNeighborhood": "Neighborhood",
+    "typeInterest": "Interest",
+    "coverLabel": "Cover photo",
+    "coverRemove": "Remove cover photo",
+    "myPosts": "My posts",
+    "likedPosts": "Liked posts",
+    "likedEmpty": "You haven't liked any posts yet"
   }
 }

@@ -343,6 +343,17 @@ async def get_feed_post(
         blocked_users = select(UserBlock.blocked_id).where(UserBlock.blocker_id == session_uid)
         blocking_users = select(UserBlock.blocker_id).where(UserBlock.blocked_id == session_uid)
         query = query.where(FeedPost.user_id.notin_(blocked_users), FeedPost.user_id.notin_(blocking_users))
+    # Q-10(목록과 동일): private 그룹 글은 그 그룹의 ACTIVE 멤버에게만 — 상세 링크로 본문·그룹명이 새지 않게.
+    visible = FeedPost.group_id.is_(None) | FeedPost.group_id.in_(
+        select(CommunityGroup.id).where(CommunityGroup.visibility == "public")
+    )
+    if session_uid is not None:
+        visible = visible | FeedPost.group_id.in_(
+            select(CommunityGroupMember.group_id).where(
+                CommunityGroupMember.user_id == session_uid, CommunityGroupMember.status == "ACTIVE"
+            )
+        )
+    query = query.where(visible)
     row = (await db.execute(query)).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Post not found")

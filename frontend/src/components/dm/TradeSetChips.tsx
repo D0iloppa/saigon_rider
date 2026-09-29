@@ -65,7 +65,10 @@ export function TradeSetChips({
       )}
       {appointment?.status === 'PROPOSED' && (
         appointment.proposerId === myId ? (
-          <span className={styles.chipMuted}>{t('dm.tradeChipProposedMine', { defaultValue: '약속 제안됨' })}</span>
+          // 제안자도 칩을 눌러 약속 시트([제안 취소])로 진입 — 시각 무게만 수신자 칩보다 가볍게(chipMuted).
+          <button type="button" className={styles.chipMuted} onClick={onOpenAppointment}>
+            {t('dm.tradeChipProposedMine', { defaultValue: '약속 제안됨' })}
+          </button>
         ) : (
           <button type="button" className={styles.chipPrimary} onClick={onOpenAppointment}>
             {t('dm.tradeChipProposedIncoming', { defaultValue: '약속 제안 도착' })}

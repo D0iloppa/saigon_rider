@@ -824,7 +824,49 @@ async def get_messages(
         base = base.order_by(DmMessage.created_at.asc())
 
     offset = (page - 1) * size
-    rows = (await db.execute(base.offset(offset).limit(size))).scalars().all()
+    rows = list((await db.execute(base.offset(offset).limit(size))).scalars().all())
+
+    # 이미 내려간 약속 카드의 상태 변경 재전송 — 약속 상태(취소/수락 등)는 dm_messages.updated_at 을
+    # bump 하지 않아 위 쿼리로는 영영 안 실린다. 커서 이후 갱신된 약속의 카드 메시지를 함께 싣는다.
+    # 응답의 updated_at 은 max(메시지, 약속) 로 올려 클라 커서가 전진하게 한다(안 그러면 매 tick 재전송).
+    updated_override: dict[uuid.UUID, datetime] = {}
+    if after:
+        touched = {
+            a_id: a_upd
+            for a_id, a_upd in (
+                await db.execute(
+                    select(MarketplaceAppointment.id, MarketplaceAppointment.updated_at).where(
+                        MarketplaceAppointment.conversation_id == conv_id,
+                        MarketplaceAppointment.updated_at > after,
+                    )
+                )
+            ).all()
+        }
+        if touched:
+            # 페이지가 꽉 찼으면 아직 못 받은 일반 메시지를 커서가 건너뛰지 않도록 마지막 행 시각까지만 싣는다.
+            bound = rows[-1].updated_at if len(rows) >= size else None
+            have = {m.id for m in rows}
+            cards = (
+                (
+                    await db.execute(
+                        select(DmMessage).where(
+                            DmMessage.conversation_id == conv_id,
+                            DmMessage.message_type == "appointment",
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for m in cards:
+                a_upd = (
+                    touched.get(uuid.UUID(m.meta["appointmentId"])) if m.meta and m.meta.get("appointmentId") else None
+                )
+                if a_upd is None or m.id in have or (bound is not None and a_upd > bound):
+                    continue
+                updated_override[m.id] = max(m.updated_at, a_upd)
+                rows.append(m)
+            rows.sort(key=lambda m: updated_override.get(m.id, m.updated_at))
 
     # `after` 커서가 있는 요청은 **폴링**이다(DmDetail·워키토키 캡슐이 5초마다 호출). 이 경로에서
     # COUNT(*) 는 매 tick 마다 전체 스캔을 한 번 더 거는데, 소비처가 하나도 없다 — 폴링 응답에서
@@ -921,7 +963,7 @@ async def get_messages(
             meta=None if m.deleted_at else m.meta,
             appointment=await _appt_for(m),
             price_offer=_offer_for(m),
-            updated_at=m.updated_at,
+            updated_at=updated_override.get(m.id, m.updated_at),
             edited_at=m.edited_at,
             deleted_at=m.deleted_at,
             reply_to_message_id=m.reply_to_message_id,

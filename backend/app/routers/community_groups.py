@@ -33,6 +33,20 @@ router = APIRouter(prefix="/community/groups", tags=["커뮤니티 그룹 (Commu
 
 _MANAGE_ROLES = ("owner", "manager")
 
+# 주제 코드 → (ko, en, vi) 라벨 — 검색어가 라벨과 맞으면 그 주제 그룹도 매칭(프론트 communityGroup.topics.* 와 동일 문구).
+_TOPIC_LABELS: dict[str, tuple[str, str, str]] = {
+    "neighborhood_friends": ("동네친구", "Neighborhood friends", "Bạn cùng khu phố"),
+    "riding_tour": ("라이딩/투어", "Riding & tours", "Đi xe & tour"),
+    "sports": ("운동", "Sports & fitness", "Thể thao"),
+    "food_cafe": ("맛집/카페", "Food & cafes", "Ăn uống & cà phê"),
+    "language_exchange": ("언어교환", "Language exchange", "Trao đổi ngôn ngữ"),
+    "hobby": ("취미", "Hobbies", "Sở thích"),
+    "self_dev": ("자기계발", "Self-improvement", "Phát triển bản thân"),
+    "family": ("육아/가족", "Parenting & family", "Nuôi dạy con & gia đình"),
+    "pets": ("반려동물", "Pets", "Thú cưng"),
+    "etc": ("기타", "Other", "Khác"),
+}
+
 
 async def _resolve_group(db: AsyncSession, id_or_slug: str) -> CommunityGroup:
     group = None
@@ -80,6 +94,7 @@ async def _group_out(db: AsyncSession, group: CommunityGroup, session_uid: uuid.
         district_id=group.district_id,
         join_policy=group.join_policy,
         visibility=group.visibility,
+        topic=group.topic,
         owner_id=group.owner_id,
         member_count=group.member_count,
         post_count=group.post_count,
@@ -107,6 +122,7 @@ async def create_group(
         district_id=body.district_id,
         join_policy=body.join_policy,
         visibility=body.visibility,
+        topic=body.topic,
         owner_id=_session_uid,
         member_count=1,
         created_at=now,
@@ -142,7 +158,8 @@ async def create_group(
 @router.get("", response_model=Page[CommunityGroupOut], summary="그룹 탐색 목록")
 async def list_groups(
     filter: str = "all",  # 'all' | 'mine'
-    q: str | None = None,  # 이름·설명 부분일치 검색 (F-CM-02 FR-1 r14)
+    q: str | None = None,  # 이름·설명·주제 라벨 부분일치 검색 (F-CM-02 FR-1 r14·r15)
+    topic: str | None = None,  # 주제 코드 필터
     page: int = 1,
     size: int = 20,
     db: AsyncSession = Depends(get_db),
@@ -157,8 +174,18 @@ async def list_groups(
         escaped = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         like = f"%{escaped}%"
         cond = CommunityGroup.name.ilike(like, escape="\\") | CommunityGroup.description.ilike(like, escape="\\")
+        kw = keyword.lower()
+        topic_codes = [c for c, labels in _TOPIC_LABELS.items() if any(kw in lb.lower() for lb in labels)]
+        if topic_codes:
+            cond = cond | CommunityGroup.topic.in_(topic_codes)
         base_q = base_q.where(cond)
         count_q = count_q.where(cond)
+
+    if topic:
+        if topic not in _TOPIC_LABELS:
+            raise HTTPException(status_code=422, detail="Invalid topic")
+        base_q = base_q.where(CommunityGroup.topic == topic)
+        count_q = count_q.where(CommunityGroup.topic == topic)
 
     if filter == "mine":
         if session_uid is None:
@@ -273,6 +300,8 @@ async def update_group(
         if body.visibility not in ("public", "private"):
             raise HTTPException(status_code=422, detail="Invalid visibility")
         group.visibility = body.visibility
+    if body.topic is not None:
+        group.topic = body.topic
     if body.cover_content_id is not None:
         group.cover_content_id = body.cover_content_id
     group.updated_at = datetime.now(UTC)

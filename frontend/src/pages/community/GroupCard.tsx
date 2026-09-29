@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRight, Users } from 'lucide-react';
 import { AppImage } from '@/components/ui/AppImage';
 import type { CommunityGroup } from '@/api/types';
+import { groupTopicKey } from './groupTopics';
 import styles from './Community.module.css';
 
 // 커버 사진이 없으면 이름 첫 글자 타일 — 색상각은 이름에서 결정적으로 뽑아 CSS 변수로 넘긴다(그라데이션은 .coverTile).
@@ -34,6 +35,7 @@ export function GroupCard({ g }: { g: CommunityGroup }) {
         <span className={styles.cardName}>{g.name}</span>
         <span className={styles.cardDesc}>{g.description ?? ''}</span>
         <span className={styles.cardMeta}>
+          <span className={styles.topicChip} data-testid="group-card-topic">{t(groupTopicKey(g.topic))}</span>
           {t(g.groupType === 'neighborhood' ? 'communityGroup.typeNeighborhood' : 'communityGroup.typeInterest')}
           {' · '}
           <Users size={12} strokeWidth={2.2} />

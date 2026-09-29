@@ -16,6 +16,7 @@ import type { CommunityGroup, CommunityGroupMember, FeedPost } from '@/api/types
 import feedStyles from '@/pages/feed/FeedList.module.css';
 import { FeedPostCard } from '@/pages/feed/FeedPostCard';
 import { GroupCover } from './GroupCard';
+import { groupTopicKey } from './groupTopics';
 import styles from './GroupDetail.module.css';
 
 type Tab = 'board' | 'chat' | 'members';
@@ -131,6 +132,7 @@ export default function GroupDetail() {
         <section ref={introRef} className={styles.intro}>
           <h1 className={styles.name}>{group.name}</h1>
           <div className={styles.profileMeta}>
+            <span data-testid="group-detail-topic">{t(groupTopicKey(group.topic))}</span>
             <span>{t(group.groupType === 'neighborhood' ? 'communityGroup.typeNeighborhood' : 'communityGroup.typeInterest')}</span>
             <span>
               {group.visibility === 'private' ? <Lock size={13} strokeWidth={2.2} /> : <Globe size={13} strokeWidth={2.2} />}

@@ -3095,6 +3095,21 @@
     "visibilityPublicDesc": "Listed under Browse groups, and posts also appear in the feed",
     "visibilityPrivateDesc": "Not listed, and posts are visible to members only",
     "joinPolicyOpenDesc": "Anyone becomes a member right away",
-    "joinPolicyApprovalDesc": "The owner must approve new members"
+    "joinPolicyApprovalDesc": "The owner must approve new members",
+    "topicLabel": "Topic",
+    "topicHint": "Pick the one topic that fits your group",
+    "topicAll": "All",
+    "topics": {
+      "neighborhood_friends": "Neighborhood friends",
+      "riding_tour": "Riding & tours",
+      "sports": "Sports & fitness",
+      "food_cafe": "Food & cafes",
+      "language_exchange": "Language exchange",
+      "hobby": "Hobbies",
+      "self_dev": "Self-improvement",
+      "family": "Parenting & family",
+      "pets": "Pets",
+      "etc": "Other"
+    }
   }
 }

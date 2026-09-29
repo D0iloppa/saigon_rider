@@ -508,6 +508,7 @@ class CommunityGroup(Base):
     )
     join_policy: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
     visibility: Mapped[str] = mapped_column(String(20), nullable=False, default="public")
+    topic: Mapped[str] = mapped_column(String(32), nullable=False, default="etc")
     owner_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

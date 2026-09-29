@@ -3095,6 +3095,21 @@
     "visibilityPublicDesc": "Hiện trong Khám phá nhóm, bài viết cũng xuất hiện trên bảng tin",
     "visibilityPrivateDesc": "Không hiện trong danh sách, bài viết chỉ thành viên xem được",
     "joinPolicyOpenDesc": "Ai cũng trở thành thành viên ngay",
-    "joinPolicyApprovalDesc": "Trưởng nhóm phải duyệt thành viên mới"
+    "joinPolicyApprovalDesc": "Trưởng nhóm phải duyệt thành viên mới",
+    "topicLabel": "Chủ đề",
+    "topicHint": "Chọn một chủ đề phù hợp với nhóm",
+    "topicAll": "Tất cả",
+    "topics": {
+      "neighborhood_friends": "Bạn cùng khu phố",
+      "riding_tour": "Đi xe & tour",
+      "sports": "Thể thao",
+      "food_cafe": "Ăn uống & cà phê",
+      "language_exchange": "Trao đổi ngôn ngữ",
+      "hobby": "Sở thích",
+      "self_dev": "Phát triển bản thân",
+      "family": "Nuôi dạy con & gia đình",
+      "pets": "Thú cưng",
+      "etc": "Khác"
+    }
   }
 }

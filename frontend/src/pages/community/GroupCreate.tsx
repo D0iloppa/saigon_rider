@@ -9,6 +9,7 @@ import { api } from '@/api/client';
 import { useUserStore } from '@/store/useUserStore';
 import { createGroup } from '@/api/community_groups';
 import { toast } from '@/components/ui/Toast';
+import { GROUP_TOPICS, groupTopicKey, type GroupTopic } from './groupTopics';
 import styles from './GroupCreate.module.css';
 
 type Visibility = 'public' | 'private';
@@ -42,13 +43,14 @@ function OptionRow({ active, icon: Icon, title, desc, onSelect }: {
   );
 }
 
-// 그룹 개설 폼 — 기본 정보(커버·이름·소개) / 공개 여부 / 가입 방식 3섹션 (F-CM-02 FR-1 r14).
+// 그룹 개설 폼 — 기본 정보(커버·이름·소개) / 주제(필수·고정 목록 1개) / 공개 여부 / 가입 방식 3섹션 (F-CM-02 FR-1 r14).
 // 선택지는 기존 옵션(public|private, open|approval)만 — 새 정책 없음.
 export default function GroupCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [topic, setTopic] = useState<GroupTopic | null>(null);
   const [visibility, setVisibility] = useState<Visibility>('public');
   const [joinPolicy, setJoinPolicy] = useState<JoinPolicy>('open');
   const [submitting, setSubmitting] = useState(false);
@@ -96,11 +98,12 @@ export default function GroupCreate() {
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || submitting || cover?.uploading) return;
+    if (!name.trim() || !topic || submitting || cover?.uploading) return;
     setSubmitting(true);
     try {
       const group = await createGroup({
         name: name.trim(),
+        topic,
         description: description.trim() || undefined,
         visibility,
         joinPolicy,
@@ -186,6 +189,26 @@ export default function GroupCreate() {
         </section>
 
         <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>{t('communityGroup.topicLabel')}</h2>
+          <p className={styles.sectionHint}>{t('communityGroup.topicHint')}</p>
+          <div className={styles.chips} role="radiogroup" aria-label={t('communityGroup.topicLabel')} data-testid="group-create-topics">
+            {GROUP_TOPICS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={topic === c}
+                data-testid={`group-create-topic-${c}`}
+                className={`${styles.chip} ${topic === c ? styles.chipActive : ''}`}
+                onClick={() => setTopic(c)}
+              >
+                {t(groupTopicKey(c))}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className={styles.section}>
           <h2 className={styles.sectionTitle}>{t('communityGroup.visibility')}</h2>
           <div className={styles.options} role="radiogroup" aria-label={t('communityGroup.visibility')}>
             <OptionRow
@@ -226,7 +249,7 @@ export default function GroupCreate() {
         </section>
       </div>
       <div className={styles.submitBar}>
-        <Button onClick={handleCreate} disabled={!name.trim() || submitting || !!cover?.uploading} loading={submitting}>
+        <Button onClick={handleCreate} disabled={!name.trim() || !topic || submitting || !!cover?.uploading} loading={submitting}>
           {t('communityGroup.createSubmit')}
         </Button>
       </div>

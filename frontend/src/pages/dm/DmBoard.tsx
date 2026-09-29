@@ -316,7 +316,7 @@ export default function DmBoard() {
               placeholder={t('dm.board.channelName', { defaultValue: '채널 이름' })}
               onChange={(e) => setNewName(e.target.value)}
             />
-            <Button onClick={handleCreateChannel} disabled={busy || !newName.trim()}>
+            <Button fullWidth={false} onClick={handleCreateChannel} disabled={busy || !newName.trim()}>
               {t('dm.board.createChannel', { defaultValue: '채널 만들기' })}
             </Button>
           </div>

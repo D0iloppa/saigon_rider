@@ -136,6 +136,18 @@ export async function approveMember(groupId: string, userId: string): Promise<Co
   return transformGroup(raw);
 }
 
+export async function setMemberRole(groupId: string, userId: string, role: 'manager' | 'member'): Promise<void> {
+  await api.realFetch(`/community/groups/${groupId}/members/${userId}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }, 'bff', {
+    rethrow: true,
+  });
+}
+
+export async function transferGroupOwner(groupId: string, userId: string): Promise<void> {
+  await api.realFetch(`/community/groups/${groupId}/transfer-owner`, { method: 'POST', body: JSON.stringify({ user_id: userId }) }, 'bff', {
+    rethrow: true,
+  });
+}
+
 export async function removeGroupMember(groupId: string, userId: string, ban = false): Promise<void> {
   await api.realFetch(`/community/groups/${groupId}/members/${userId}${ban ? '?ban=true' : ''}`, { method: 'DELETE' });
 }

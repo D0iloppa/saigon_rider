@@ -8,7 +8,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
-import { getGroup, joinGroup, listMembers, removeGroupMember, approveMember, listGroupPosts } from '@/api/community_groups';
+import { getGroup, joinGroup, listMembers, removeGroupMember, approveMember, listGroupPosts, setMemberRole } from '@/api/community_groups';
 import { extractErrorCode } from '@/api/client';
 import { toast } from '@/components/ui/Toast';
 import confirmStyles from '@/components/ui/ConfirmDialog.module.css';
@@ -349,6 +349,7 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
   const [pending, setPending] = useState<CommunityGroupMember[]>([]);
   const [kickTarget, setKickTarget] = useState<string | null>(null);
   const [kickBan, setKickBan] = useState(false);
+  const [actionTarget, setActionTarget] = useState<CommunityGroupMember | null>(null);
   const [loading, setLoading] = useState(true);
   const canManage = MANAGE_ROLES.has(group.myRole ?? '');
   // 초대: ACTIVE 멤버 누구나, 초대전용 그룹은 owner/manager 만 (서버 규칙과 동일)
@@ -379,6 +380,19 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
       setMembers((prev) => prev.filter((m) => m.userId !== userId));
     } catch {
       toast.error(t('common.errorUnexpected'));
+    }
+  };
+
+  const handleRole = async (m: CommunityGroupMember) => {
+    const role = m.role === 'manager' ? 'member' : 'manager';
+    setActionTarget(null);
+    try {
+      await setMemberRole(group.id, m.userId, role);
+      setMembers((prev) => prev.map((x) => (x.userId === m.userId ? { ...x, role } : x)));
+      toast.success(t(role === 'manager' ? 'communityGroup.roleAppointed' : 'communityGroup.roleDismissed'));
+    } catch (err) {
+      const code = extractErrorCode(err);
+      toast.error(code === 'owner_only' ? t('communityGroup.ownerOnly') : code === 'target_not_active' ? t('communityGroup.targetNotActive') : t('common.errorUnexpected'));
     }
   };
 
@@ -446,7 +460,17 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
             <AppImage src={m.avatarUrl ?? undefined} alt="" className={styles.memberAvatar} variant="circle" />
             <span className={styles.memberName}>{m.nickname ?? '—'}</span>
             <span className={styles.memberRole}>{t(`communityGroup.role_${m.role}`, { defaultValue: m.role })}</span>
-            {canManage && m.userId !== myUserId && m.role !== 'owner' && (m.role !== 'manager' || group.myRole === 'owner') && (
+            {group.myRole === 'owner' && m.userId !== myUserId && m.role !== 'owner' ? (
+              <button
+                type="button"
+                className={styles.memberMore}
+                data-testid="member-role-btn"
+                onClick={() => setActionTarget(m)}
+                aria-label={t('communityGroup.memberActions')}
+              >
+                <MoreVertical size={18} strokeWidth={2.2} />
+              </button>
+            ) : canManage && m.userId !== myUserId && m.role !== 'owner' && m.role !== 'manager' && (
               <button
                 type="button"
                 className={`${styles.memberAction} ${styles.memberActionDanger}`}
@@ -459,6 +483,30 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
           </div>
         ))}
       </div>
+      <BottomSheet open={!!actionTarget} onClose={() => setActionTarget(null)}>
+        <div className={styles.moreSheet}>
+          {actionTarget && (
+            <>
+              <button
+                type="button"
+                className={styles.moreItem}
+                data-testid={actionTarget.role === 'manager' ? 'member-dismiss-manager' : 'member-make-manager'}
+                onClick={() => handleRole(actionTarget)}
+              >
+                {t(actionTarget.role === 'manager' ? 'communityGroup.roleDismiss' : 'communityGroup.roleAppoint')}
+              </button>
+              <button
+                type="button"
+                className={`${styles.moreItem} ${styles.moreItemDanger}`}
+                data-testid="member-kick-btn"
+                onClick={() => { setKickTarget(actionTarget.userId); setKickBan(false); setActionTarget(null); }}
+              >
+                {t('communityGroup.removeMember')}
+              </button>
+            </>
+          )}
+        </div>
+      </BottomSheet>
       {kickTarget && (
         <div className={confirmStyles.backdrop} onClick={() => setKickTarget(null)}>
           <div className={confirmStyles.dialog} onClick={(e) => e.stopPropagation()}>

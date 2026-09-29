@@ -1287,6 +1287,14 @@ class GroupInviteSendRequest(BaseModel):
     user_ids: list[UUID] = Field(min_length=1, max_length=20)
 
 
+class CommunityGroupRoleRequest(BaseModel):
+    role: Literal["manager", "member"]
+
+
+class CommunityGroupTransferOwnerRequest(BaseModel):
+    user_id: UUID
+
+
 class GroupInviteResultOut(BaseModel):
     user_id: UUID
     result: str  # 'sent' | 'skipped'

@@ -152,6 +152,7 @@ test.describe('community group invite', () => {
     await injectSession(page, owner);
     await page.goto(`/group/${group.slug ?? group.id}`);
     await page.getByText('멤버', { exact: true }).first().click();
+    await page.getByTestId('member-role-btn').click();
     await page.getByTestId('member-kick-btn').click();
     await page.getByTestId('member-kick-ban-checkbox').check();
     await page.getByTestId('member-kick-confirm').click();

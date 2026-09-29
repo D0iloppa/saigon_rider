@@ -701,7 +701,8 @@
     "deleteCommentConfirm": "Xóa bình luận này?",
     "deleteCommentSuccess": "Đã xóa bình luận",
     "deleteCommentError": "Xóa bình luận thất bại",
-    "groupMemberRequired": "Tham gia nhóm để thích và bình luận"
+    "groupMemberRequired": "Tham gia nhóm để thích và bình luận",
+    "viewGroup": "Xem nhóm"
   },
   "profile": {
     "phoneVerifyNeeded": "Cần xác minh SĐT",

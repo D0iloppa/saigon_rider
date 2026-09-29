@@ -1260,6 +1260,7 @@ class CommunityGroupPatchRequest(BaseModel):
     visibility: str | None = None
     topic: str | None = None
     cover_content_id: UUID | None = None
+    clear_cover: bool = False
 
 
 class CommunityGroupMemberOut(BaseModel):

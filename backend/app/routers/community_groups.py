@@ -354,6 +354,8 @@ async def update_group(
         group.topic = body.topic
     if body.cover_content_id is not None:
         group.cover_content_id = body.cover_content_id
+    elif body.clear_cover:
+        group.cover_content_id = None
     group.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(group)

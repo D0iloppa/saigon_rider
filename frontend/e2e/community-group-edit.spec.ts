@@ -4,6 +4,7 @@ import {
   injectSession,
   verifyPhoneBypass,
   saveConsentViaApi,
+  uploadTestImage,
   cleanupUser,
   uniqueTag,
   type DevSession,
@@ -94,5 +95,44 @@ test.describe('community group edit', () => {
     await page.goto(`/group/${slug}`);
     await expect(page.getByRole('heading', { name: newName })).toBeVisible();
     await expect(page.getByTestId('group-manage-btn')).toHaveCount(0);
+  });
+
+  test('owner: 편집에서 커버 × → 저장 → 상세 배너가 폴백 타일(img 없음)', async ({ page, request }) => {
+    const o = await newUser(request, 'gec');
+    try {
+      const topics: Array<{ code: string }> = await (await request.get(`${API}/community/group-topics`)).json();
+      const coverId = await uploadTestImage(request, o);
+      const groupRes = await request.post(`${API}/community/groups`, {
+        headers: H(o),
+        data: {
+          name: `커버${uniqueTag('g')}`,
+          topic: topics[0].code,
+          group_type: 'interest',
+          join_policy: 'open',
+          visibility: 'public',
+          cover_content_id: coverId,
+        },
+      });
+      expect(groupRes.status()).toBe(201);
+      const group = await groupRes.json();
+      const slug = group.slug ?? group.id;
+      expect(group.cover_url).toBeTruthy();
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.addInitScript(() => window.localStorage.setItem('sr-lang', 'ko'));
+      await injectSession(page, o);
+      await page.goto(`/group/${slug}/edit`);
+      await expect(page.getByTestId('group-cover-picker').locator('img')).toBeVisible();
+      await page.getByRole('button', { name: '커버 사진 삭제' }).click();
+      await expect(page.getByTestId('group-cover-picker').locator('img')).toHaveCount(0);
+      const saved = page.waitForResponse((r) => r.url().includes(`/community/groups/${group.id}`) && r.request().method() === 'PATCH');
+      await page.getByTestId('group-edit-save').click();
+      expect((await saved).status()).toBe(200);
+
+      await expect(page).toHaveURL(new RegExp(`/group/${slug}$`));
+      await expect(page.locator('div[class*="banner"] img')).toHaveCount(0);
+    } finally {
+      cleanupUser(o.userId);
+    }
   });
 });

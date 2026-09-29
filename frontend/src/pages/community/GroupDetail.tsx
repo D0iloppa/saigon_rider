@@ -172,9 +172,18 @@ export default function GroupDetail() {
           {tab === 'board' && (
             <BoardTab group={group} isMember={isMember} navigate={navigate} t={t} />
           )}
-          {tab === 'chat' && (
-            <StateBlock icon={MessagesSquare} title={t('communityGroup.chatRequiresMembership')} />
-          )}
+          {tab === 'chat' &&
+            (isMember && group.conversationId ? (
+              // 탭에 머문 채 가입한 경우 — 탭 재클릭은 탭 변경이 아니라 이동이 안 되므로 진입 버튼을 준다
+              <StateBlock
+                icon={MessagesSquare}
+                title={t('dm.groupOfficialChat', { name: group.name })}
+                actionLabel={t('market.chat')}
+                onAction={() => navigate(`/dm/${group.conversationId}`)}
+              />
+            ) : (
+              <StateBlock icon={MessagesSquare} title={t('communityGroup.chatRequiresMembership')} />
+            ))}
           {tab === 'members' && (
             <MembersTab group={group} isMember={isMember} myUserId={me?.id} t={t} />
           )}

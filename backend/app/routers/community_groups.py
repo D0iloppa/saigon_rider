@@ -154,8 +154,9 @@ async def list_groups(
 
     keyword = (q or "").strip()
     if keyword:
-        like = f"%{keyword}%"
-        cond = CommunityGroup.name.ilike(like) | CommunityGroup.description.ilike(like)
+        escaped = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        like = f"%{escaped}%"
+        cond = CommunityGroup.name.ilike(like, escape="\\") | CommunityGroup.description.ilike(like, escape="\\")
         base_q = base_q.where(cond)
         count_q = count_q.where(cond)
 

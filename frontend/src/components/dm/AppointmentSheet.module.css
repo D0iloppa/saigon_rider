@@ -1,0 +1,89 @@
+/* F-DM-02 FR-8 약속 시트 — 버튼 규격은 약속 카드(DmDetail.module.css .apptBtn*)와 맞춘다. */
+.sheet {
+  padding: 8px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.title {
+  font-size: 18px;
+  font-weight: 700;
+}
+.pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 111, 60, .14);
+  color: var(--brand-500);
+}
+.pill[data-status="ACCEPTED"] { background: #e7f6ec; color: #16a34a; }
+.info {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 12px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.label {
+  white-space: nowrap;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.val {
+  min-width: 0;
+  color: var(--text);
+  font-weight: 700;
+  word-break: break-word;
+}
+.row {
+  display: flex;
+  gap: 8px;
+}
+.primary,
+.ghost {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 6px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.25;
+}
+.primary { width: 100%; background: var(--brand-500); color: #fff; }
+.ghost { background: transparent; color: var(--text-2); border: 1px solid var(--line); }
+.danger { color: var(--danger, #dc2626); }
+.primary:active,
+.ghost:active { opacity: .85; }
+.primary:disabled,
+.ghost:disabled { opacity: .5; }
+.ghost[aria-disabled='true'] { opacity: .5; }
+.note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.retry,
+.link {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  color: var(--brand-500);
+  font-size: 12px;
+  font-weight: 700;
+}
+.link {
+  align-self: center;
+  font-size: 13px;
+}

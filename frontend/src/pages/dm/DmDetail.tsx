@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { createPortal } from 'react-dom';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Ban, CalendarPlus, ChevronDown, CircleUserRound, CreditCard, Flag, HandCoins, ImagePlus, LayoutList, LocateFixed, LogOut, MailOpen, MapPin, Megaphone, MoreVertical, Pencil, Radio, Reply, Smile, Trash2, X } from 'lucide-react';
+import { AlertCircle, Ban, CalendarPlus, ChevronDown, ChevronRight, CircleUserRound, CreditCard, Flag, HandCoins, ImagePlus, LayoutList, LocateFixed, LogOut, MailOpen, MapPin, Megaphone, MoreVertical, Pencil, Radio, Reply, Smile, Trash2, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -20,6 +20,7 @@ import { CardMessage } from '@/components/dm/CardMessage';
 import cardStyles from '@/components/dm/CardMessage.module.css';
 import { TradeSetBar } from '@/components/dm/TradeSetBar';
 import { TradeSetChips } from '@/components/dm/TradeSetChips';
+import { AppointmentSheet, type AppointmentNavView } from '@/components/dm/AppointmentSheet';
 import { TradeSetPicker } from '@/components/dm/TradeSetPicker';
 import { TradeSetStatusSheet } from '@/components/dm/TradeSetStatusSheet';
 import { tradeSetErrorMessage } from '@/components/dm/tradeSetErrors';
@@ -101,6 +102,14 @@ const CANCEL_REASON_KEY: Record<string, string> = {
   UNREACHABLE: 'dm.cancelReasonUnreachable',
 };
 
+/** 약속 고정 바용 일시 — "9.28(일) 17:00" (요일은 뷰어 로케일, 시각은 뷰어 로컬 타임존). */
+function formatApptBarWhen(iso: string, locale: string): string {
+  const d = new Date(iso);
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const weekday = new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(d);
+  return `${d.getMonth() + 1}.${pad2(d.getDate())}(${weekday}) ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 function localDayKey(iso: string): string {
   const date = new Date(iso);
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -141,7 +150,7 @@ function watermarkOf(messages: DmMessage[]): string | undefined {
 }
 
 export default function DmDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { conversationId } = useParams<{ conversationId: string }>();
   // 길안내 버튼 제어용 — 스토어가 이미 끝낸 측위 결과를 읽기만 한다(새로 측정하지 않는다).
@@ -409,7 +418,7 @@ export default function DmDetail() {
           // 남이 등록한 공지는 이 시스템 메시지로만 알 수 있다 — 배너가 낡지 않게 conv 만 재조회
           if (fresh.some((m) => m.messageType === 'system' && m.meta?.kind === 'notice_set')) refreshConv();
           // F-DM-02(260928) — 상대가 세트를 바꾼(담기/제거/상태변경) 시스템·묶음카드가 도착하면 세트 재조회.
-          if (fresh.some((m) => (typeof m.meta?.kind === 'string' && m.meta.kind.startsWith('trade_set')) || m.meta?.kind === 'reserve_prompt' || m.meta?.kind === 'revert_prompt' || m.meta?.subtype === 'bundle' || m.meta?.subtype === 'appointment_cancelled')) refreshTradeSet();
+          if (fresh.some((m) => (typeof m.meta?.kind === 'string' && m.meta.kind.startsWith('trade_set')) || m.meta?.kind === 'reserve_prompt' || m.meta?.kind === 'revert_prompt' || m.meta?.subtype === 'bundle' || m.meta?.subtype === 'appointment_cancelled' || m.meta?.subtype === 'appointment_accepted')) refreshTradeSet();
           if (fresh.length > 0) markRead(conversationId).then(() => refreshUnread()).catch(() => {});
           else skipAutoScrollRef.current = true; // 수정/공감만 온 폴링은 바닥 스냅을 유발하지 않는다
         }
@@ -880,6 +889,11 @@ export default function DmDetail() {
     return null;
   }, [messages]);
 
+  // 약속 시트 [대화에서 보기] — 카드 메시지가 로드 범위 안에 있을 때만 이동 대상이 있다.
+  const apptCardMessageId = activeAppointment
+    ? messages.find((m) => m.appointment?.id === activeAppointment.id)?.id ?? null
+    : null;
+
   // ①: 결제(거래) 기록은 세트에 귀속(F-N-02 FR-7 ④) — 결제 열림 = 세트에 예약중 항목 존재. 이때만 1회 조회한다(폴링 없음).
   // payment_qr 메시지는 meta.tradeSetId 로 매칭하고, 구 메시지(appointmentId 만)는 현재 약속으로 폴백한다.
   const tradeSetId = tradeSet?.id ?? null;
@@ -1053,6 +1067,82 @@ export default function DmDetail() {
       setSending(false);
     }
   };
+
+  // F-DM-02 FR-8: 약속 카드와 약속 시트가 같은 행동 핸들러·표시 상태를 쓴다(한 곳 정의).
+  // 약속 취소에 확인 1회(260919 리뷰킷 F-S5-01 FR-1 ⓐ, F-X-01 FR-1 ⓐ). 약속 독립 원칙(F-N-02 FR-7)으로
+  // 약속 취소는 거래에 영향이 없어 거래 취소 문구를 쓰지 않는다(r8). PROPOSED 단계의 제안 취소/거절은
+  // 성립 전이라 손실이 없어 확인 없이 그대로 둔다.
+  const requestCancelAppointment = (appt: Appointment) => {
+    if (appt.status === 'ACCEPTED') {
+      // F-X-01 FR-1(260924 승인안): 사유 칩 3개(선택 필수 1) → useConfirmStore 확인 1회.
+      useCancelReasonStore.getState().open(
+        t('dm.cancelReasonTitle'),
+        (reason) => useConfirmStore.getState().open(
+          t('dm.apptCancelConfirm'),
+          () => {
+            useConfirmStore.getState().close();
+            handleAppointmentAction((id) => cancelAppointment(id, reason), appt.id);
+          },
+          { confirmLabel: t('dm.apptCancelConfirmCta') },
+        ),
+      );
+    } else {
+      handleAppointmentAction(cancelAppointment, appt.id);
+    }
+  };
+
+  const apptCancelLabel = (appt: Appointment) =>
+    appt.status === 'ACCEPTED'
+      ? t('dm.apptCancel', { defaultValue: '약속 취소' })
+      : appt.proposerId === myId
+        ? t('dm.apptCancelOffer', { defaultValue: '제안 취소' })
+        : t('dm.apptReject', { defaultValue: '거절' });
+
+  const startApptLiveLocation = (appt: Appointment) => {
+    const hasCoords = appt.placeLat != null && appt.placeLng != null;
+    startLiveLocation({
+      appointmentId: appt.id,
+      dest: hasCoords ? { lat: appt.placeLat!, lng: appt.placeLng!, ...(appt.placeName ? { name: appt.placeName } : {}) } : undefined,
+      sendInvite: true,
+    });
+  };
+
+  const apptNavView = (appt: Appointment): AppointmentNavView => {
+    const navState = appointmentNavigation[appt.id];
+    const accepted = appt.status === 'ACCEPTED';
+    return {
+      show: accepted && navState?.status === 'ready' && !!navState.destination,
+      canRetry: accepted
+        && navState?.status === 'error'
+        && navState.errorCode === 'appointment_navigation_destination_not_exact',
+      reason: accepted
+        ? routeChecking
+          ? t('locationGate.checking', '위치를 확인하고 있어요')
+          : !routeAvailable
+            ? routeGateReason
+              ? t(`locationGate.${routeGateReason}.title`)
+              : t('locationGate.checking', '위치를 확인하고 있어요')
+            : navState?.status === 'loading'
+              ? t('dm.apptNavigationChecking', { defaultValue: '약속 장소를 확인하고 있어요.' })
+              : navState?.status === 'error'
+                ? navState.errorCode === 'appointment_navigation_destination_not_exact'
+                  ? t('dm.apptNavigationNotExact', { defaultValue: '정확한 약속 장소는 약속 시간에 가까워지면 확인할 수 있어요.' })
+                  : t('dm.apptNavigationUnavailable', { defaultValue: '지금은 길안내를 준비할 수 없어요. 잠시 후 다시 확인해 주세요.' })
+                : null
+        : null,
+      locked: !routeAvailable,
+    };
+  };
+
+  // 약속 시트(F-DM-02 FR-8) — 열려 있는 동안 최신 activeAppointment 로 다시 그린다. 상대가 취소·완료해
+  // 활성 약속이 사라지면 dm.apptOutdated 토스트 후 닫는다(내 행동은 시트를 먼저 닫아 이 경로를 타지 않는다).
+  const [apptSheetOpen, setApptSheetOpen] = useState(false);
+  useEffect(() => {
+    if (apptSheetOpen && !activeAppointment) {
+      setApptSheetOpen(false);
+      toast.error(t('dm.apptOutdated', { defaultValue: '약속 상태가 변경되어 새로고침했어요' }));
+    }
+  }, [apptSheetOpen, activeAppointment, t]);
 
   const handleTranslateMsg = async (msgId: string, content: string) => {
     if (tr[msgId]) {
@@ -1779,10 +1869,7 @@ export default function DmDetail() {
             } : null}
             onAddOrEditItems={() => setTradeSetPickerOpen(true)}
             onMakeAppointment={handleOpenAppt}
-            onOpenAppointment={() => {
-              const mid = messages.find((m) => m.appointment?.id === activeAppointment?.id)?.id;
-              if (mid) scrollToMessage(mid);
-            }}
+            onOpenAppointment={() => setApptSheetOpen(true)}
             onShareLocation={() => {
               if (!activeAppointment) return;
               const hasCoords = activeAppointment.placeLat != null && activeAppointment.placeLng != null;
@@ -1805,6 +1892,24 @@ export default function DmDetail() {
       )}
 
       {/* 거래완료 시: 내 후기 있으면 표시, 없으면 후기 보내기 (REF-05) — direct 전용 */}
+      {/* F-DM-02 FR-8 약속 고정 바 — 순수 약속 방(매물·세트 없음)만. 매물 방은 칩 행 약속 슬롯이 이 역할. */}
+      {isDirect && !tradeSet && !listing && activeAppointment && (
+        <button className={styles.apptPinBar} type="button" onClick={() => setApptSheetOpen(true)}>
+          <span className={styles.apptPinText}>
+            {[
+              `📅 ${formatApptBarWhen(activeAppointment.whenAt, i18n.language)}`,
+              activeAppointment.placeName,
+              activeAppointment.status === 'ACCEPTED'
+                ? t('dm.apptBarConfirmed')
+                : activeAppointment.proposerId === myId
+                  ? t('dm.apptBarProposedMine')
+                  : t('dm.apptBarProposedTheirs'),
+            ].filter(Boolean).join(' · ')}
+          </span>
+          <ChevronRight size={16} className={styles.apptPinChevron} />
+        </button>
+      )}
+
       {isDirect && listing?.status === 'SOLD' && (
         myReview ? (
           <div className={styles.myReviewBanner}>
@@ -1929,8 +2034,6 @@ export default function DmDetail() {
               : '';
             const timeText = whenDate ? `${pad2(whenDate.getHours())}:${pad2(whenDate.getMinutes())}` : '';
             const placeText = appt?.placeName ?? m.meta?.place ?? null;
-            const lat = appt?.placeLat ?? m.meta?.placeLat ?? null;
-            const lng = appt?.placeLng ?? m.meta?.placeLng ?? null;
             const statusLabel: Record<string, string> = {
               PROPOSED: t('dm.apptProposed', { defaultValue: '제안됨' }),
               ACCEPTED: t('dm.apptAccepted', { defaultValue: '확정' }),
@@ -1940,37 +2043,17 @@ export default function DmDetail() {
                 ? t('dm.apptSuperseded')
                 : t('dm.apptCancelled', { defaultValue: '취소됨' }),
             };
-            const hasCoords = lat != null && lng != null;
             const navState = appt ? appointmentNavigation[appt.id] : undefined;
-            const showNav = status === 'ACCEPTED' && navState?.status === 'ready' && !!navState.destination;
-            const canRetryNavigation = status === 'ACCEPTED'
-              && navState?.status === 'error'
-              && navState.errorCode === 'appointment_navigation_destination_not_exact';
-            const navInlineReason = status === 'ACCEPTED'
-              ? routeChecking
-                ? t('locationGate.checking', '위치를 확인하고 있어요')
-                : !routeAvailable
-                  ? routeGateReason
-                    ? t(`locationGate.${routeGateReason}.title`)
-                    : t('locationGate.checking', '위치를 확인하고 있어요')
-                  : navState?.status === 'loading'
-                    ? t('dm.apptNavigationChecking', { defaultValue: '약속 장소를 확인하고 있어요.' })
-                    : navState?.status === 'error'
-                      ? navState.errorCode === 'appointment_navigation_destination_not_exact'
-                        ? t('dm.apptNavigationNotExact', { defaultValue: '정확한 약속 장소는 약속 시간에 가까워지면 확인할 수 있어요.' })
-                        : t('dm.apptNavigationUnavailable', { defaultValue: '지금은 길안내를 준비할 수 없어요. 잠시 후 다시 확인해 주세요.' })
-                      : null
-              : null;
+            const navView = appt ? apptNavView(appt) : null;
+            const showNav = !!navView?.show;
+            const canRetryNavigation = !!navView?.canRetry;
+            const navInlineReason = navView?.reason ?? null;
             const canAccept = !!appt && status === 'PROPOSED' && !iAmProposer;
             // 약속 카드는 만남 전용(대표 판정 260929) — 결제·거래완료 액션은 칩 행/거래 화면 소관이라 여기서 판단하지 않는다.
             const canCancel = !!appt && (status === 'PROPOSED' || status === 'ACCEPTED');
             // S-16: 완료 요청 표시(상태 pill)만 남긴다 — 거절된 요청은 "요청 없음"으로 되돌린다.
             const completionPending = !!appt?.completionRequestedAt && !appt.completionDeclinedAt;
-            const cancelLabel = status === 'ACCEPTED'
-              ? t('dm.apptCancel', { defaultValue: '약속 취소' })
-              : iAmProposer
-                ? t('dm.apptCancelOffer', { defaultValue: '제안 취소' })
-                : t('dm.apptReject', { defaultValue: '거절' });
+            const cancelLabel = appt ? apptCancelLabel(appt) : '';
             return (
               <CardMessage
                 key={m.id}
@@ -2023,11 +2106,7 @@ export default function DmDetail() {
                 {appt?.id === currentAppointmentId && status === 'ACCEPTED' && (
                   <div className={styles.apptLiveLocationRow}>
                     <button className={styles.apptBtnGhost} type="button"
-                      onClick={() => startLiveLocation({
-                        appointmentId: appt.id,
-                        dest: hasCoords ? { lat: lat!, lng: lng!, ...(placeText ? { name: placeText } : {}) } : undefined,
-                        sendInvite: true,
-                      })}>
+                      onClick={() => startApptLiveLocation(appt)}>
                       <MapPin size={14} /> {t('dm.locationShare', { defaultValue: '위치공유' })}
                     </button>
                     <button className={styles.apptBtnGhost} type="button" onClick={handleWalkieJoin}>
@@ -2055,33 +2134,13 @@ export default function DmDetail() {
                     {showNav && (
                       <button className={styles.apptBtnGhost} type="button"
                         aria-disabled={!routeAvailable}
-                        onClick={() => handleNavigate(navState.destination!)}>
+                        onClick={() => handleNavigate(navState!.destination!)}>
                         {t('dm.navigate', { defaultValue: '길안내' })}
                       </button>
                     )}
-                    {/* 약속 취소에 확인 1회(260919 리뷰킷 F-S5-01 FR-1 ⓐ, F-X-01 FR-1 ⓐ). 약속 독립
-                        원칙(F-N-02 FR-7)으로 약속 취소는 거래에 영향이 없어 거래 취소 문구를 쓰지 않는다
-                        (r8). PROPOSED 단계의 제안 취소/거절은 성립 전이라 손실이 없어 확인 없이 그대로 둔다. */}
                     {canCancel && (
                       <button className={`${styles.apptBtnGhost} ${styles.apptBtnDanger}`} type="button" disabled={sending}
-                        onClick={() => {
-                          if (status === 'ACCEPTED') {
-                            // F-X-01 FR-1(260924 승인안): 사유 칩 3개(선택 필수 1) → useConfirmStore 확인 1회.
-                            useCancelReasonStore.getState().open(
-                              t('dm.cancelReasonTitle'),
-                              (reason) => useConfirmStore.getState().open(
-                                t('dm.apptCancelConfirm'),
-                                () => {
-                                  useConfirmStore.getState().close();
-                                  handleAppointmentAction((id) => cancelAppointment(id, reason), appt.id);
-                                },
-                                { confirmLabel: t('dm.apptCancelConfirmCta') },
-                              ),
-                            );
-                          } else {
-                            handleAppointmentAction(cancelAppointment, appt.id);
-                          }
-                        }}>
+                        onClick={() => requestCancelAppointment(appt)}>
                         {cancelLabel}
                       </button>
                     )}
@@ -2361,6 +2420,28 @@ export default function DmDetail() {
                     {t('dm.cardItemButton', { defaultValue: '매물 정보' })}
                   </button>
                 </div>
+              </CardMessage>
+            );
+          }
+          if (m.messageType === 'card' && m.meta?.subtype === 'appointment_accepted') {
+            // F-DM-02 FR-8(r9) — 약속 확정 상태 변화 카드. 수락 시점 서버 스냅샷(whenAt/placeName)만 렌더하고 탭 = 약속 시트.
+            const when = m.meta?.whenAt ? new Date(m.meta.whenAt) : null;
+            const pad2 = (n: number) => String(n).padStart(2, '0');
+            const whenText = when
+              ? `${when.getFullYear()}.${pad2(when.getMonth() + 1)}.${pad2(when.getDate())} ${pad2(when.getHours())}:${pad2(when.getMinutes())}`
+              : '';
+            return (
+              <CardMessage
+                key={m.id}
+                type="appointment"
+                isMine={isMine}
+                headerLabel={t('dm.apptBarConfirmed')}
+                timeLabel={formatRelativeTime(m.createdAt)}
+              >
+                <button type="button" style={{ display: 'block', width: '100%', textAlign: 'left' }} onClick={() => setApptSheetOpen(true)}>
+                  <div className={cardStyles.cardTitle}>{t('dm.apptAcceptedCardTitle')}</div>
+                  <div className={cardStyles.cardBody}>{[whenText, m.meta?.placeName].filter(Boolean).join(' · ')}</div>
+                </button>
               </CardMessage>
             );
           }
@@ -2734,6 +2815,46 @@ export default function DmDetail() {
         accept="image/jpeg,image/png,image/webp"
         style={{ display: 'none' }}
         onChange={handleImageSelect}
+      />
+
+      {/* 약속 시트(F-DM-02 FR-8) — 카드와 같은 핸들러. 내 행동은 시트를 먼저 닫는다. */}
+      <AppointmentSheet
+        open={apptSheetOpen}
+        onClose={() => setApptSheetOpen(false)}
+        appointment={activeAppointment}
+        myId={myId}
+        counterpartName={otherName}
+        busy={sending}
+        cancelLabel={activeAppointment ? apptCancelLabel(activeAppointment) : ''}
+        nav={activeAppointment ? apptNavView(activeAppointment) : { show: false, canRetry: false, reason: null, locked: false }}
+        onAccept={() => {
+          if (!activeAppointment) return;
+          setApptSheetOpen(false);
+          handleAppointmentAction(acceptAppointment, activeAppointment.id);
+        }}
+        onCancel={() => {
+          if (!activeAppointment) return;
+          setApptSheetOpen(false);
+          requestCancelAppointment(activeAppointment);
+        }}
+        onNavigate={() => {
+          const destination = activeAppointment ? appointmentNavigation[activeAppointment.id]?.destination : undefined;
+          if (destination) handleNavigate(destination);
+        }}
+        onRetryNav={() => { if (activeAppointment) retryAppointmentNavigation(activeAppointment.id); }}
+        onShareLocation={() => {
+          if (!activeAppointment) return;
+          setApptSheetOpen(false);
+          startApptLiveLocation(activeAppointment);
+        }}
+        onWalkie={() => {
+          setApptSheetOpen(false);
+          void handleWalkieJoin();
+        }}
+        onViewInChat={apptCardMessageId ? () => {
+          setApptSheetOpen(false);
+          scrollToMessage(apptCardMessageId);
+        } : undefined}
       />
 
       {/* 약속잡기 시트 */}

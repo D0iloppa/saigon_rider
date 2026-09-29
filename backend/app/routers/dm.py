@@ -428,7 +428,7 @@ async def get_conversations(
                 last_msg
                 and last_msg.message_type == "card"
                 and last_msg.meta
-                and last_msg.meta.get("subtype") == "appointment_cancelled"
+                and last_msg.meta.get("subtype") in ("appointment_cancelled", "appointment_accepted")
             )
             or (last_msg and last_msg.message_type == "text" and last_msg.meta and last_msg.meta.get("kind"))
         ):

@@ -1174,3 +1174,29 @@
   padding: 6px;
   color: var(--text-3);
 }
+
+/* F-DM-02 FR-8 약속 고정 바 — 순수 약속 방 헤더 아래 1줄. 탭 = 약속 시트. */
+.apptPinBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 16px;
+  text-align: left;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.apptPinText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.apptPinChevron {
+  flex-shrink: 0;
+  color: var(--text-3);
+}

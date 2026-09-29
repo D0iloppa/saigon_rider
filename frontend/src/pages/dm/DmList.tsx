@@ -54,6 +54,10 @@ export default function DmList() {
             : 'dm.apptCancelPreviewCancelled',
       );
     }
+    // F-DM-02 FR-8(r9): 약속 확정 상태 변화 카드.
+    if (c.lastMessageType === 'card' && c.lastMessageMeta?.subtype === 'appointment_accepted') {
+      return t('dm.apptAcceptedPreview');
+    }
     if (c.lastMessageMeta?.kind === 'revert_prompt') return t('dm.apptCancelPreviewCancelled');
     return c.lastMessagePreview ?? '';
   };

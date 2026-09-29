@@ -2774,6 +2774,24 @@ async def accept_appointment(
     now = datetime.now(UTC)
     appt.status = "ACCEPTED"
     appt.updated_at = now
+    # F-DM-02 FR-8(r9): 수락은 원래 카드 자리에서만 바뀌면 안 보이므로 방 맨 아래에 상태 변화 카드를 쌓는다
+    # (취소 카드와 같은 원리 — content 는 저장하지 않고 프론트가 meta 로 렌더).
+    db.add(
+        DmMessage(
+            conversation_id=conv.id,
+            sender_id=session_uid,
+            content=None,
+            message_type="card",
+            meta={
+                "subtype": "appointment_accepted",
+                "appointmentId": str(appt.id),
+                "actorId": str(session_uid),
+                "whenAt": appt.when_at.isoformat(),
+                "placeName": appt.place_name,
+            },
+            created_at=now,
+        )
+    )
     # 이 방의 항목이 이미 예약중이면 프롬프트를 또 띄우지 않는다.
     if listing is not None and not await is_item_reserved(db, conv.id, listing.id):
         buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1

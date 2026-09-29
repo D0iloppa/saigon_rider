@@ -2774,6 +2774,8 @@ async def accept_appointment(
                 "actorId": str(session_uid),
                 "whenAt": appt.when_at.isoformat(),
                 "placeName": appt.place_name,
+                "placeLat": float(appt.place_lat) if appt.place_lat is not None else None,
+                "placeLng": float(appt.place_lng) if appt.place_lng is not None else None,
             },
             created_at=now,
         )
@@ -3261,6 +3263,8 @@ async def cancel_appointment(
                 "reason": appt.cancel_reason,
                 "whenAt": appt.when_at.isoformat(),
                 "placeName": appt.place_name,
+                "placeLat": float(appt.place_lat) if appt.place_lat is not None else None,
+                "placeLng": float(appt.place_lng) if appt.place_lng is not None else None,
             },
             created_at=now,
         )

@@ -2446,6 +2446,9 @@ export default function DmDetail() {
                 <button type="button" style={{ display: 'block', width: '100%', textAlign: 'left' }} onClick={() => setApptSheetOpen(true)}>
                   <div className={cardStyles.cardTitle}>{t('dm.apptAcceptedCardTitle')}</div>
                   <div className={cardStyles.cardBody}>{[whenText, m.meta?.placeName].filter(Boolean).join(' · ')}</div>
+                  {m.meta?.placeLat != null && m.meta.placeLng != null && (
+                    <ApptPlaceThumb lat={m.meta.placeLat} lng={m.meta.placeLng} />
+                  )}
                 </button>
               </CardMessage>
             );
@@ -2473,6 +2476,11 @@ export default function DmDetail() {
                 <div className={cardStyles.cardBody} style={{ textDecoration: 'line-through' }}>
                   {[whenText, m.meta?.placeName].filter(Boolean).join(' · ')}
                 </div>
+                {m.meta?.placeLat != null && m.meta.placeLng != null && (
+                  <div style={{ opacity: 0.5 }}>
+                    <ApptPlaceThumb lat={m.meta.placeLat} lng={m.meta.placeLng} />
+                  </div>
+                )}
                 {reasonKey && (
                   <div className={cardStyles.cardSubtitle}>{t('dm.apptCancelReasonLine', { reason: t(reasonKey) })}</div>
                 )}

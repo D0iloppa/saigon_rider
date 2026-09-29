@@ -544,16 +544,23 @@ async def _handle_appointment_cancelled(payload: dict, *, source_event_id: str) 
         reason_code = payload.get("cancel_reason")
         # 순수 약속(매물 없음)은 listing_title 이 없다 — 제목 없는 문구(_pure)로 렌더한다.
         suffix = "" if payload.get("listing_title") else "_pure"
-        body = (
-            t(
-                lang,
-                f"appointment_cancelled.body_with_reason{suffix}",
-                title=payload.get("listing_title") or "",
-                reason=t(lang, f"cancel_reason.{reason_code}"),
+        kind = payload.get("kind")
+        # F-X-01 FR-1(r8): 종류(kind)가 있으면 행위자 닉네임 문구를 쓴다 — kind 없는 기존 in-flight 이벤트는 아래 폴백.
+        if kind:
+            body = t(lang, f"appointment_cancelled.body_kind.{kind}", nickname=payload.get("actor_nickname") or "")
+            if reason_code:
+                body = f"{body} · {t(lang, f'cancel_reason.{reason_code}')}"
+        else:
+            body = (
+                t(
+                    lang,
+                    f"appointment_cancelled.body_with_reason{suffix}",
+                    title=payload.get("listing_title") or "",
+                    reason=t(lang, f"cancel_reason.{reason_code}"),
+                )
+                if reason_code
+                else t(lang, f"appointment_cancelled.body{suffix}", title=payload.get("listing_title") or "")
             )
-            if reason_code
-            else t(lang, f"appointment_cancelled.body{suffix}", title=payload.get("listing_title") or "")
-        )
         inserted = await _insert_notification(
             db,
             source_event_id=source_event_id,

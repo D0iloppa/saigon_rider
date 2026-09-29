@@ -137,6 +137,22 @@ TEXTS: dict[str, dict[str, str]] = {
         "en": "The meetup was cancelled · {reason}",
         "vi": "Cuộc hẹn đã bị hủy · {reason}",
     },
+    # F-X-01 FR-1(r8) 취소 종류별 본문 — outbox payload.kind 로 고른다(행위자 닉네임 포함).
+    "appointment_cancelled.body_kind.WITHDRAWN": {
+        "ko": "{nickname}님이 약속 제안을 취소했어요",
+        "en": "{nickname} withdrew the meetup proposal",
+        "vi": "{nickname} đã hủy đề xuất cuộc hẹn",
+    },
+    "appointment_cancelled.body_kind.DECLINED": {
+        "ko": "{nickname}님이 약속 제안을 거절했어요",
+        "en": "{nickname} declined the meetup proposal",
+        "vi": "{nickname} đã từ chối đề xuất cuộc hẹn",
+    },
+    "appointment_cancelled.body_kind.CANCELLED": {
+        "ko": "{nickname}님이 약속을 취소했어요",
+        "en": "{nickname} cancelled the meetup",
+        "vi": "{nickname} đã hủy cuộc hẹn",
+    },
     # F-X-01 FR-1(260924 승인안) 취소 사유 칩 — 상대 알림 문구에 그대로 들어간다.
     "cancel_reason.SCHEDULE_CHANGED": {
         "ko": "일정이 바뀌었어요",

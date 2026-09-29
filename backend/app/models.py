@@ -1828,6 +1828,10 @@ class MarketplaceAppointment(Base):
     # F-X-01 FR-1(260924 승인안): 취소 사유 칩(SCHEDULE_CHANGED / TRADED_ELSEWHERE / UNREACHABLE) —
     # 상대 알림·시스템 메시지에 노출되고, 신뢰 티어 계산 재료로 기록만 한다(감점 규칙은 별도).
     cancel_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # F-X-01 FR-1(r8): 취소 행위자 — 제안 철회/거절/약속 취소 판별과 취소 카드 스냅샷 재료(init/246).
+    cancelled_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

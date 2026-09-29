@@ -507,6 +507,10 @@ services:
       - "/migrations/245_appointments_listing_optional.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (245) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/246_appointments_cancelled_by.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (246) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -608,6 +612,7 @@ services:
       - ./database/init/243_drop_appointment_active_per_listing.sql:/migrations/243_drop_appointment_active_per_listing.sql:ro
       - ./database/init/244_marketplace_transactions_trade_set.sql:/migrations/244_marketplace_transactions_trade_set.sql:ro
       - ./database/init/245_appointments_listing_optional.sql:/migrations/245_appointments_listing_optional.sql:ro
+      - ./database/init/246_appointments_cancelled_by.sql:/migrations/246_appointments_cancelled_by.sql:ro
     networks:
       - dev-net
     depends_on:

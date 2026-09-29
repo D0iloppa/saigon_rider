@@ -1421,6 +1421,8 @@ class AppointmentOut(BaseModel):
     completion_declined_by: UUID | None = None
     # F-X-01 FR-1(260924 승인안): 취소 사유 칩 — CANCELLED 일 때만 값이 있다.
     cancel_reason: str | None = None
+    # F-X-01 FR-1(r8): 취소 행위자 — 프론트가 취소 카드 문구의 주어(본인/상대)를 정한다.
+    cancelled_by: UUID | None = None
 
 
 # F-X-01 FR-1(260924 승인안): 취소 사유 칩 3개 — DM 카드·거래 화면 공통.

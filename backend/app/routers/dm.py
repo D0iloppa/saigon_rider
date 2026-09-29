@@ -418,8 +418,20 @@ async def get_conversations(
         # 260928 거래 세트 — 묶음 카드/시스템 메시지도 같은 원칙(DM-5): content 를 하드코딩하지 않고
         # meta 를 그대로 내려 프론트가 dm.tradeSet* i18n 키로 미리보기를 조립한다.
         elif (
-            last_msg and last_msg.message_type == "card" and last_msg.meta and last_msg.meta.get("subtype") == "bundle"
-        ) or (last_msg and last_msg.message_type == "text" and last_msg.meta and last_msg.meta.get("kind")):
+            (
+                last_msg
+                and last_msg.message_type == "card"
+                and last_msg.meta
+                and last_msg.meta.get("subtype") == "bundle"
+            )
+            or (
+                last_msg
+                and last_msg.message_type == "card"
+                and last_msg.meta
+                and last_msg.meta.get("subtype") == "appointment_cancelled"
+            )
+            or (last_msg and last_msg.message_type == "text" and last_msg.meta and last_msg.meta.get("kind"))
+        ):
             last_message_meta = last_msg.meta
 
         result.append(

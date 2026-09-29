@@ -94,6 +94,13 @@ const PAGE_SIZE = 50;
 /** 그룹 발신자 표시를 묶는 창(카톡 관례) — 같은 사람이 이 안에서 연속 발화하면 한 번만 표시한다. */
 const SENDER_RUN_MS = 2 * 60 * 1000;
 
+// F-X-01 FR-1: 취소 사유 코드 → i18n 키(SUPERSEDED/BLOCKED 등 서버 전용 코드는 사유 줄을 그리지 않는다).
+const CANCEL_REASON_KEY: Record<string, string> = {
+  SCHEDULE_CHANGED: 'dm.cancelReasonScheduleChanged',
+  TRADED_ELSEWHERE: 'dm.cancelReasonTradedElsewhere',
+  UNREACHABLE: 'dm.cancelReasonUnreachable',
+};
+
 function localDayKey(iso: string): string {
   const date = new Date(iso);
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -402,7 +409,7 @@ export default function DmDetail() {
           // 남이 등록한 공지는 이 시스템 메시지로만 알 수 있다 — 배너가 낡지 않게 conv 만 재조회
           if (fresh.some((m) => m.messageType === 'system' && m.meta?.kind === 'notice_set')) refreshConv();
           // F-DM-02(260928) — 상대가 세트를 바꾼(담기/제거/상태변경) 시스템·묶음카드가 도착하면 세트 재조회.
-          if (fresh.some((m) => (typeof m.meta?.kind === 'string' && m.meta.kind.startsWith('trade_set')) || m.meta?.kind === 'reserve_prompt' || m.meta?.subtype === 'bundle')) refreshTradeSet();
+          if (fresh.some((m) => (typeof m.meta?.kind === 'string' && m.meta.kind.startsWith('trade_set')) || m.meta?.kind === 'reserve_prompt' || m.meta?.kind === 'revert_prompt' || m.meta?.subtype === 'bundle' || m.meta?.subtype === 'appointment_cancelled')) refreshTradeSet();
           if (fresh.length > 0) markRead(conversationId).then(() => refreshUnread()).catch(() => {});
           else skipAutoScrollRef.current = true; // 수정/공감만 온 폴링은 바닥 스냅을 유발하지 않는다
         }
@@ -820,6 +827,19 @@ export default function DmDetail() {
   // F-DM-02(260928) — 판매자에게 "예약중으로 변경할까요?" 를 묻는 reserve_prompt 카드의 로컬 무시 상태.
   // 서버에 저장하지 않는 UI 상태(다음 방문 시 다시 보여도 무방한 안내)라 대화별로 재조회할 필요가 없다.
   const [dismissedPromptIds, setDismissedPromptIds] = useState<Set<string>>(new Set());
+  // F-X-01 FR-1(r8) — 약속 취소 후 판매자 revert_prompt [되돌리기]: 상태 시트 [판매중]과 같은 호출.
+  const handleRevertPromptRevert = async (msgId: string) => {
+    if (!conversationId || sending) return;
+    setSending(true);
+    try {
+      setTradeSet(await updateTradeSetStatus(conversationId, 'ON_SALE'));
+      setDismissedPromptIds((prev) => new Set(prev).add(msgId));
+    } catch (err) {
+      toast.error(tradeSetErrorMessage(err, t));
+    } finally {
+      setSending(false);
+    }
+  };
   const handleReservePromptChange = async (msgId: string) => {
     if (!conversationId || sending) return;
     setSending(true);
@@ -1915,7 +1935,10 @@ export default function DmDetail() {
               PROPOSED: t('dm.apptProposed', { defaultValue: '제안됨' }),
               ACCEPTED: t('dm.apptAccepted', { defaultValue: '확정' }),
               COMPLETED: t('dm.apptCompleted', { defaultValue: '거래완료' }),
-              CANCELLED: t('dm.apptCancelled', { defaultValue: '취소됨' }),
+              // F-X-01 FR-1(r8): 변경 제안이 대체한 이전 제안(SUPERSEDED)은 취소가 아니라 "변경됨".
+              CANCELLED: appt?.cancelReason === 'SUPERSEDED'
+                ? t('dm.apptSuperseded')
+                : t('dm.apptCancelled', { defaultValue: '취소됨' }),
             };
             const hasCoords = lat != null && lng != null;
             const navState = appt ? appointmentNavigation[appt.id] : undefined;
@@ -1985,6 +2008,13 @@ export default function DmDetail() {
                       <span className={styles.apptRowVal}>{placeText}</span>
                     </div>
                   )}
+                  {status === 'CANCELLED' && appt?.cancelReason && CANCEL_REASON_KEY[appt.cancelReason] && (
+                    <div className={styles.apptRow}>
+                      <span className={styles.apptRowVal}>
+                        {t('dm.apptCancelReasonLine', { reason: t(CANCEL_REASON_KEY[appt.cancelReason]!) })}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {/* 이 약속이 현재 활성 약속(currentAppointmentId)일 때만, 그리고 ACCEPTED 상태에서만
                     — 채널을 이 약속에 연결(목적지 초기값 = 약속 장소). SOLD/COMPLETED 이후엔 진행
@@ -2029,25 +2059,23 @@ export default function DmDetail() {
                         {t('dm.navigate', { defaultValue: '길안내' })}
                       </button>
                     )}
-                    {/* 약속 취소에 확인 1회(260919 리뷰킷 F-S5-01 FR-1 ⓐ, F-X-01 FR-1 ⓐ) — 거래
-                        화면의 [거래 취소]와 같은 서버 동작이므로 같은 useConfirmStore 문구를 재사용해
-                        중복 구현하지 않는다. PROPOSED 단계의 제안 취소/거절은 성립 전이라 손실이
-                        없어(기존 판정대로) 확인 없이 그대로 둔다. */}
+                    {/* 약속 취소에 확인 1회(260919 리뷰킷 F-S5-01 FR-1 ⓐ, F-X-01 FR-1 ⓐ). 약속 독립
+                        원칙(F-N-02 FR-7)으로 약속 취소는 거래에 영향이 없어 거래 취소 문구를 쓰지 않는다
+                        (r8). PROPOSED 단계의 제안 취소/거절은 성립 전이라 손실이 없어 확인 없이 그대로 둔다. */}
                     {canCancel && (
                       <button className={`${styles.apptBtnGhost} ${styles.apptBtnDanger}`} type="button" disabled={sending}
                         onClick={() => {
                           if (status === 'ACCEPTED') {
-                            // F-X-01 FR-1(260924 승인안): 사유 칩 3개(선택 필수 1) → 거래 화면과 동일한
-                            // useConfirmStore 확인 1회. 두 경로 모두 같은 두 단계 흐름을 재사용한다.
+                            // F-X-01 FR-1(260924 승인안): 사유 칩 3개(선택 필수 1) → useConfirmStore 확인 1회.
                             useCancelReasonStore.getState().open(
                               t('dm.cancelReasonTitle'),
                               (reason) => useConfirmStore.getState().open(
-                                t('dm.tradeCancelConfirm'),
+                                t('dm.apptCancelConfirm'),
                                 () => {
                                   useConfirmStore.getState().close();
                                   handleAppointmentAction((id) => cancelAppointment(id, reason), appt.id);
                                 },
-                                { confirmLabel: t('dm.tradeCancelConfirmCta') },
+                                { confirmLabel: t('dm.apptCancelConfirmCta') },
                               ),
                             );
                           } else {
@@ -2242,6 +2270,31 @@ export default function DmDetail() {
                   </CardMessage>
                 );
               }
+              case 'revert_prompt': {
+                // F-X-01 FR-1(r8) / F-N-02 FR-7 ⑥: 취소된 약속이 ACCEPTED 였을 때 판매자에게만 묻는다.
+                // [유지]·무시는 예약 유지, [되돌리기]는 상태 시트 [판매중]과 같은 호출이다.
+                if (!isMine || dismissedPromptIds.has(m.id)) return null;
+                return (
+                  <CardMessage
+                    key={m.id}
+                    type="prompt"
+                    isMine={isMine}
+                    timeLabel={formatRelativeTime(m.createdAt)}
+                  >
+                    <div className={cardStyles.cardTitle}>{t('dm.revertPrompt')}</div>
+                    <div className={styles.apptActions}>
+                      <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                        onClick={() => handleRevertPromptRevert(m.id)}>
+                        {t('dm.revertPromptRevert')}
+                      </button>
+                      <button className={styles.apptBtnGhost} type="button"
+                        onClick={() => setDismissedPromptIds((prev) => new Set(prev).add(m.id))}>
+                        {t('dm.revertPromptKeep')}
+                      </button>
+                    </div>
+                  </CardMessage>
+                );
+              }
               case 'trade_set_item_removed_competing':
                 return (
                   <div key={m.id} className={styles.systemDivider}>
@@ -2308,6 +2361,42 @@ export default function DmDetail() {
                     {t('dm.cardItemButton', { defaultValue: '매물 정보' })}
                   </button>
                 </div>
+              </CardMessage>
+            );
+          }
+          if (m.messageType === 'card' && m.meta?.subtype === 'appointment_cancelled') {
+            // F-X-01 FR-1(r8) — 약속 취소 카드. 취소 시점 서버 스냅샷(kind/actorId/whenAt/placeName/reason)만 렌더한다.
+            const kind = m.meta?.kind ?? 'CANCELLED';
+            const byMe = m.meta?.actorId === myId;
+            const titleKey = `dm.apptCancel${kind === 'WITHDRAWN' ? 'Withdrawn' : kind === 'DECLINED' ? 'Declined' : 'Cancelled'}${byMe ? 'Mine' : 'Theirs'}`;
+            const when = m.meta?.whenAt ? new Date(m.meta.whenAt) : null;
+            const pad2 = (n: number) => String(n).padStart(2, '0');
+            const whenText = when
+              ? `${when.getFullYear()}.${pad2(when.getMonth() + 1)}.${pad2(when.getDate())} ${pad2(when.getHours())}:${pad2(when.getMinutes())}`
+              : '';
+            const reasonKey = m.meta?.reason ? CANCEL_REASON_KEY[m.meta.reason] : undefined;
+            return (
+              <CardMessage
+                key={m.id}
+                type="appointment"
+                isMine={isMine}
+                headerLabel={t('dm.apptCancelCardLabel')}
+                timeLabel={formatRelativeTime(m.createdAt)}
+              >
+                <div className={cardStyles.cardTitle}>{t(titleKey, { nickname: otherName })}</div>
+                <div className={cardStyles.cardBody} style={{ textDecoration: 'line-through' }}>
+                  {[whenText, m.meta?.placeName].filter(Boolean).join(' · ')}
+                </div>
+                {reasonKey && (
+                  <div className={cardStyles.cardSubtitle}>{t('dm.apptCancelReasonLine', { reason: t(reasonKey) })}</div>
+                )}
+                {isDirect && !messagingDisabled && (
+                  <div className={cardStyles.cardButtonSlot}>
+                    <button type="button" className={styles.walkieInviteJoinBtn} onClick={handleOpenAppt}>
+                      {t('dm.apptRebook')}
+                    </button>
+                  </div>
+                )}
               </CardMessage>
             );
           }

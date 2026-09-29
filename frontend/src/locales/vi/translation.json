@@ -706,7 +706,7 @@
   "profile": {
     "phoneVerifyNeeded": "Cần xác minh SĐT",
     "phoneVerifyNeededSub": "Xác minh số điện thoại để tăng độ tin cậy",
-    "phoneVerifyDone": "Đã xác minh SĐT",
+    "phoneVerifiedBadge": "Đã xác minh SĐT",
     "tradeHistory": "Lịch sử giao dịch",
     "seeAll": "Xem tất cả",
     "tradeSold": "Đã bán",
@@ -718,7 +718,7 @@
     "reviewDone": "Đã đánh giá",
     "leaveReview": "Viết đánh giá",
     "tabMyListings": "Tin của tôi",
-    "viewAsOthers": "Xem trang cá nhân của tôi như người khác thấy",
+    "viewProfile": "Xem hồ sơ",
     "myListingsEntry": "Tin đăng của tôi",
     "myListingsLoading": "Đang tải",
     "myListingsEmpty": "Đăng tin đầu tiên của bạn",

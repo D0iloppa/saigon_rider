@@ -45046,6 +45046,7 @@ body {
 .pfNick{margin:10px 0 0;font-size:20px;font-weight:700;}
 .pfChips{display:flex;justify-content:center;gap:6px;margin-top:8px;}
 .pfChip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r-pill);background:rgba(255,255,255,.20);font-size:12px;font-weight:600;color:#fff;}
+.pfViewBtn{display:inline-flex;align-items:center;gap:2px;margin-top:10px;padding:5px 10px 5px 12px;border-radius:var(--r-pill);background:rgba(255,255,255,.22);font-size:12px;font-weight:600;color:#fff;}
 .pfDot{width:6px;height:6px;border-radius:50%;background:#fff;flex-shrink:0;}
 .socialRow{display:flex;align-items:center;justify-content:center;margin-top:16px;}
 .socialCell{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 16px;color:#fff;}
@@ -45152,6 +45153,7 @@ body {
       <span class=&quot;pfChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z&quot;/></svg> 나이트 라이더</span>
       <span class=&quot;pfChip&quot;><span class=&quot;pfDot&quot;></span>좋은 이웃</span>
     </div>
+    <button class=&quot;pfViewBtn&quot; type=&quot;button&quot;>프로필 보기<svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></button>
     <div class=&quot;socialRow&quot;>
       <span class=&quot;socialCell&quot;><span class=&quot;socialNum num&quot;>42</span><span class=&quot;socialLabel&quot;>팔로워</span></span>
       <span class=&quot;socialDivider&quot;></span>
@@ -45163,7 +45165,7 @@ body {
       <button class=&quot;iconSq&quot; type=&quot;button&quot; aria-label=&quot;채팅&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M7.9 20A9 9 0 1 0 4 16.1L2 22Z&quot;/></svg><span class=&quot;chatBadge num&quot;>3</span></button>
     </div>
   </div>
-  <div class=&quot;pSheet&quot; style=&quot;top:412px&quot;>
+  <div class=&quot;pSheet&quot; style=&quot;top:444px&quot;>
     <div class=&quot;pSheetHandle&quot;><span class=&quot;grabber&quot; style=&quot;margin-bottom:0&quot;></span></div>
     <div class=&quot;pSheetBody&quot;>
       <button class=&quot;verifyCard&quot; type=&quot;button&quot;>
@@ -45181,7 +45183,6 @@ body {
       </div>
       <!-- 실기기 피드백 2차(260928): 내 매물은 판매 중/예약 중 카운트를 보여주는 독립 행 -->
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2.5 12.5V2h10.5l8.09 8.09a2 2 0 0 1 0 2.82&quot;/><circle cx=&quot;7.5&quot; cy=&quot;7.5&quot; r=&quot;1&quot;/></svg></span><span class=&quot;entryLabel&quot;>내 매물<span class=&quot;entrySub&quot;>판매 중 2 · 예약 중 1</span></span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
-      <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;3&quot;/></svg></span><span class=&quot;entryLabel&quot;>다른 사람에게 보이는 내 프로필</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7&quot;/><path d=&quot;M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8&quot;/><path d=&quot;M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4&quot;/><path d=&quot;M2 7h20&quot;/><path d=&quot;M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7&quot;/></svg></span><span class=&quot;entryLabel&quot;>비즈니스 파트너 시작하기</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
     </div>
   </div>
@@ -45201,6 +45202,7 @@ body {
 <div class="field field-prose"><div class="field-label">실패 시나리오</div> 인증 완료 파트너가 시트를 올릴 때마다 "이미 끝난 카드"를 지나쳐야 라운지에 닿는다.</div>
 <div class="field field-prose"><div class="field-label">근거</div> <code>ProfileMain.tsx:480-498</code>(인증 카드 분기), <code>:326-336,510-530</code>(라운지 요약·openBizLounge), <code>:1010-1027</code>(업체 선택 시트).</div>
 <div class="field field-prose"><div class="field-label">판정(r1)</div> ☐</div>
+<div class="field field-prose"><div class="field-label">대표 판정(260929)</div> 제안 ①(인증 완료 → 시트 하단 진입 행 격하)을 <strong>대체</strong>한다 — 표시 전용 행은 시트에 두지 않고 헤더 배지 행에 [✓ 휴대폰 인증] 칩(<code>profile-verified-badge</code>)으로 올린다(출퇴근러 / 새 이웃 칩 옆, 한 줄 고정, 좁은 화면은 가로 스크롤). 미인증 CTA 카드(<code>phoneVerifyNeeded</code>)는 시트 최상단 그대로. 와이어 F-P-02 FR-2 반영.</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
@@ -46159,6 +46161,7 @@ body {
 .pfNick{margin:10px 0 0;font-size:20px;font-weight:700;}
 .pfChips{display:flex;justify-content:center;gap:6px;margin-top:8px;}
 .pfChip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r-pill);background:rgba(255,255,255,.20);font-size:12px;font-weight:600;color:#fff;}
+.pfViewBtn{display:inline-flex;align-items:center;gap:2px;margin-top:10px;padding:5px 10px 5px 12px;border-radius:var(--r-pill);background:rgba(255,255,255,.22);font-size:12px;font-weight:600;color:#fff;}
 .pfDot{width:6px;height:6px;border-radius:50%;background:#fff;flex-shrink:0;}
 .socialRow{display:flex;align-items:center;justify-content:center;margin-top:16px;}
 .socialCell{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 16px;color:#fff;}
@@ -46263,7 +46266,9 @@ body {
     <div class=&quot;pfChips&quot;>
       <span class=&quot;pfChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z&quot;/></svg> 나이트 라이더</span>
       <span class=&quot;pfChip&quot;><span class=&quot;pfDot&quot;></span>좋은 이웃</span>
+      <span class=&quot;pfChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M20 6 9 17l-5-5&quot;/></svg> 휴대폰 인증</span>
     </div>
+    <button class=&quot;pfViewBtn&quot; type=&quot;button&quot;>프로필 보기<svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></button>
     <div class=&quot;socialRow&quot;>
       <span class=&quot;socialCell&quot;><span class=&quot;socialNum num&quot;>42</span><span class=&quot;socialLabel&quot;>팔로워</span></span>
       <span class=&quot;socialDivider&quot;></span>
@@ -46275,10 +46280,9 @@ body {
       <button class=&quot;iconSq&quot; type=&quot;button&quot; aria-label=&quot;채팅&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M7.9 20A9 9 0 1 0 4 16.1L2 22Z&quot;/></svg><span class=&quot;chatBadge num&quot;>3</span></button>
     </div>
   </div>
-  <div class=&quot;pSheet&quot; style=&quot;top:150px&quot;>
+  <div class=&quot;pSheet&quot; style=&quot;top:182px&quot;>
     <div class=&quot;pSheetHandle&quot;><span class=&quot;grabber&quot; style=&quot;margin-bottom:0&quot;></span></div>
     <div class=&quot;pSheetBody&quot;>
-      <div class=&quot;verifyLine&quot;><span class=&quot;verifyLineIcon&quot;><svg width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z&quot;/><path d=&quot;m9 12 2 2 4-4&quot;/></svg></span>휴대폰 인증 완료</div>
       <button class=&quot;verifyCard&quot; type=&quot;button&quot;>
         <span class=&quot;verifyIcon&quot;><svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7&quot;/><path d=&quot;M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8&quot;/><path d=&quot;M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4&quot;/><path d=&quot;M2 7h20&quot;/><path d=&quot;M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7&quot;/></svg></span>
         <span class=&quot;verifyText&quot;>
@@ -46293,7 +46297,6 @@ body {
         <span class=&quot;pTab&quot;>배지</span>
       </div>
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><circle cx=&quot;18.5&quot; cy=&quot;17.5&quot; r=&quot;3.5&quot;/><circle cx=&quot;5.5&quot; cy=&quot;17.5&quot; r=&quot;3.5&quot;/><circle cx=&quot;15&quot; cy=&quot;5&quot; r=&quot;1&quot;/><path d=&quot;M12 17.5V14l-3-3 4-3 2 3h2&quot;/></svg></span><span class=&quot;entryLabel&quot;>내 매물</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
-      <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;3&quot;/></svg></span><span class=&quot;entryLabel&quot;>다른 사람에게 보이는 내 프로필</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
       <div class=&quot;tradeSection&quot;>
         <div class=&quot;tradeHeader&quot;><h3 class=&quot;tradeSectionTitle&quot;>거래 이력</h3><span class=&quot;tradeMore&quot;>전체 보기<svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></div>
         <div class=&quot;tradeSubTabRow&quot;><span class=&quot;tradeSubTab tradeSubTabActive&quot;>구매</span><span class=&quot;tradeSubTab&quot;>판매</span></div>
@@ -46336,6 +46339,7 @@ body {
 <div class="field field-prose"><div class="field-label">실기기 피드백 2차(260928)</div> 내 매물은 거래 이력과 분리해 시트 상단 카드 그룹의 독립 행으로 배치(판매 중/예약 중 카운트), 거래 이력은 [구매|판매] 2탭·구매 우선. 이전 260928 1차의 3탭 통합안은 폐기.</div>
 <div class="field field-prose"><div class="field-label">실기기 피드백 3차(260928)</div> 판매중 매물만 있고 완료·진행중 거래가 없는 판매자 계정에서 [판매] 탭이 텅 비어 보인다는 지적 — 당근 "판매내역"처럼 <strong>판매 이력에 판매중 매물도 포함</strong>한다(F-S7-02 FR-1과 같은 판정). [판매] 탭 미니 리스트에 내 <code>ON_SALE</code> 매물을 <code>TradeRow</code>로 함께 나열, 배지는 판매중/거래중/거래완료 3종, 판매중 행 상단 고정. <code>RESERVED</code>는 이미 <code>IN_PROGRESS</code>(거래중) 거래 행으로 나오므로 중복 노출하지 않는다. FR-1의 [내 매물] 독립 행은 그대로 유지(대체 아님) — [전체 보기](<code>/trades?role=sold</code>)로 이동해도 같은 판매중 행이 보인다.</div>
 <div class="field field-prose"><div class="field-label">실기기 피드백 4차(260928)</div> <code>EXPIRED</code> 매물만 있는 판매자 계정에서 [판매] 탭이 여전히 비어 보인다는 지적 — F-S7-02 FR-1과 같은 판정으로 <strong>[판매] 탭 미니 리스트에 기간만료 매물도 포함</strong>한다(판매중 다음 순서, 회색 "기간만료" 배지). <code>HIDDEN</code>·<code>WITHDRAWN</code>·<code>REMOVED</code>·<code>SOLD</code>는 제외.</div>
+<div class="field field-prose"><div class="field-label">대표 판정(260929)</div> 시트는 <strong>행동 가능한 행만</strong> 담는다 — 헤더 = 정체성·신뢰, 시트 = 행동. ① <strong>[다른 사람에게 보이는 내 프로필] 행은 시트에서 제거</strong>하고 헤더 닉네임·배지 아래의 보조 버튼 [프로필 보기 ›](반투명 흰 알약, <code>profile-view-public-btn</code>)으로 옮긴다 — 목적지 <code>/profile/:내 id</code>(F-P-01 FR-3) 동일. 2026-09-10 대표 요청의 시트 배치를 대체한다. 위 요소 표의 해당 행은 영역 B → 헤더(보조/이동)로 읽는다. 와이어 F-P-02 FR-1~4 반영.</div>
 <div class="field"><div class="field-label">화면 샘플(프레임별 현재/목표 표기)</div><div class="screen-sample"><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;ko&quot;>
 <head>
@@ -47294,6 +47298,7 @@ body {
 .pfNick{margin:10px 0 0;font-size:20px;font-weight:700;}
 .pfChips{display:flex;justify-content:center;gap:6px;margin-top:8px;}
 .pfChip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r-pill);background:rgba(255,255,255,.20);font-size:12px;font-weight:600;color:#fff;}
+.pfViewBtn{display:inline-flex;align-items:center;gap:2px;margin-top:10px;padding:5px 10px 5px 12px;border-radius:var(--r-pill);background:rgba(255,255,255,.22);font-size:12px;font-weight:600;color:#fff;}
 .pfDot{width:6px;height:6px;border-radius:50%;background:#fff;flex-shrink:0;}
 .socialRow{display:flex;align-items:center;justify-content:center;margin-top:16px;}
 .socialCell{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 16px;color:#fff;}
@@ -47406,6 +47411,7 @@ body {
       <span class=&quot;pfChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z&quot;/></svg> 나이트 라이더</span>
       <span class=&quot;pfChip&quot;><span class=&quot;pfDot&quot;></span>좋은 이웃</span>
     </div>
+    <button class=&quot;pfViewBtn&quot; type=&quot;button&quot;>프로필 보기<svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></button>
     <div class=&quot;socialRow&quot;>
       <span class=&quot;socialCell&quot;><span class=&quot;socialNum num&quot;>42</span><span class=&quot;socialLabel&quot;>팔로워</span></span>
       <span class=&quot;socialDivider&quot;></span>
@@ -47417,14 +47423,13 @@ body {
       <button class=&quot;iconSq&quot; type=&quot;button&quot; aria-label=&quot;채팅&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M7.9 20A9 9 0 1 0 4 16.1L2 22Z&quot;/></svg><span class=&quot;chatBadge num&quot;>3</span></button>
     </div>
   </div>
-  <div class=&quot;pSheet&quot; style=&quot;top:150px&quot;>
+  <div class=&quot;pSheet&quot; style=&quot;top:182px&quot;>
     <div class=&quot;pSheetHandle&quot;><span class=&quot;grabber&quot; style=&quot;margin-bottom:0&quot;></span></div>
     <div class=&quot;pSheetBody&quot;>
       <!-- 실기기 피드백 2차(260928): 내 매물은 거래 이력과 분리해 시트 상단 카드 그룹의 독립 행으로 배치
            (판매 중/예약 중/기간만료 카운트) — 판매자에게 가장 중요하므로 개인 진입 행 중 최상단.
            실기기 피드백 4차(260928): 기간만료 카운트 추가, 0인 부분은 생략. -->
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2.5 12.5V2h10.5l8.09 8.09a2 2 0 0 1 0 2.82&quot;/><circle cx=&quot;7.5&quot; cy=&quot;7.5&quot; r=&quot;1&quot;/></svg></span><span class=&quot;entryLabel&quot;>내 매물<span class=&quot;entrySub&quot;>판매 중 2 · 예약 중 1 · 기간만료 3</span></span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
-      <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;3&quot;/></svg></span><span class=&quot;entryLabel&quot;>다른 사람에게 보이는 내 프로필</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
       <button class=&quot;entryRow&quot; type=&quot;button&quot;><span class=&quot;entryIcon&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7&quot;/><path d=&quot;M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8&quot;/><path d=&quot;M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4&quot;/><path d=&quot;M2 7h20&quot;/><path d=&quot;M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7&quot;/></svg></span><span class=&quot;entryLabel&quot;>비즈니스 파트너 시작하기</span><span class=&quot;verifyChevron&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></span></button>
       <!-- 실기기 피드백 3차(260928): [구매|판매] 2탭은 유지하되, 판매 탭에 내 ON_SALE 매물도 함께
            노출(당근 판매내역 모델) — 판매중 배지, 상단 고정. RESERVED는 거래중 행으로만 노출(중복 방지). -->
@@ -48438,6 +48443,7 @@ body {
 .pfNick{margin:10px 0 0;font-size:20px;font-weight:700;}
 .pfChips{display:flex;justify-content:center;gap:6px;margin-top:8px;}
 .pfChip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r-pill);background:rgba(255,255,255,.20);font-size:12px;font-weight:600;color:#fff;}
+.pfViewBtn{display:inline-flex;align-items:center;gap:2px;margin-top:10px;padding:5px 10px 5px 12px;border-radius:var(--r-pill);background:rgba(255,255,255,.22);font-size:12px;font-weight:600;color:#fff;}
 .pfDot{width:6px;height:6px;border-radius:50%;background:#fff;flex-shrink:0;}
 .socialRow{display:flex;align-items:center;justify-content:center;margin-top:16px;}
 .socialCell{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 16px;color:#fff;}
@@ -48543,6 +48549,7 @@ body {
       <span class=&quot;pfChip&quot;><svg width=&quot;13&quot; height=&quot;13&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z&quot;/></svg> 나이트 라이더</span>
       <span class=&quot;pfChip&quot;><span class=&quot;pfDot&quot;></span>좋은 이웃</span>
     </div>
+    <button class=&quot;pfViewBtn&quot; type=&quot;button&quot;>프로필 보기<svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;m9 18 6-6-6-6&quot;/></svg></button>
     <div class=&quot;socialRow&quot;>
       <span class=&quot;socialCell&quot;><span class=&quot;socialNum num&quot;>42</span><span class=&quot;socialLabel&quot;>팔로워</span></span>
       <span class=&quot;socialDivider&quot;></span>
@@ -48554,7 +48561,7 @@ body {
       <button class=&quot;iconSq&quot; type=&quot;button&quot; aria-label=&quot;채팅&quot;><svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;><path d=&quot;M7.9 20A9 9 0 1 0 4 16.1L2 22Z&quot;/></svg><span class=&quot;chatBadge num&quot;>3</span></button>
     </div>
   </div>
-  <div class=&quot;pSheet&quot; style=&quot;top:150px&quot;>
+  <div class=&quot;pSheet&quot; style=&quot;top:182px&quot;>
     <div class=&quot;pSheetHandle&quot;><span class=&quot;grabber&quot; style=&quot;margin-bottom:0&quot;></span></div>
     <div class=&quot;pSheetBody&quot;>
       <div class=&quot;tabRow&quot;>

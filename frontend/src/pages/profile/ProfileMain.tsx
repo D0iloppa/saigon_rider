@@ -6,7 +6,7 @@ import {
   Settings, Building2, Coffee, Moon, BadgeCheck, Smartphone, ChevronRight,
   Route, Flag, Medal, Gem, Trophy, Store, Plus, Camera, Flame,
   MessageCircle, MoreVertical,
-  UserPlus, AlertCircle, Eye, type LucideIcon,
+  UserPlus, AlertCircle, type LucideIcon,
   Share2, MoreHorizontal, Tag,
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
@@ -377,7 +377,7 @@ export default function ProfileMain() {
           <h1 className={styles.nick}>{u.nickname}</h1>
         </div>
 
-        <div style={{ margin: '8px auto 24px', display: 'flex', justifyContent: 'center', gap: 6 }}>
+        <div className={styles.chipsRow}>
           <Chip variant="surface">
             {u.riderStyle === 'commuter' ? (
               <><Building2 size={13} /> {t('profileSetup.styleCommuterTitle')}</>
@@ -388,7 +388,24 @@ export default function ProfileMain() {
             )}
           </Chip>
           <TrustTierChip temp={u.mannerTemp} />
+          {u.phoneVerified && (
+            <Chip variant="surface" data-testid="profile-verified-badge">
+              <BadgeCheck size={13} /> {t('profile.phoneVerifiedBadge')}
+            </Chip>
+          )}
         </div>
+
+        {/* 대표 판정 260929: 헤더 = 정체성/신뢰. 공개 프로필 진입은 시트 행이 아니라 헤더 버튼으로
+            (공개 프로필 페이지 /profile/:userId 를 내 id 로 연다 — 2026-09-10 요청의 배치 변경). */}
+        <button
+          type="button"
+          className={styles.viewProfileBtn}
+          data-testid="profile-view-public-btn"
+          onClick={() => navigate(`/profile/${u.id}`)}
+        >
+          {t('profile.viewProfile')}
+          <ChevronRight size={14} />
+        </button>
 
         {SHOW_LEGACY_GAME_ECONOMY && (
           <>
@@ -444,7 +461,7 @@ export default function ProfileMain() {
           style={{ overflowY: scrollable ? 'auto' : 'hidden' }}
         >
         {/* SGR-330: 휴대폰 인증 신뢰 카드 — 판매자 신뢰도 트리거. FR-2 제안 ①: 인증 완료 후에는
-            여기 카드 자리를 비우고(진행 성격이 없어졌으므로), 완료 표시는 시트 하단 진입 행으로 격하한다. */}
+            여기 카드 자리를 비우고(진행 성격이 없어졌으므로), 완료 표시는 헤더 배지(✓ 휴대폰 인증)로 옮긴다(260929). */}
         {!u.phoneVerified && (
           <button
             type="button"
@@ -659,19 +676,6 @@ export default function ProfileMain() {
           <ChevronRight size={18} className={styles.entryChevron} />
         </button>
 
-        {/* 다른 사람에게 보이는 내 프로필 — 공개 프로필 페이지(/profile/:userId)를 내 id 로 연다.
-            이 화면은 자기관리 화면이라 공개 구성(활동·거래 정보·판매 매물)을 여기에 겹쳐 넣지 않고,
-            남이 보는 그 페이지로 보내 "보이는 그대로" 를 확인시킨다 (2026-09-10, 대표 요청). */}
-        <button
-          type="button"
-          onClick={() => navigate(`/profile/${u.id}`)}
-          className={styles.entryRow}
-        >
-          <span className={styles.entryIcon}><Eye size={18} /></span>
-          <span className={styles.entryLabel}>{t('profile.viewAsOthers')}</span>
-          <ChevronRight size={18} className={styles.entryChevron} />
-        </button>
-
         {/* SGR-312: 비즈니스 파트너 진입 (상태 분기는 /biz/status 화면이 처리) —
             W4: 파트너(APPROVED 업체 보유)는 위 요약 카드로 승격되므로 여기서는 미가입자에게만 노출 (D-5) */}
         {!activeBizProfile && (
@@ -691,14 +695,6 @@ export default function ProfileMain() {
             </span>
             <ChevronRight size={18} className={styles.entryChevron} />
           </button>
-        )}
-
-        {/* FR-2 제안 ①: 인증 완료 후에는 카드가 아니라 진입 행 형식으로 시트 하단에 격하 */}
-        {u.phoneVerified && (
-          <div className={styles.entryRow} style={{ cursor: 'default' }}>
-            <span className={styles.entryIcon}><BadgeCheck size={18} /></span>
-            <span className={styles.entryLabel}>{t('profile.phoneVerifyDone')}</span>
-          </div>
         )}
 
         {/* 거래 이력 — 구매/판매 서브탭 (260928 실기기 피드백 2차: 3탭 통합안 폐기, [구매|판매] 복원) */}

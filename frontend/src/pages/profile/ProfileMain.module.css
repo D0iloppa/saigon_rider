@@ -49,6 +49,34 @@
 }
 .settingsBtn:active { background: rgba(255,255,255,.34); }
 
+/* 헤더 배지 행: 한 줄 고정, 좁은 화면(vi 라벨)에서는 가로 스크롤 */
+.chipsRow {
+  margin: 8px 0 10px;
+  padding: 0 16px;
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: safe center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.chipsRow::-webkit-scrollbar { display: none; }
+
+.viewProfileBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 auto 24px;
+  padding: 5px 10px 5px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.22);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.viewProfileBtn:active { background: rgba(255,255,255,.34); }
+
 /* Section 2: 소셜 + 액션 (fixed, Section 1 바로 아래) */
 .socialSection {
   position: fixed;

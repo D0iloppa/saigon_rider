@@ -706,7 +706,7 @@
   "profile": {
     "phoneVerifyNeeded": "Phone verification needed",
     "phoneVerifyNeededSub": "Verify your phone to boost trust as a seller",
-    "phoneVerifyDone": "Phone verified",
+    "phoneVerifiedBadge": "Phone verified",
     "tradeHistory": "Trade history",
     "seeAll": "See all",
     "tradeSold": "Sold",
@@ -718,7 +718,7 @@
     "reviewDone": "Reviewed",
     "leaveReview": "Leave review",
     "tabMyListings": "My Listings",
-    "viewAsOthers": "View my profile as others see it",
+    "viewProfile": "View profile",
     "myListingsEntry": "My listings",
     "myListingsLoading": "Loading",
     "myListingsEmpty": "List your first item",

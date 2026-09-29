@@ -19,7 +19,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-ROOT = Path("/mnt/c/DEV/saigon_rider")
+ROOT = Path("/DEVELOP/DOIL/saigon_rider")
 SRC = ROOT / "ai-docs/research/260810_field_agent_targets_clean.csv"
 OUT = ROOT / "ai-docs/research/260810_field_agent_targets_clean_migrated.csv"
 

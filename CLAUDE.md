@@ -84,7 +84,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 이 워크스페이스(`mnt-c-DEV-saigon_rider`)는 `codebase-memory` MCP 로 코드 그래프가 인덱싱되어 있다. 상세 사용 규칙은 [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §9.
 
 - 구조/의존관계/호출관계 파악이 필요할 땐 전체 파일 풀텍스트 검색보다 `search_graph`, `query_graph`, `trace_path`, `get_architecture` 등 MCP 조회를 우선 사용한다.
-- **코드를 수정했으면 그 세션 안에서 `index_repository` 로 재인덱싱해 그래프를 최신 상태로 반영한다.** (`repo_path: /mnt/c/DEV/saigon_rider`, 소규모 변경은 `mode: fast`/`moderate`, 구조 변경이 크면 `full`)
+- **코드를 수정했으면 그 세션 안에서 `index_repository` 로 재인덱싱해 그래프를 최신 상태로 반영한다.** (`repo_path: /DEVELOP/DOIL/saigon_rider`, 소규모 변경은 `mode: fast`/`moderate`, 구조 변경이 크면 `full`)
 - 재인덱싱을 누락하면 이후 세션의 그래프 조회 결과가 과거 코드 기준으로 나오므로, 커밋/작업 마무리 전에 반영 여부를 확인한다.
 - **`codebase-memory` MCP 도구가 안 보이면(다른 유저 프로필 등, 글로벌 MCP 설정이 없는 환경)** 억지로 흉내내지 말고, 유저에게 MCP 서버 추가를 권고한 뒤 그 세션에서는 기존 방식(Explore 서브에이전트 / `grep`·`find`)으로 대체한다.
 

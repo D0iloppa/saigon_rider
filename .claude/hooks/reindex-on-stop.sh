@@ -4,7 +4,7 @@
 #  2) Claude에게 ADR/page-map 갱신 필요 여부를 1회 점검시킴 (decision:block)
 # 플래그는 PostToolUse(Edit|Write|NotebookEdit) hook이 생성한다.
 IN=$(cat)
-ROOT="${CLAUDE_PROJECT_DIR:-/mnt/c/DEV/saigon_rider}"
+ROOT="${CLAUDE_PROJECT_DIR:-/DEVELOP/DOIL/saigon_rider}"
 FLAG="$ROOT/.claude/.needs-reindex"
 [ -f "$FLAG" ] || exit 0
 rm -f "$FLAG"

@@ -214,6 +214,10 @@ test.describe('S7 group official chat', () => {
 
     await row.click();
     await expect(page).toHaveURL(/\/dm\/[0-9a-f-]{36}$/);
+    // 공식 채널은 알림 켜진 상태로 참여(대표 판정 260929) — 토글 1회 시 muted:true 가 되어야 한다.
+    const convId = page.url().split('/dm/')[1];
+    const mute = await json(await request.post(`${API}/dm/conversations/${convId}/mute`, { headers: H(b) }));
+    expect(mute.muted).toBe(true);
     const link = page.getByTestId('dm-room-group-link');
     await expect(link).toBeVisible();
     await link.click();

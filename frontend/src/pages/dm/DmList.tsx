@@ -44,6 +44,17 @@ export default function DmList() {
         defaultValue: '[묶음] {{count}}개 물품',
       });
     }
+    // F-X-01 FR-1(r8): 약속 취소 카드·되돌리기 프롬프트 — 취소 문구로 미리보기(프롬프트는 취소 종류만 존재).
+    if (c.lastMessageType === 'card' && c.lastMessageMeta?.subtype === 'appointment_cancelled') {
+      return t(
+        c.lastMessageMeta.kind === 'WITHDRAWN'
+          ? 'dm.apptCancelPreviewProposal'
+          : c.lastMessageMeta.kind === 'DECLINED'
+            ? 'dm.apptCancelPreviewDeclined'
+            : 'dm.apptCancelPreviewCancelled',
+      );
+    }
+    if (c.lastMessageMeta?.kind === 'revert_prompt') return t('dm.apptCancelPreviewCancelled');
     return c.lastMessagePreview ?? '';
   };
   // 서버는 enum 만 내리고 라벨은 뷰어 로케일로 매핑 (DmDetail 의 약속 상태 라벨과 동일 키 재사용)

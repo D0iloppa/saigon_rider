@@ -2197,6 +2197,7 @@ async def _appt_out(db: AsyncSession, a: MarketplaceAppointment, seller_id: uuid
         completion_declined_at=a.completion_declined_at,
         completion_declined_by=a.completion_declined_by,
         cancel_reason=getattr(a, "cancel_reason", None),
+        cancelled_by=getattr(a, "cancelled_by", None),
     )
 
 
@@ -2263,7 +2264,7 @@ async def propose_appointment(
             else MarketplaceAppointment.listing_id.is_(None),
             MarketplaceAppointment.status == "PROPOSED",
         )
-        .values(status="CANCELLED", updated_at=now)
+        .values(status="CANCELLED", cancel_reason="SUPERSEDED", updated_at=now)
     )
 
     appt = MarketplaceAppointment(
@@ -3231,9 +3232,58 @@ async def cancel_appointment(
     if appt.status == "COMPLETED":
         raise HTTPException(status_code=409, detail="Cannot cancel a completed appointment")
     now = datetime.now(UTC)
+    # F-X-01 FR-1(r8): 종류는 이전 상태·행위자로 판별한다 — 제안자 본인의 PROPOSED 취소=철회,
+    # 수신자의 PROPOSED 취소=거절, ACCEPTED 취소=약속 취소.
+    was_accepted = appt.status == "ACCEPTED"
+    kind = "CANCELLED" if was_accepted else ("WITHDRAWN" if session_uid == appt.proposer_id else "DECLINED")
     appt.status = "CANCELLED"
     appt.cancel_reason = body.reason if body else None
+    appt.cancelled_by = session_uid
     appt.updated_at = now
+    # F-X-01 FR-1(r8): 방 맨 아래에 취소 카드를 새로 쌓는다(원래 카드는 위로 밀려 있어 상태 변경만으론 안 보임).
+    # 일시·장소·사유는 취소 시점 스냅샷 — DM-5 원칙대로 content 는 저장하지 않고 프론트가 meta 로 렌더한다.
+    actor = await db.get(User, session_uid)
+    db.add(
+        DmMessage(
+            conversation_id=conv.id,
+            sender_id=session_uid,
+            content=None,
+            message_type="card",
+            meta={
+                "subtype": "appointment_cancelled",
+                "appointmentId": str(appt.id),
+                "kind": kind,
+                "actorId": str(session_uid),
+                "reason": appt.cancel_reason,
+                "whenAt": appt.when_at.isoformat(),
+                "placeName": appt.place_name,
+            },
+            created_at=now,
+        )
+    )
+    # F-N-02 FR-7 ⑥: 취소된 약속이 ACCEPTED 였고 매물 방 세트에 예약중 항목이 있으면 판매자에게만
+    # "판매중으로 되돌릴까요?" 프롬프트를 남긴다. 상태는 자동으로 바꾸지 않는다(reserve_prompt 와 같은 규약).
+    if was_accepted and listing is not None:
+        active_set = await get_active_set(db, conv.id)
+        if active_set is not None and await set_has_reserved_item(db, active_set.id):
+            buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1
+            buyer = await db.get(User, buyer_id) if buyer_id else None
+            db.add(
+                DmMessage(
+                    conversation_id=conv.id,
+                    sender_id=listing.seller_id,
+                    content=None,
+                    message_type="text",
+                    meta={
+                        "kind": "revert_prompt",
+                        "listingId": str(listing.id),
+                        "appointmentId": str(appt.id),
+                        "counterpartNickname": buyer.nickname if buyer else None,
+                    },
+                    created_at=now,
+                )
+            )
+    conv.last_message_at = now
     # F-S5-01 FR-1: 취소는 상대가 이동 중일 수 있는 즉시 영향 행위다. 상태 변경과 같은
     # 트랜잭션에 상대방 한 명 대상 outbox를 적재해, 커밋된 취소만 통지한다.
     counterpart_id = require_participant(conv, session_uid)
@@ -3247,6 +3297,8 @@ async def cancel_appointment(
             "listing_title": listing.title if listing else None,
             "recipient_id": str(counterpart_id),
             "cancel_reason": appt.cancel_reason,
+            "kind": kind,
+            "actor_nickname": actor.nickname if actor and actor.nickname else "",
         },
     )
     _enqueue_live_activity(db, appt)

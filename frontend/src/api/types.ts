@@ -221,7 +221,7 @@ export interface DmConversation {
   lastMessagePreview: string | null;
   /** 마지막 메시지 타입 — price_offer/appointment 미리보기를 뷰어 로케일로 조립 (DM-5) */
   lastMessageType: string | null;
-  lastMessageMeta: { amount?: number; when?: string; place?: string | null; subtype?: string; titles?: string[]; totalVnd?: number } | null;
+  lastMessageMeta: { amount?: number; when?: string; place?: string | null; subtype?: string; kind?: string; titles?: string[]; totalVnd?: number } | null;
   lastMessageAt: string;
   unreadCount: number;
   contextType: string | null;
@@ -321,7 +321,7 @@ export interface DmAppointmentMeta {
   /** kind === 'listing_divider' 일 때 구분자에 표시할 매물 제목. */
   listingTitle?: string;
   /** message_type === 'card' 일 때 카드 종류 — 'item'(매물) | 'walkie'(워키토키 초대, 렌더 통합용). */
-  subtype?: 'item' | 'walkie' | 'bundle';
+  subtype?: 'item' | 'walkie' | 'bundle' | 'appointment_cancelled';
   /** subtype === 'item' 일 때 매물 id/제목/가격/썸네일 스냅샷(서버가 전송 시점에 재조회해 채움). */
   listingId?: string;
   title?: string;
@@ -331,8 +331,13 @@ export interface DmAppointmentMeta {
   listingIds?: string[];
   titles?: string[];
   totalVnd?: number;
-  /** meta.kind === 'reserve_prompt' 일 때 상대 닉네임. */
+  /** meta.kind === 'reserve_prompt' | 'revert_prompt' 일 때 상대 닉네임. */
   counterpartNickname?: string | null;
+  /** subtype === 'appointment_cancelled' 일 때 취소 스냅샷(F-X-01 FR-1 r8) — kind: WITHDRAWN|DECLINED|CANCELLED. */
+  actorId?: string;
+  reason?: string | null;
+  whenAt?: string;
+  placeName?: string | null;
 }
 
 export type AppointmentStatus = 'PROPOSED' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
@@ -356,7 +361,9 @@ export interface Appointment {
   /** 거절 행위자 — 판매자 거절이면 판매자 id, 운영 이의 큐 기각이면 null. */
   completionDeclinedBy: string | null;
   /** F-X-01 FR-1: 취소 사유 칩 — CANCELLED 일 때만 값이 있다. */
-  cancelReason: AppointmentCancelReason | null;
+  cancelReason: AppointmentCancelReason | 'SUPERSEDED' | 'BLOCKED' | null;
+  /** F-X-01 FR-1(r8): 취소 행위자. */
+  cancelledBy: string | null;
 }
 
 /** F-X-01 FR-1(260924 승인안): 취소 사유 칩 3개(선택 필수 1). */

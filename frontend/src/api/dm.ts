@@ -42,6 +42,7 @@ function transformAppointment(raw: any): Appointment {
     completionDeclinedAt: raw.completion_declined_at ?? null,
     completionDeclinedBy: raw.completion_declined_by ?? null,
     cancelReason: raw.cancel_reason ?? null,
+    cancelledBy: raw.cancelled_by ?? null,
   };
 }
 

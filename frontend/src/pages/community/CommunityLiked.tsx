@@ -22,7 +22,9 @@ export default function CommunityLiked() {
   const fetchPage = useCallback(
     async (page: number) => {
       const res = await fetchFeed({ filter: 'liked', page, offset: page > 1 ? loadedRef.current : undefined });
-      return { ...res, items: res.items.map((p) => ({ ...p, iCheered: true })) };
+      const before = page > 1 ? loadedRef.current : 0;
+      // 해제로 줄어든 목록은 page*size 로 남은 양을 판단할 수 없다 — 로드된 개수 기준
+      return { ...res, hasMore: before + res.items.length < res.total, items: res.items.map((p) => ({ ...p, iCheered: true })) };
     },
     [],
   );

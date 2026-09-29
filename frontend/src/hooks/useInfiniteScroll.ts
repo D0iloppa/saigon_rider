@@ -5,6 +5,8 @@ export interface PageResult<T> {
   total: number;
   page: number;
   size: number;
+  /** 호출부가 로컬 제거 등으로 page*size 계산이 맞지 않을 때 직접 알려준다 */
+  hasMore?: boolean;
 }
 
 export interface UseInfiniteScrollReturn<T> {
@@ -56,7 +58,7 @@ export function useInfiniteScroll<T>(
         setItems(res.items);
       }
       pageRef.current = page;
-      setHasMore(page * pageSize < res.total);
+      setHasMore(res.hasMore ?? page * pageSize < res.total);
       setError(false);
     } catch {
       if (seq !== reqSeqRef.current) return; // 스테일 응답 폐기

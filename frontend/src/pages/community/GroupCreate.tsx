@@ -129,7 +129,8 @@ export default function GroupCreate() {
         const saved = await patchGroup(editGroup.id, {
           name: name.trim(),
           topic,
-          description: description.trim() || undefined,
+          // 편집에서 비운 소개는 '' 로 보내야 지워진다(null = 변경 없음)
+          description: description.trim(),
           visibility,
           joinPolicy,
           coverContentId: cover?.contentId ?? undefined,

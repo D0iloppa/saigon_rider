@@ -2,6 +2,7 @@ import { MapPin, Radio } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import type { Appointment } from '@/api/types';
+import ApptPlaceThumb from './ApptPlaceThumb';
 import styles from './AppointmentSheet.module.css';
 
 /** 길안내 버튼 표시 상태 — DmDetail 이 카드와 시트에 같은 값을 넘긴다. */
@@ -73,6 +74,9 @@ export function AppointmentSheet({
           <span className={styles.label}>{t('dm.apptSheetWith')}</span>
           <span className={styles.val}>{counterpartName}</span>
         </div>
+        {appointment.placeLat != null && appointment.placeLng != null && (
+          <ApptPlaceThumb lat={appointment.placeLat} lng={appointment.placeLng} />
+        )}
         {status === 'ACCEPTED' && (
           <div className={styles.row}>
             <button className={styles.ghost} type="button" onClick={onShareLocation}>

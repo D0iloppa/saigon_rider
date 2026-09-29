@@ -1,0 +1,16 @@
+.wrap {
+  position: relative;
+  height: 110px;
+  margin-top: 8px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+
+/* 지도 위 탭 영역 — 지도 자체는 입력을 받지 않는다. attribution ⓘ 를 위해 하단은 비운다. */
+.hit {
+  position: absolute;
+  inset: 0 0 24px 0;
+  z-index: 2;
+}

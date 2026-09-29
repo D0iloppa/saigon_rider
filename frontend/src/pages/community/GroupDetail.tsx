@@ -7,10 +7,11 @@ import StateBlock from '@/components/ui/StateBlock';
 import { AppImage } from '@/components/ui/AppImage';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
-import { getGroup, joinGroup, listMembers, removeGroupMember, approveMember, listGroupPosts } from '@/api/community_groups';
+import { getGroup, joinGroup, listMembers, removeGroupMember, approveMember, listGroupPosts, listGroupBans, unbanGroupMember } from '@/api/community_groups';
+import { extractErrorCode } from '@/api/client';
 import { toggleCheer } from '@/api/feed';
 import { toast } from '@/components/ui/Toast';
-import { useConfirmStore } from '@/store/useConfirmStore';
+import confirmStyles from '@/components/ui/ConfirmDialog.module.css';
 import { useUserStore } from '@/store/useUserStore';
 import type { CommunityGroup, CommunityGroupMember, FeedPost } from '@/api/types';
 import feedStyles from '@/pages/feed/FeedList.module.css';
@@ -56,6 +57,7 @@ export default function GroupDetail() {
 
   const isMember = group?.myMembershipStatus === 'ACTIVE';
   const isPending = group?.myMembershipStatus === 'PENDING';
+  const isBanned = group?.myMembershipStatus === 'BANNED';
 
   const handleJoin = async () => {
     if (!group || joining) return;
@@ -63,8 +65,14 @@ export default function GroupDetail() {
     try {
       const updated = await joinGroup(group.id);
       setGroup(updated);
-    } catch {
-      toast.error(t('common.errorUnexpected'));
+    } catch (err) {
+      const code = extractErrorCode(err);
+      if (code === 'group_banned' || code === 'invite_required') {
+        toast.error(t(code === 'group_banned' ? 'communityGroup.groupBannedNote' : 'communityGroup.inviteRequired'));
+        loadGroup();
+      } else {
+        toast.error(t('common.errorUnexpected'));
+      }
     } finally {
       setJoining(false);
     }
@@ -194,10 +202,25 @@ export default function GroupDetail() {
 
       {!isMember && !isPending && (
         <div className={styles.ctaBar}>
-          <button className={styles.ctaBtn} type="button" onClick={handleJoin} disabled={joining}>
-            <UserPlus size={20} strokeWidth={2.2} />
-            {t('communityGroup.join')}
-          </button>
+          {isBanned ? (
+            <p className={styles.ctaNote} data-testid="group-banned-note">{t('communityGroup.groupBannedNote')}</p>
+          ) : (
+            <>
+              {group.myInvite && (
+                <p className={styles.ctaNote} data-testid="group-invite-notice">
+                  {t('communityGroup.inviteNotice', { name: group.myInvite.inviterNickname ?? '' })}
+                </p>
+              )}
+              {group.joinPolicy === 'invite' && !group.myInvite ? (
+                <p className={styles.ctaNote}>{t('communityGroup.inviteRequired')}</p>
+              ) : (
+                <button className={styles.ctaBtn} type="button" onClick={handleJoin} disabled={joining}>
+                  <UserPlus size={20} strokeWidth={2.2} />
+                  {t(group.myMembershipStatus === 'REMOVED' ? 'communityGroup.requestJoin' : 'communityGroup.join')}
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -251,6 +274,10 @@ function BoardTab({ group, isMember, navigate, t }: any) {
 function MembersTab({ group, isMember, myUserId, t }: any) {
   const [members, setMembers] = useState<CommunityGroupMember[]>([]);
   const [pending, setPending] = useState<CommunityGroupMember[]>([]);
+  const [bans, setBans] = useState<CommunityGroupMember[]>([]);
+  const [showBans, setShowBans] = useState(false);
+  const [kickTarget, setKickTarget] = useState<string | null>(null);
+  const [kickBan, setKickBan] = useState(false);
   const [loading, setLoading] = useState(true);
   const canManage = MANAGE_ROLES.has(group.myRole ?? '');
   // 초대: ACTIVE 멤버 누구나, 초대전용 그룹은 owner/manager 만 (서버 규칙과 동일)
@@ -262,29 +289,39 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
     Promise.all([
       listMembers(group.id),
       canManage ? listMembers(group.id, 'pending') : Promise.resolve([]),
+      canManage ? listGroupBans(group.id) : Promise.resolve([]),
     ])
-      .then(([active, pendingList]) => {
+      .then(([active, pendingList, banList]) => {
         setMembers(active);
         setPending(pendingList);
+        setBans(banList);
       })
       .finally(() => setLoading(false));
   }, [group.id, isMember, canManage]);
 
-  const handleRemove = (userId: string) => {
-    useConfirmStore.getState().open(
-      t('communityGroup.removeMemberConfirm'),
-      async () => {
-        try {
-          await removeGroupMember(group.id, userId);
-          useConfirmStore.getState().close();
-          setMembers((prev) => prev.filter((m) => m.userId !== userId));
-        } catch {
-          useConfirmStore.getState().close();
-          toast.error(t('common.errorUnexpected'));
-        }
-      },
-      { confirmLabel: t('communityGroup.removeMember') },
-    );
+  const handleKick = async () => {
+    const userId = kickTarget;
+    if (!userId) return;
+    const ban = kickBan;
+    setKickTarget(null);
+    setKickBan(false);
+    try {
+      await removeGroupMember(group.id, userId, ban);
+      const removed = members.find((m) => m.userId === userId);
+      setMembers((prev) => prev.filter((m) => m.userId !== userId));
+      if (ban && removed) setBans((prev) => [{ ...removed, status: 'BANNED' }, ...prev]);
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    }
+  };
+
+  const handleUnban = async (userId: string) => {
+    try {
+      await unbanGroupMember(group.id, userId);
+      setBans((prev) => prev.filter((m) => m.userId !== userId));
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    }
   };
 
   const handleApprove = async (userId: string) => {
@@ -355,7 +392,8 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
               <button
                 type="button"
                 className={`${styles.memberAction} ${styles.memberActionDanger}`}
-                onClick={() => handleRemove(m.userId)}
+                data-testid="member-kick-btn"
+                onClick={() => { setKickTarget(m.userId); setKickBan(false); }}
               >
                 {t('communityGroup.removeMember')}
               </button>
@@ -363,6 +401,61 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
           </div>
         ))}
       </div>
+      {canManage && (
+        <>
+          <button
+            type="button"
+            className={`${styles.memberAction} ${styles.banListToggle}`}
+            data-testid="group-ban-list"
+            onClick={() => setShowBans((v) => !v)}
+          >
+            {t('communityGroup.banList')} {bans.length}
+          </button>
+          {showBans && (
+            <div className={styles.memberCard}>
+              {bans.length === 0 && <p className={styles.ctaNote}>{t('communityGroup.banListEmpty')}</p>}
+              {bans.map((m) => (
+                <div key={m.userId} className={styles.memberRow}>
+                  <AppImage src={m.avatarUrl ?? undefined} alt="" className={styles.memberAvatar} variant="circle" />
+                  <span className={styles.memberName}>{m.nickname ?? '—'}</span>
+                  <button
+                    type="button"
+                    className={styles.memberAction}
+                    data-testid="ban-unban-btn"
+                    onClick={() => handleUnban(m.userId)}
+                  >
+                    {t('communityGroup.unban')}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {kickTarget && (
+        <div className={confirmStyles.backdrop} onClick={() => setKickTarget(null)}>
+          <div className={confirmStyles.dialog} onClick={(e) => e.stopPropagation()}>
+            <p className={confirmStyles.message}>{t('communityGroup.removeMemberConfirm')}</p>
+            <label className={styles.kickBanRow}>
+              <input
+                type="checkbox"
+                data-testid="member-kick-ban-checkbox"
+                checked={kickBan}
+                onChange={(e) => setKickBan(e.target.checked)}
+              />
+              {t('communityGroup.kickBanLabel')}
+            </label>
+            <div className={confirmStyles.actions}>
+              <button className={confirmStyles.cancel} onClick={() => setKickTarget(null)}>
+                {t('common.cancel')}
+              </button>
+              <button className={confirmStyles.confirm} data-testid="member-kick-confirm" onClick={handleKick}>
+                {t('communityGroup.removeMember')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -17,32 +17,12 @@
   min-width: 0;
 }
 
-.viewBtn,
-.joinBtn {
+.viewBtn {
   width: 100%;
   padding: 9px 6px;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 700;
-}
-
-.viewBtn {
   background: var(--surface-2);
   color: var(--text);
-}
-
-.joinBtn {
-  margin-top: 6px;
-  background: var(--brand-500);
-  color: #fff;
-}
-
-.joinBtn:disabled { opacity: 0.5; }
-
-.note {
-  display: block;
-  padding: 6px 0 0;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--text-3);
 }

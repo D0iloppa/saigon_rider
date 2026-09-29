@@ -254,6 +254,31 @@
 .ctaBtn:active { opacity: 0.88; }
 .ctaBtn:disabled { opacity: 0.5; }
 
+.ctaNote {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-2);
+}
+
+.ctaBar > .ctaNote:last-child { margin-bottom: 0; }
+
+.banListToggle {
+  display: block;
+  margin: 20px 0 12px;
+  color: var(--text-2);
+}
+
+.kickBanRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
 /* 글쓰기 FAB(멤버·게시판 탭) — 기존 그대로 */
 .writeFab {
   position: fixed;

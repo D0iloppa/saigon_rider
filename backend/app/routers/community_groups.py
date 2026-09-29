@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import case, func, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -32,11 +33,12 @@ from ..schemas import (
     GroupInviteResultOut,
     GroupInviteSendOut,
     GroupInviteSendRequest,
-    GroupInviteStateOut,
+    GroupMyInviteOut,
     GroupTopicLabels,
     GroupTopicOut,
     Page,
 )
+from ..services import location_channel_membership
 from ..utils import build_imgproxy_url, resolve_avatar_url
 from .dm import create_conversation, send_message
 from .feed import FeedPageOut, _enrich
@@ -113,6 +115,11 @@ async def _group_out(db: AsyncSession, group: CommunityGroup, session_uid: uuid.
         await db.execute(select(DmConversation.id).where(DmConversation.community_group_id == group.id))
     ).scalar_one_or_none()
     cover_url = build_imgproxy_url(group.cover_content.file_path) if group.cover_content else None
+    my_invite = await _valid_pending_invite(db, group, session_uid)
+    my_invite_out = None
+    if my_invite is not None:
+        inviter = await db.get(User, my_invite.inviter_id)
+        my_invite_out = GroupMyInviteOut(invite_id=my_invite.id, inviter_nickname=inviter.nickname if inviter else None)
     return CommunityGroupOut(
         id=group.id,
         slug=group.slug,
@@ -134,6 +141,7 @@ async def _group_out(db: AsyncSession, group: CommunityGroup, session_uid: uuid.
         my_membership_status=membership.status if membership else None,
         my_role=membership.role if membership else None,
         conversation_id=conv,
+        my_invite=my_invite_out,
     )
 
 
@@ -353,17 +361,31 @@ async def join_group(
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     group = await _resolve_group(db, str(group_id))
-    if group.join_policy == "invite":
-        raise HTTPException(status_code=400, detail="This group requires an invite")
+    member = await _my_membership(db, group.id, _session_uid)
+    if member is not None and member.status == "BANNED":
+        raise HTTPException(status_code=403, detail={"code": "group_banned"})
+    invite = await _valid_pending_invite(db, group, _session_uid)
 
-    await _join_with_status(db, group, _session_uid, "ACTIVE" if group.join_policy == "open" else "PENDING")
+    # 재가입 정책의 단일 관문: 내보내진(REMOVED) 사람은 정책·초대와 무관하게 항상 승인 대기.
+    if (member is not None and member.status == "REMOVED") or group.join_policy == "approval":
+        target_status = "PENDING"
+    elif group.join_policy == "open" or invite is not None:
+        target_status = "ACTIVE"
+    else:
+        await db.commit()  # _valid_pending_invite 가 무효 초대를 revoke 했을 수 있다
+        raise HTTPException(status_code=403, detail={"code": "invite_required"})
+
+    await _join_with_status(db, group, _session_uid, target_status)
+    if invite is not None:
+        invite.status = "accepted"
+        invite.responded_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(group)
     return await _group_out(db, group, _session_uid)
 
 
 async def _join_with_status(db: AsyncSession, group: CommunityGroup, user_id: uuid.UUID, target_status: str) -> None:
-    """가입 공통 경로 (직접 가입 / 초대 수락). 정책 판정은 호출부 몫이고 여기선 차단·밴 검사 + 멤버 행 + 공식 채팅 합류만."""
+    """가입 공통 경로. 정책 판정은 호출부 몫이고 여기선 차단·밴 검사 + 멤버 행 + 공식 채팅 합류만."""
     blocked = (
         await db.execute(
             select(UserBlock).where(
@@ -386,9 +408,12 @@ async def _join_with_status(db: AsyncSession, group: CommunityGroup, user_id: uu
         if target_status == "ACTIVE":
             group.member_count += 1
     elif member.status == "BANNED":
-        raise HTTPException(status_code=403, detail="Banned from this group")
+        raise HTTPException(status_code=403, detail={"code": "group_banned"})
+    elif member.status == "REMOVED":  # 내보내진 사람의 재가입은 항상 승인 대기 (호출부 정책과 무관하게 여기서 강제)
+        member.status = "PENDING"
+        member.joined_at = now
     elif member.status == "PENDING":
-        if target_status == "ACTIVE":  # 초대 수락(초대전용 그룹) — 대기 행은 승격
+        if target_status == "ACTIVE":  # 대기 행은 승격
             member.status = "ACTIVE"
             group.member_count += 1
     else:
@@ -425,13 +450,16 @@ async def approve_member(
     return await _group_out(db, group, _session_uid)
 
 
-@router.delete("/{group_id}/members/{user_id}", summary="탈퇴 또는 강퇴")
+@router.delete("/{group_id}/members/{user_id}", summary="탈퇴 / 내보내기 (ban=true 면 영구 차단)")
 async def remove_member(
     group_id: uuid.UUID,
     user_id: uuid.UUID,
+    ban: bool = False,
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    """본인 삭제 = 탈퇴(행 삭제, 재가입은 정책대로). 운영진이 타인을 삭제 = 내보내기(REMOVED, 재가입은 항상 승인)
+    또는 ban=true 영구 차단(BANNED, 가입 불가 + 공식 채팅방 밴)."""
     group = await _resolve_group(db, str(group_id))
     actor = await _my_membership(db, group.id, _session_uid)
     if actor is None or actor.status != "ACTIVE":
@@ -441,10 +469,20 @@ async def remove_member(
         raise HTTPException(status_code=403, detail="Only owner/manager can remove other members")
 
     target = await _my_membership(db, group.id, user_id)
-    if target is None:
+    if target is None or (not is_self and target.status in ("REMOVED", "BANNED")):
         raise HTTPException(status_code=404, detail="Member not found")
+    if not is_self:
+        # dm.py ban_member 규칙 미러: owner 는 대상 불가, manager 는 다른 manager 를 못 건드린다.
+        if target.role == "owner":
+            raise HTTPException(status_code=403, detail="Owner cannot be removed")
+        if target.role == "manager" and actor.role != "owner":
+            raise HTTPException(status_code=403, detail="Only the owner can remove a manager")
     was_active = target.status == "ACTIVE"
-    await db.delete(target)
+    if is_self:
+        await db.delete(target)
+    else:
+        target.status = "BANNED" if ban else "REMOVED"
+        target.role = "member"
     if was_active:
         group.member_count = max(group.member_count - 1, 0)
 
@@ -467,7 +505,72 @@ async def remove_member(
             conv = await db.get(DmConversation, conv_id)
             if conv is not None:
                 conv.member_count = max(conv.member_count - 1, 0)
+        if not is_self and ban:  # 방 경로도 닫는다 (기존 DM 방 밴 메커니즘)
+            await db.execute(
+                pg_insert(DmConversationBan)
+                .values(conversation_id=conv_id, user_id=user_id, banned_by=_session_uid)
+                .on_conflict_do_nothing(index_elements=["conversation_id", "user_id"])
+            )
 
+    await db.commit()
+    if conv_id is not None:
+        await location_channel_membership.force_leave(db, conv_id, user_id, reason="kicked_or_left")
+    return {"ok": True}
+
+
+@router.get("/{group_id}/bans", response_model=list[CommunityGroupMemberOut], summary="차단 목록 (owner/manager)")
+async def list_bans(
+    group_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    group = await _resolve_group(db, str(group_id))
+    actor = await _my_membership(db, group.id, _session_uid)
+    if actor is None or actor.status != "ACTIVE" or actor.role not in _MANAGE_ROLES:
+        raise HTTPException(status_code=403, detail="Only owner/manager can view bans")
+    rows = (
+        await db.execute(
+            select(CommunityGroupMember, User)
+            .join(User, CommunityGroupMember.user_id == User.id)
+            .where(CommunityGroupMember.group_id == group.id, CommunityGroupMember.status == "BANNED")
+            .order_by(CommunityGroupMember.joined_at.desc())
+        )
+    ).all()
+    return [
+        CommunityGroupMemberOut(
+            user_id=m.user_id,
+            nickname=u.nickname,
+            avatar_url=resolve_avatar_url(u),
+            role=m.role,
+            status=m.status,
+            joined_at=m.joined_at,
+        )
+        for m, u in rows
+    ]
+
+
+@router.delete("/{group_id}/bans/{user_id}", summary="차단 해제 (→ REMOVED, 재가입은 승인 필요)")
+async def unban_member(
+    group_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    group = await _resolve_group(db, str(group_id))
+    actor = await _my_membership(db, group.id, _session_uid)
+    if actor is None or actor.status != "ACTIVE" or actor.role not in _MANAGE_ROLES:
+        raise HTTPException(status_code=403, detail="Only owner/manager can unban")
+    target = await _my_membership(db, group.id, user_id)
+    if target is None or target.status != "BANNED":
+        raise HTTPException(status_code=404, detail="Ban not found")
+    target.status = "REMOVED"
+    conv_id = (
+        await db.execute(select(DmConversation.id).where(DmConversation.community_group_id == group.id))
+    ).scalar_one_or_none()
+    if conv_id is not None:
+        room_ban = await db.get(DmConversationBan, (conv_id, user_id))
+        if room_ban is not None:
+            await db.delete(room_ban)
     await db.commit()
     return {"ok": True}
 
@@ -560,6 +663,30 @@ async def _has_pending_invite(db: AsyncSession, group_id: uuid.UUID, user_id: uu
             )
         )
     ).first() is not None
+
+
+async def _valid_pending_invite(
+    db: AsyncSession, group: CommunityGroup, user_id: uuid.UUID | None
+) -> CommunityGroupInvite | None:
+    """내 유효한 pending 초대. 초대자가 그 사이 강퇴·권한 상실했으면(초대전용 우회 차단) revoke 하고 None."""
+    if user_id is None:
+        return None
+    invite = (
+        await db.execute(
+            select(CommunityGroupInvite).where(
+                CommunityGroupInvite.group_id == group.id,
+                CommunityGroupInvite.invitee_id == user_id,
+                CommunityGroupInvite.status == "pending",
+            )
+        )
+    ).scalar_one_or_none()
+    if invite is None:
+        return None
+    if not await _may_invite(db, group, invite.inviter_id):
+        invite.status = "revoked"
+        invite.responded_at = datetime.now(UTC)
+        return None
+    return invite
 
 
 async def _may_invite(db: AsyncSession, group: CommunityGroup, user_id: uuid.UUID) -> bool:
@@ -703,8 +830,7 @@ async def send_invites(
             results.append(GroupInviteResultOut(user_id=uid, result="skipped", reason="not_candidate"))
             continue
         if states[uid] != "invitable":
-            reason = "member" if states[uid] == "banned" else states[uid]
-            results.append(GroupInviteResultOut(user_id=uid, result="skipped", reason=reason))
+            results.append(GroupInviteResultOut(user_id=uid, result="skipped", reason=states[uid]))
             continue
         try:
             # 앱이 1:1 DM 을 여는 것과 같은 경로(create_conversation: get-or-create + 차단 검사)와
@@ -728,70 +854,6 @@ async def send_invites(
             await db.rollback()
             results.append(GroupInviteResultOut(user_id=uid, result="skipped", reason="unavailable"))
     return GroupInviteSendOut(results=results)
-
-
-async def _load_invite(db: AsyncSession, group: CommunityGroup, invite_id: uuid.UUID) -> CommunityGroupInvite:
-    invite = await db.get(CommunityGroupInvite, invite_id)
-    if invite is None or invite.group_id != group.id:
-        raise HTTPException(status_code=404, detail={"code": "invite_not_found"})
-    return invite
-
-
-@router.get(
-    "/{group_id}/invites/{invite_id}",
-    response_model=GroupInviteStateOut,
-    summary="초대 카드 상태 (초대자/초대받는 사람)",
-)
-async def get_invite_state(
-    group_id: uuid.UUID,
-    invite_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    _session_uid: uuid.UUID = Depends(verify_user_session),
-):
-    group = await _resolve_group(db, str(group_id))
-    invite = await _load_invite(db, group, invite_id)
-    if _session_uid not in (invite.inviter_id, invite.invitee_id):
-        raise HTTPException(status_code=404, detail={"code": "invite_not_found"})
-    return GroupInviteStateOut(
-        invite_id=invite.id,
-        status=invite.status,
-        is_invitee=invite.invitee_id == _session_uid,
-        group=await _group_out(db, group, _session_uid),
-    )
-
-
-@router.post(
-    "/{group_id}/invites/{invite_id}/accept", response_model=CommunityGroupOut, summary="초대 수락 (가입 정책별)"
-)
-async def accept_invite(
-    group_id: uuid.UUID,
-    invite_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    _session_uid: uuid.UUID = Depends(verify_user_session),
-):
-    """open → ACTIVE / approval → 승인 대기(PENDING, 초대가 승인을 우회하지 않음) / invite → ACTIVE(유일한 진입 경로).
-    승인제여도 수락 시점에 초대는 accepted 로 닫는다(대기 상태는 멤버십 PENDING 이 표현)."""
-    group = await _resolve_group(db, str(group_id))
-    invite = await _load_invite(db, group, invite_id)
-    if invite.invitee_id != _session_uid:
-        raise HTTPException(status_code=404, detail={"code": "invite_not_found"})
-    if invite.status == "accepted":
-        return await _group_out(db, group, _session_uid)  # 멱등
-    if invite.status != "pending" or group.status != "ACTIVE":
-        raise HTTPException(status_code=409, detail={"code": "invite_not_pending"})
-    # 초대 이후 초대자가 강퇴·권한 상실했으면 초대는 무효 (초대전용 그룹 우회 차단)
-    if not await _may_invite(db, group, invite.inviter_id):
-        invite.status = "revoked"
-        invite.responded_at = datetime.now(UTC)
-        await db.commit()
-        raise HTTPException(status_code=409, detail={"code": "invite_not_pending"})
-
-    await _join_with_status(db, group, _session_uid, "PENDING" if group.join_policy == "approval" else "ACTIVE")
-    invite.status = "accepted"
-    invite.responded_at = datetime.now(UTC)
-    await db.commit()
-    await db.refresh(group)
-    return await _group_out(db, group, _session_uid)
 
 
 async def _add_open_conversation_member(db: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID) -> None:

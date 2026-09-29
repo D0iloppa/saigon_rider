@@ -1,7 +1,7 @@
 import { api, requireSession } from './client';
 import { transformPost } from './feed';
 import type { FeedPost } from './types';
-import type { CommunityGroup, CommunityGroupMember, GroupInviteCandidate, GroupInviteState, GroupTopic } from './types';
+import type { CommunityGroup, CommunityGroupMember, GroupInviteCandidate, GroupTopic } from './types';
 
 function transformGroup(raw: any): CommunityGroup {
   return {
@@ -25,6 +25,7 @@ function transformGroup(raw: any): CommunityGroup {
     myMembershipStatus: raw.my_membership_status ?? null,
     myRole: raw.my_role ?? null,
     conversationId: raw.conversation_id ?? null,
+    myInvite: raw.my_invite ? { inviteId: raw.my_invite.invite_id, inviterNickname: raw.my_invite.inviter_nickname ?? null } : null,
   };
 }
 
@@ -133,8 +134,17 @@ export async function approveMember(groupId: string, userId: string): Promise<Co
   return transformGroup(raw);
 }
 
-export async function removeGroupMember(groupId: string, userId: string): Promise<void> {
-  await api.realFetch(`/community/groups/${groupId}/members/${userId}`, { method: 'DELETE' });
+export async function removeGroupMember(groupId: string, userId: string, ban = false): Promise<void> {
+  await api.realFetch(`/community/groups/${groupId}/members/${userId}${ban ? '?ban=true' : ''}`, { method: 'DELETE' });
+}
+
+export async function listGroupBans(groupId: string): Promise<CommunityGroupMember[]> {
+  const raw = await api.realFetch<any[]>(`/community/groups/${groupId}/bans`);
+  return raw.map(transformMember);
+}
+
+export async function unbanGroupMember(groupId: string, userId: string): Promise<void> {
+  await api.realFetch(`/community/groups/${groupId}/bans/${userId}`, { method: 'DELETE' });
 }
 
 export async function listMembers(
@@ -179,14 +189,4 @@ export async function sendGroupInvites(groupId: string, userIds: string[]): Prom
     { method: 'POST', body: JSON.stringify({ user_ids: userIds }) },
   );
   return { sent: res.results.filter((r) => r.result === 'sent').length };
-}
-
-export async function getInviteState(groupId: string, inviteId: string): Promise<GroupInviteState> {
-  const raw = await api.realFetch<any>(`/community/groups/${groupId}/invites/${inviteId}`);
-  return { inviteId: raw.invite_id, status: raw.status, isInvitee: raw.is_invitee, group: transformGroup(raw.group) };
-}
-
-export async function acceptGroupInvite(groupId: string, inviteId: string): Promise<CommunityGroup> {
-  const raw = await api.realFetch<any>(`/community/groups/${groupId}/invites/${inviteId}/accept`, { method: 'POST' });
-  return transformGroup(raw);
 }

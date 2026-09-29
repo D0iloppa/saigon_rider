@@ -1190,6 +1190,11 @@ class GroupTopicOut(BaseModel):
     labels: GroupTopicLabels
 
 
+class GroupMyInviteOut(BaseModel):
+    invite_id: UUID
+    inviter_nickname: str | None = None
+
+
 class CommunityGroupOut(BaseModel):
     id: UUID
     slug: str | None = None
@@ -1209,9 +1214,10 @@ class CommunityGroupOut(BaseModel):
     status: str
     created_at: datetime
     # 조회 세션 유저 기준 — 그룹 목록/상세 화면이 "가입하기" vs "이미 가입됨"을 바로 렌더할 수 있게.
-    my_membership_status: str | None = None  # None(비가입) | 'PENDING' | 'ACTIVE' | 'BANNED'
+    my_membership_status: str | None = None  # None | PENDING | ACTIVE | REMOVED(내보내짐→재가입 승인) | BANNED
     my_role: str | None = None
     conversation_id: UUID | None = None
+    my_invite: GroupMyInviteOut | None = None  # 내게 온 유효한 pending 초대 (초대전용 그룹 가입 CTA 판정)
 
     model_config = {"from_attributes": True}
 
@@ -1272,18 +1278,11 @@ class GroupInviteSendRequest(BaseModel):
 class GroupInviteResultOut(BaseModel):
     user_id: UUID
     result: str  # 'sent' | 'skipped'
-    reason: str | None = None  # skipped 사유: not_candidate|member|invited|pending_request|blocked|unavailable
+    reason: str | None = None  # skipped 사유: not_candidate|member|invited|pending_request|banned|unavailable
 
 
 class GroupInviteSendOut(BaseModel):
     results: list[GroupInviteResultOut]
-
-
-class GroupInviteStateOut(BaseModel):
-    invite_id: UUID
-    status: str  # pending | accepted | declined | revoked
-    is_invitee: bool
-    group: CommunityGroupOut
 
 
 # ── DM ───────────────────────────────────────────────────────────

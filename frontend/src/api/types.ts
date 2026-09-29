@@ -319,10 +319,12 @@ export interface CommunityGroup {
   postCount: number;
   status: string;
   createdAt: string;
-  /** 조회 세션 유저 기준 — None(비가입) | 'PENDING' | 'ACTIVE' | 'BANNED' */
+  /** 조회 세션 유저 기준 — None(비가입) | 'PENDING' | 'ACTIVE' | 'REMOVED'(내보내짐→재가입 승인) | 'BANNED' */
   myMembershipStatus: string | null;
   myRole: string | null;
   conversationId: string | null;
+  /** 내게 온 유효한 pending 초대 — 초대전용 그룹 가입 CTA 판정 */
+  myInvite: { inviteId: string; inviterNickname: string | null } | null;
 }
 
 export interface CommunityGroupMember {
@@ -340,14 +342,6 @@ export interface GroupInviteCandidate {
   avatarUrl: string | null;
   /** 'member' | 'invited' | 'pending_request' | 'invitable' */
   state: string;
-}
-
-export interface GroupInviteState {
-  inviteId: string;
-  /** 'pending' | 'accepted' | 'declined' | 'revoked' */
-  status: string;
-  isInvitee: boolean;
-  group: CommunityGroup;
 }
 
 export interface DmAppointmentMeta {

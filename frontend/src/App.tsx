@@ -709,6 +709,7 @@ export default function App() {
           <Route path="/community/me" element={<PrivateRoute><CommunityMe /></PrivateRoute>} />
           <Route path="/community/me/liked" element={<PrivateRoute><CommunityLiked /></PrivateRoute>} />
           <Route path="/group/:slug" element={<PrivateRoute><GroupDetail /></PrivateRoute>} />
+          <Route path="/group/:slug/edit" element={<PrivateRoute><GroupCreate /></PrivateRoute>} />
           <Route path="/group/:slug/invite" element={<PrivateRoute><GroupInvite /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><NotificationInbox /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />

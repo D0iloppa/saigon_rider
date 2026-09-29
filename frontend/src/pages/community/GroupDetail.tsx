@@ -157,8 +157,20 @@ export default function GroupDetail() {
               <FileText size={14} strokeWidth={2.2} />
               {t('communityGroup.postCount', { count: group.postCount })}
             </span>
-            {isMember && <span className={styles.statusBadge}>{t('communityGroup.joined')}</span>}
-            {isPending && <span className={styles.statusBadgeMuted}>{t('communityGroup.pending')}</span>}
+            <span className={styles.followActions}>
+              {isMember && <span className={styles.statusBadge}>{t('communityGroup.joined')}</span>}
+              {isPending && <span className={styles.statusBadgeMuted}>{t('communityGroup.pending')}</span>}
+              {isMember && MANAGE_ROLES.has(group.myRole ?? '') && (
+                <button
+                  type="button"
+                  className={`${styles.statusBadgeMuted} ${styles.editBtn}`}
+                  data-testid="group-edit-btn"
+                  onClick={() => navigate(`/group/${group.slug ?? group.id}/edit`)}
+                >
+                  {t('communityGroup.editTitle')}
+                </button>
+              )}
+            </span>
           </div>
           <GroupCover name={group.name} coverUrl={group.coverUrl} className={styles.banner} />
         </section>
@@ -260,7 +272,7 @@ function BoardTab({ group, isMember, navigate, t }: any) {
         <Plus size={22} strokeWidth={2.4} />
       </button>
       {!isLoading && posts.length === 0 ? (
-        <StateBlock icon={Newspaper} title={t('feed.emptyTitle')} desc={t('feed.emptySub')} />
+        <StateBlock icon={Newspaper} title={t('communityGroup.boardEmptyTitle')} desc={t('communityGroup.boardEmptySub')} />
       ) : (
         <div className={feedStyles.postList} data-testid="group-board-list">
           {posts.map((p) => <FeedPostCard key={p.id} p={p} onCheer={handleCheer} />)}

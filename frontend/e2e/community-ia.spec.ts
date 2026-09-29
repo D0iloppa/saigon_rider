@@ -148,6 +148,8 @@ test.describe('community IA r13', () => {
     await openAs(page, a, '/community/groups');
     await expect(page.getByTestId('my-groups-rail')).toBeVisible();
     await expect(page.getByTestId('my-groups-rail-item').filter({ hasText: GROUP_NAME })).toHaveCount(1);
+    // 누적된 e2e 그룹이 멤버 수 정렬 첫 페이지를 채울 수 있어 검색으로 좁힌다
+    await page.getByTestId('group-search-input').fill(GROUP_NAME);
     const card = page.getByTestId('group-card').filter({ hasText: GROUP_NAME }).first();
     await expect(card).toBeVisible();
     await expect(card).toContainText('가입됨');

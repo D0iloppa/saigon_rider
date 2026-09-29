@@ -700,7 +700,8 @@
     "deleteComment": "삭제하기",
     "deleteCommentConfirm": "이 댓글을 삭제하시겠어요?",
     "deleteCommentSuccess": "댓글을 삭제했어요",
-    "deleteCommentError": "댓글 삭제에 실패했어요"
+    "deleteCommentError": "댓글 삭제에 실패했어요",
+    "groupMemberRequired": "그룹에 가입하면 좋아요·댓글을 남길 수 있어요"
   },
   "profile": {
     "phoneVerifyNeeded": "휴대폰 인증 필요",
@@ -3085,7 +3086,7 @@
     "unban": "차단 해제",
     "banListEmpty": "차단한 사람이 없어요",
     "boardRequiresMembership": "가입 후 게시판을 볼 수 있어요",
-    "boardJoinNudge": "가입하면 이 그룹에 글을 쓸 수 있어요",
+    "boardJoinNudge": "가입하면 글을 쓰고 댓글을 달 수 있어요",
     "membersRequiresMembership": "가입 후 멤버 목록을 볼 수 있어요",
     "role_owner": "방장",
     "role_manager": "매니저",

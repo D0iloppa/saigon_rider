@@ -121,4 +121,45 @@ test.describe('feed groups r18', () => {
     const res = await request.get(`${API}/community/groups/${priv.id}/posts`, { headers: H(c) });
     expect([403, 404]).toContain(res.status());
   });
+
+  test('r21: 그룹 글 댓글·좋아요는 ACTIVE 멤버만(API) + 비그룹 글은 누구나', async ({ request }) => {
+    const feed = await json(await request.get(`${API}/feed?limit=50`, { headers: H(a) }));
+    const items = Array.isArray(feed) ? feed : feed.items;
+    const gp = items.find((p: { content?: string }) => p.content === POST_TEXT);
+    expect(gp, 'group post in feed').toBeTruthy();
+    const like = (s: DevSession, pid: string) =>
+      request.post(`${API}/feed/${pid}/like`, { headers: H(s), data: { user_id: s.userId } });
+    const comment = (s: DevSession, pid: string) =>
+      request.post(`${API}/feed/${pid}/comments`, { headers: H(s), data: { user_id: s.userId, content: 'e2e r21' } });
+
+    const r1 = await like(c, gp.id);
+    expect(r1.status()).toBe(403);
+    expect((await r1.json()).detail.code).toBe('group_member_required');
+    const r2 = await comment(c, gp.id);
+    expect(r2.status()).toBe(403);
+    expect((await r2.json()).detail.code).toBe('group_member_required');
+
+    await json(await like(a, gp.id));
+    const cm = await json(await comment(a, gp.id));
+    await json(await request.post(`${API}/feed/${gp.id}/comments/${cm.id}/like`, { headers: H(a), data: { user_id: a.userId } }));
+    const r3 = await request.post(`${API}/feed/${gp.id}/comments/${cm.id}/like`, { headers: H(c), data: { user_id: c.userId } });
+    expect(r3.status()).toBe(403);
+
+    const plain = await json(await request.post(`${API}/feed`, {
+      headers: H(a),
+      data: { user_id: a.userId, content: `e2e비그룹글${uniqueTag('')}`, image_content_ids: [], is_story: false },
+    }));
+    await json(await like(c, plain.id));
+    await json(await comment(c, plain.id));
+  });
+
+  test('r21: 비멤버가 그룹 글 응원 탭 → 토스트, 카운트 불변', async ({ page }) => {
+    await open(page, c, '/feed');
+    const card = page.getByTestId('feed-post-card').filter({ hasText: POST_TEXT });
+    const btn = card.getByRole('button', { name: '응원' });
+    const before = await btn.innerText();
+    await btn.click();
+    await expect(page.getByText('그룹에 가입하면 좋아요·댓글을 남길 수 있어요')).toBeVisible();
+    expect(await btn.innerText()).toBe(before);
+  });
 });

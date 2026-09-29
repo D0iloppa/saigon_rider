@@ -700,7 +700,8 @@
     "deleteComment": "Xóa",
     "deleteCommentConfirm": "Xóa bình luận này?",
     "deleteCommentSuccess": "Đã xóa bình luận",
-    "deleteCommentError": "Xóa bình luận thất bại"
+    "deleteCommentError": "Xóa bình luận thất bại",
+    "groupMemberRequired": "Tham gia nhóm để thích và bình luận"
   },
   "profile": {
     "phoneVerifyNeeded": "Cần xác minh SĐT",
@@ -3085,7 +3086,7 @@
     "unban": "Bỏ chặn",
     "banListEmpty": "Chưa chặn ai",
     "boardRequiresMembership": "Tham gia nhóm để xem bảng tin",
-    "boardJoinNudge": "Tham gia để đăng bài trong nhóm này",
+    "boardJoinNudge": "Tham gia để đăng bài và bình luận",
     "membersRequiresMembership": "Tham gia nhóm để xem thành viên",
     "role_owner": "Chủ nhóm",
     "role_manager": "Quản trị viên",

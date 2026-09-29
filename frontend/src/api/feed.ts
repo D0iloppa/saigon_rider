@@ -236,7 +236,7 @@ export async function postComment(
   const raw = await api.realFetch<any>(`/feed/${postId}/comments`, {
     method: 'POST',
     body: JSON.stringify({ user_id: userId, content }),
-  });
+  }, 'bff', { rethrow: true });
   return { id: String(raw.id), createdAt: raw.created_at };
 }
 
@@ -272,6 +272,8 @@ export async function toggleCommentLike(
       method: 'POST',
       body: JSON.stringify({ user_id: session.userId }),
     },
+    'bff',
+    { rethrow: true },
   );
   return { liked: res.liked, count: res.like_count };
 }
@@ -288,7 +290,7 @@ export async function toggleCheer(postId: string): Promise<{ cheered: boolean; c
   const res = await api.realFetch<{ liked: boolean; like_count: number }>(`/feed/${postId}/like`, {
     method: 'POST',
     body: JSON.stringify({ user_id: session.userId }),
-  });
+  }, 'bff', { rethrow: true });
   return { cheered: res.liked, count: res.like_count };
 }
 

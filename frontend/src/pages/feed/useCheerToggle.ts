@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { extractErrorCode } from '@/api/client';
 import { toggleCheer } from '@/api/feed';
 import type { FeedPost } from '@/api/types';
 import { toast } from '@/components/ui/Toast';
@@ -17,8 +18,8 @@ export function useCheerToggle(
       setPosts((prev) => (!cheered && opts.removeOnUncheer
         ? prev.filter((x) => x.id !== p.id)
         : prev.map((x) => (x.id === p.id ? { ...x, iCheered: cheered, cheerCount: count } : x))));
-    } catch {
-      toast.error(t('common.errorUnexpected'));
+    } catch (err) {
+      toast.error(t(extractErrorCode(err) === 'group_member_required' ? 'feed.groupMemberRequired' : 'common.errorUnexpected'));
     }
   };
 }

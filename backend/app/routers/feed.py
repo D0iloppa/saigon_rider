@@ -585,6 +585,23 @@ async def delete_feed_post(
     await db.commit()
 
 
+async def _require_group_member(post: FeedPost, user_id: uuid.UUID, db: AsyncSession) -> None:
+    """그룹 글(group_id 설정)의 좋아요·댓글은 해당 그룹 ACTIVE 멤버만 (F-CM-02 FR-2 r21)."""
+    if post.group_id is None:
+        return
+    member = (
+        await db.execute(
+            select(CommunityGroupMember.user_id).where(
+                CommunityGroupMember.group_id == post.group_id,
+                CommunityGroupMember.user_id == user_id,
+                CommunityGroupMember.status == "ACTIVE",
+            )
+        )
+    ).scalar_one_or_none()
+    if member is None:
+        raise HTTPException(status_code=403, detail={"code": "group_member_required", "group_id": str(post.group_id)})
+
+
 # F-4
 @router.post("/{post_id}/like", response_model=LikeToggleResponse, summary="좋아요 토글")
 async def toggle_like(
@@ -597,6 +614,7 @@ async def toggle_like(
         raise HTTPException(status_code=403, detail="Forbidden")
     post = await _get_post_or_404(post_id, db)
     await require_unblocked(db, _session_uid, post.user_id)
+    await _require_group_member(post, _session_uid, db)
 
     existing = await db.get(PostLike, {"post_id": post_id, "user_id": body.user_id})
     if existing:
@@ -673,6 +691,7 @@ async def post_comment(
     post = await _get_post_or_404(post_id, db)
     if post.user_id != body.user_id:
         await require_unblocked(db, body.user_id, post.user_id)
+    await _require_group_member(post, body.user_id, db)
 
     user = await db.get(User, body.user_id)
 
@@ -740,6 +759,7 @@ async def toggle_comment_like(
         raise HTTPException(status_code=403, detail="Forbidden")
     post = await _get_post_or_404(post_id, db)
     await require_unblocked(db, _session_uid, post.user_id)
+    await _require_group_member(post, _session_uid, db)
 
     result = await db.execute(select(PostComment).where(PostComment.id == comment_id, PostComment.post_id == post_id))
     comment = result.scalar_one_or_none()

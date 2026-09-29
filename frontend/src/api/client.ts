@@ -321,7 +321,7 @@ export function extractDetail(err: unknown, fallback: string): string {
 /** rethrow:true 호출부용 — 구조화된 {code, message} 409/403 응답에서 code 만 뽑아낸다
  *  (재신고 차단 안내, R-3 260819 W3). 파싱 실패 시 null — 호출부가 기존 catch-all 문구로 폴백. */
 export function extractErrorCode(err: unknown): string | null {
-  const match = /^HTTP (?:429|409) \| (.+)$/.exec((err as any)?.message ?? '');
+  const match = /^HTTP (?:429|409|403) \| (.+)$/.exec((err as any)?.message ?? '');
   if (!match) return null;
   try {
     const parsed = JSON.parse(match[1]);

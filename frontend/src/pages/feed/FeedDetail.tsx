@@ -76,16 +76,29 @@ export default function FeedDetail() {
     if (!loading && hash === '#comments') commentsRef.current?.scrollIntoView();
   }, [loading, hash]);
 
+  // 그룹 글 좋아요·댓글은 ACTIVE 멤버만(F-CM-02 FR-2 r21) — 403 group_member_required 는 가입 안내 토스트.
+  const toastWriteError = (err: unknown) => {
+    toast.error(t(extractErrorCode(err) === 'group_member_required' ? 'feed.groupMemberRequired' : 'common.errorUnexpected'));
+  };
+
   const handleCheer = async () => {
     if (!post) return;
-    const { cheered, count } = await toggleCheer(post.id);
-    setPost({ ...post, iCheered: cheered, cheerCount: count });
+    try {
+      const { cheered, count } = await toggleCheer(post.id);
+      setPost({ ...post, iCheered: cheered, cheerCount: count });
+    } catch (err) {
+      toastWriteError(err);
+    }
   };
 
   const handleCommentLike = async (c: Comment) => {
     if (!post) return;
-    const { liked, count } = await toggleCommentLike(post.id, c.id);
-    setComments((prev) => prev.map((x) => (x.id === c.id ? { ...x, iLiked: liked, likeCount: count } : x)));
+    try {
+      const { liked, count } = await toggleCommentLike(post.id, c.id);
+      setComments((prev) => prev.map((x) => (x.id === c.id ? { ...x, iLiked: liked, likeCount: count } : x)));
+    } catch (err) {
+      toastWriteError(err);
+    }
   };
 
   // F-CM-01 FR-2 제안 ①: 본인 글 케밥 → [수정]/[삭제]. B0-4 확인 다이얼로그(useConfirmStore) 재사용.
@@ -173,10 +186,17 @@ export default function FeedDetail() {
   const handleSend = async () => {
     const text = input.trim();
     if (!text || !post) return;
-    setInput('');
     const session = loadSession();
     if (!session) return;
-    const { id, createdAt } = await postComment(post.id, text, session.userId);
+    let id: string;
+    let createdAt: string;
+    try {
+      ({ id, createdAt } = await postComment(post.id, text, session.userId));
+    } catch (err) {
+      toastWriteError(err);
+      return;
+    }
+    setInput('');
     setComments((prev) => [
       ...prev,
       {

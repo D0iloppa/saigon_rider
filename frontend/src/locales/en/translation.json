@@ -700,7 +700,8 @@
     "deleteComment": "Delete",
     "deleteCommentConfirm": "Delete this comment?",
     "deleteCommentSuccess": "Comment deleted",
-    "deleteCommentError": "Failed to delete comment"
+    "deleteCommentError": "Failed to delete comment",
+    "groupMemberRequired": "Join the group to like and comment"
   },
   "profile": {
     "phoneVerifyNeeded": "Phone verification needed",
@@ -3085,7 +3086,7 @@
     "unban": "Unblock",
     "banListEmpty": "No blocked members",
     "boardRequiresMembership": "Join the group to view posts",
-    "boardJoinNudge": "Join to post in this group",
+    "boardJoinNudge": "Join to post and comment",
     "membersRequiresMembership": "Join the group to view members",
     "role_owner": "Owner",
     "role_manager": "Manager",

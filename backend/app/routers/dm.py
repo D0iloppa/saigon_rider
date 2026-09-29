@@ -1076,6 +1076,11 @@ async def send_message(
                 else None,
                 "memberCount": card_group.member_count,
                 "joinPolicy": card_group.join_policy,
+                "topicLabels": {
+                    "ko": card_group.topic_ref.label_ko,
+                    "en": card_group.topic_ref.label_en,
+                    "vi": card_group.topic_ref.label_vi,
+                },
             }
         else:
             raise HTTPException(status_code=400, detail="Unsupported card message")

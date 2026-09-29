@@ -175,6 +175,13 @@ const OsmMap = forwardRef<OsmMapHandle, OsmMapProps>(function OsmMap({
     });
     // 출처표기: 상태바·시트에 안 가리도록 좌하단 compact (ODbL/OpenMapTiles 가이드라인 준수)
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+    // compact 표기는 로드 시 펼쳐진 채 시작해 지도를 움직여야 접힌다 — 움직일 수 없는 썸네일(약속 카드 등)에선
+    // 영영 펼쳐져 지도를 가리므로 로드 직후 ⓘ 로 접는다(탭하면 다시 펼쳐져 출처 표기는 유지).
+    if (!interactive) {
+      map.once('load', () => {
+        map.getContainer().querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+      });
+    }
     const emitViewport = () => {
       const b = map.getBounds();
       onViewportRef.current?.({

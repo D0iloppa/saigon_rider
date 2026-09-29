@@ -2102,14 +2102,17 @@ export default function DmDetail() {
                     </div>
                   )}
                   {appt?.placeLat != null && appt.placeLng != null && (
-                    <ApptPlaceThumb
-                      lat={appt.placeLat}
-                      lng={appt.placeLng}
-                      onClick={appt.id === activeAppointment?.id ? () => setApptSheetOpen(true) : undefined}
-                    />
+                    // .apptInfo 는 [라벨|값] 2열 grid — 전폭 요소는 두 열을 모두 차지해야 한다(라벨 열에 갇히면 지도가 세로 띠가 됨)
+                    <div className={styles.apptFullRow}>
+                      <ApptPlaceThumb
+                        lat={appt.placeLat}
+                        lng={appt.placeLng}
+                        onClick={appt.id === activeAppointment?.id ? () => setApptSheetOpen(true) : undefined}
+                      />
+                    </div>
                   )}
                   {status === 'CANCELLED' && appt?.cancelReason && CANCEL_REASON_KEY[appt.cancelReason] && (
-                    <div className={styles.apptRow}>
+                    <div className={styles.apptFullRow}>
                       <span className={styles.apptRowVal}>
                         {t('dm.apptCancelReasonLine', { reason: t(CANCEL_REASON_KEY[appt.cancelReason]!) })}
                       </span>

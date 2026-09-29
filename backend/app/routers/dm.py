@@ -2045,14 +2045,18 @@ async def set_member_role(
 ):
     """개설자(owner)만 관리자(admin)를 임명·해임한다.
 
-    운영진 구분(대표 지시 2026-08-28): owner 는 방을 만든 1명으로 고정이고 위임·강등되지 않는다.
+    운영진 구분(대표 지시 2026-08-28): 일반 그룹챗의 owner 는 방을 만든 1명으로 고정이고 위임·강등되지 않는다.
     admin 은 owner 가 임명하며 강퇴·밴 권한을 갖는다(`require_manager`).
+    커뮤니티 그룹 공식방은 예외 — 방 owner/admin 이 그룹 역할(owner/manager)을 따르므로(방장 위임 시 함께 이동)
+    방 단위 역할 변경은 409 group_room_role_managed_by_group 으로 막는다.
     """
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
     if conv.conversation_type == "direct":
         raise HTTPException(status_code=400, detail="Direct conversations have no roles")
+    if conv.community_group_id is not None:
+        raise HTTPException(status_code=409, detail={"code": "group_room_role_managed_by_group"})
 
     actor = await require_member(db, conv, _session_uid)
     if actor.role != "owner":
@@ -2236,6 +2240,7 @@ async def join_open_conversation(
     await require_not_banned(db, conv_id, _session_uid)
 
     now = datetime.now(UTC)
+    room_role = {"owner": "owner", "manager": "admin"}.get(group_member.role, "member")  # 그룹 역할이 정본
     member = (
         await db.execute(
             select(DmConversationMember).where(
@@ -2250,13 +2255,14 @@ async def join_open_conversation(
             DmConversationMember(
                 conversation_id=conv_id,
                 user_id=_session_uid,
-                role="member",
+                role=room_role,
                 joined_at=now,
                 last_read_at=now,
             )
         )
         conv.member_count += 1
     elif member.left_at is not None:
+        member.role = room_role
         member.left_at = None
         member.joined_at = now
         member.last_read_at = now

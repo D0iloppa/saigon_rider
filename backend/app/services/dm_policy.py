@@ -3,8 +3,16 @@ import uuid
 from fastapi import HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
 
-from ..models import DmConversation, DmConversationBan, DmConversationMember, UserBlock, UserFollow
+from ..models import (
+    CommunityGroupMember,
+    DmConversation,
+    DmConversationBan,
+    DmConversationMember,
+    UserBlock,
+    UserFollow,
+)
 
 
 def require_participant(conv: DmConversation, session_uid: uuid.UUID) -> uuid.UUID:
@@ -41,6 +49,18 @@ async def require_member(db: AsyncSession, conv: DmConversation, session_uid: uu
     ).scalar_one_or_none()
     if member is None:
         raise HTTPException(status_code=403, detail="Not a member")
+    if conv.community_group_id is not None:
+        # 그룹 공식방은 그룹 역할이 정본 — 방 행의 (낡았을 수 있는) role 대신 도출값을 쓴다. 저장은 하지 않는다.
+        group_role = (
+            await db.execute(
+                select(CommunityGroupMember.role).where(
+                    CommunityGroupMember.group_id == conv.community_group_id,
+                    CommunityGroupMember.user_id == session_uid,
+                    CommunityGroupMember.status == "ACTIVE",
+                )
+            )
+        ).scalar_one_or_none()
+        set_committed_value(member, "role", {"owner": "owner", "manager": "admin"}.get(group_role or "", "member"))
     return member
 
 

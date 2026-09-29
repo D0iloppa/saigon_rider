@@ -58,6 +58,11 @@ export default function GroupDetail() {
 
   useEffect(loadGroup, [loadGroup]);
 
+  // 로딩 스피너 없이 조용히 그룹(내 역할 등)만 다시 받는다 — 멤버 탭 역할/강퇴 후 사용
+  const refreshGroup = useCallback(() => {
+    if (slug) getGroup(slug).then(setGroup).catch(() => {});
+  }, [slug]);
+
   const isMember = group?.myMembershipStatus === 'ACTIVE';
   const isPending = group?.myMembershipStatus === 'PENDING';
   const isBanned = group?.myMembershipStatus === 'BANNED';
@@ -239,7 +244,7 @@ export default function GroupDetail() {
               <StateBlock icon={MessagesSquare} title={t('communityGroup.chatRequiresMembership')} />
             ))}
           {tab === 'members' && (
-            <MembersTab group={group} isMember={isMember} myUserId={me?.id} t={t} />
+            <MembersTab group={group} isMember={isMember} myUserId={me?.id} t={t} onGroupChanged={refreshGroup} />
           )}
         </div>
       </div>
@@ -312,7 +317,7 @@ function BoardTab({ group, isMember, navigate, t }: any) {
   const { items: posts, setItems: setPosts, isLoading, isLoadingMore, hasMore, sentinelRef } =
     useInfiniteScroll<FeedPost>(fetchPage, 20, [group.id, canRead]);
 
-  const handleCheer = useCheerToggle(setPosts);
+  const handleCheer = useCheerToggle(setPosts, { noGroupAction: true });
 
   if (!canRead) {
     return <StateBlock icon={UsersRound} title={t('communityGroup.boardRequiresMembership')} />;
@@ -344,7 +349,7 @@ function BoardTab({ group, isMember, navigate, t }: any) {
   );
 }
 
-function MembersTab({ group, isMember, myUserId, t }: any) {
+function MembersTab({ group, isMember, myUserId, t, onGroupChanged }: any) {
   const [members, setMembers] = useState<CommunityGroupMember[]>([]);
   const [pending, setPending] = useState<CommunityGroupMember[]>([]);
   const [kickTarget, setKickTarget] = useState<string | null>(null);
@@ -356,9 +361,9 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
   const canInvite = group.joinPolicy !== 'invite' || canManage;
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!isMember) { setLoading(false); return; }
-    Promise.all([
+  const reloadMembers = useCallback(() => {
+    if (!isMember) { setLoading(false); return Promise.resolve(); }
+    return Promise.all([
       listMembers(group.id),
       canManage ? listMembers(group.id, 'pending') : Promise.resolve([]),
     ])
@@ -366,8 +371,14 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
         setMembers(active);
         setPending(pendingList);
       })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [group.id, isMember, canManage]);
+
+  useEffect(() => { reloadMembers(); }, [reloadMembers]);
+
+  // 역할 변경·강퇴 후(성공/실패 모두) 목록과 내 역할을 서버 기준으로 다시 맞춘다
+  const syncAfterRoleOp = () => { reloadMembers(); onGroupChanged?.(); };
 
   const handleKick = async () => {
     const userId = kickTarget;
@@ -381,6 +392,7 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
     } catch {
       toast.error(t('common.errorUnexpected'));
     }
+    syncAfterRoleOp();
   };
 
   const handleRole = async (m: CommunityGroupMember) => {
@@ -394,6 +406,7 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
       const code = extractErrorCode(err);
       toast.error(code === 'owner_only' ? t('communityGroup.ownerOnly') : code === 'target_not_active' ? t('communityGroup.targetNotActive') : t('common.errorUnexpected'));
     }
+    syncAfterRoleOp();
   };
 
   const handleApprove = async (userId: string) => {

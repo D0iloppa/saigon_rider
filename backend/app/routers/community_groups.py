@@ -99,6 +99,33 @@ async def _resolve_group(db: AsyncSession, id_or_slug: str) -> CommunityGroup:
     return group
 
 
+async def _group_conv_id(db: AsyncSession, group_id: uuid.UUID) -> uuid.UUID | None:
+    return (
+        await db.execute(select(DmConversation.id).where(DmConversation.community_group_id == group_id))
+    ).scalar_one_or_none()
+
+
+_ROOM_ROLE_BY_GROUP_ROLE = {"owner": "owner", "manager": "admin"}
+
+
+async def _lock_group_members(
+    db: AsyncSession, group: CommunityGroup, user_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, CommunityGroupMember]:
+    """그룹 행 → 멤버 행(user_id 순) 순서로 FOR UPDATE — 역할 변경 경쟁·데드락 방지. 잠근 뒤 최신 상태로 다시 읽는다."""
+    await db.execute(select(CommunityGroup.id).where(CommunityGroup.id == group.id).with_for_update())
+    await db.refresh(group)
+    rows = (
+        await db.execute(
+            select(CommunityGroupMember)
+            .where(CommunityGroupMember.group_id == group.id, CommunityGroupMember.user_id.in_(user_ids))
+            .order_by(CommunityGroupMember.user_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalars()
+    return {m.user_id: m for m in rows}
+
+
 async def _my_membership(
     db: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID | None
 ) -> CommunityGroupMember | None:
@@ -118,9 +145,7 @@ async def _group_out(
 ) -> CommunityGroupOut:
     # with_invite: 가입 CTA 가 필요한 단건(상세·가입 응답)에서만 my_invite 를 계산 — 목록은 N+1 방지로 null.
     membership = await _my_membership(db, group.id, session_uid)
-    conv = (
-        await db.execute(select(DmConversation.id).where(DmConversation.community_group_id == group.id))
-    ).scalar_one_or_none()
+    conv = await _group_conv_id(db, group.id)
     cover_url = build_imgproxy_url(group.cover_content.file_path) if group.cover_content else None
     my_invite = await _valid_pending_invite(db, group, session_uid) if with_invite else None
     my_invite_out = None
@@ -468,18 +493,9 @@ async def approve_member(
     return await _group_out(db, group, _session_uid)
 
 
-async def _require_owner(db: AsyncSession, group: CommunityGroup, uid: uuid.UUID) -> CommunityGroupMember:
-    actor = await _my_membership(db, group.id, uid)
-    if actor is None or actor.status != "ACTIVE" or actor.role != "owner":
-        raise HTTPException(status_code=403, detail={"code": "owner_only"})
-    return actor
-
-
-async def _set_room_role(db: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID, role: str) -> None:
-    """공식 채팅방 역할 미러 (그룹 manager = 방 admin). 방 멤버가 아니면(이탈 등) 건드리지 않는다."""
-    conv_id = (
-        await db.execute(select(DmConversation.id).where(DmConversation.community_group_id == group_id))
-    ).scalar_one_or_none()
+async def _set_room_role(db: AsyncSession, conv_id: uuid.UUID | None, user_id: uuid.UUID, role: str) -> None:
+    """공식 채팅방 역할 미러 (그룹 owner=방 owner, manager=방 admin). 방 멤버가 아니면 건드리지 않는다 —
+    권한 판정은 dm_policy.require_member 가 그룹 역할에서 도출하므로 방 행이 없어도 방이 방장 없이 남지 않는다."""
     if conv_id is None:
         return
     await db.execute(
@@ -502,12 +518,17 @@ async def set_member_role(
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     group = await _resolve_group(db, str(group_id))
-    await _require_owner(db, group, _session_uid)
-    target = await _my_membership(db, group.id, user_id)
+    locked = await _lock_group_members(db, group, [_session_uid, user_id])
+    actor = locked.get(_session_uid)
+    if actor is None or actor.status != "ACTIVE" or actor.role != "owner":
+        raise HTTPException(status_code=403, detail={"code": "owner_only"})
+    target = locked.get(user_id)
     if target is None or target.status != "ACTIVE" or target.role == "owner":
         raise HTTPException(status_code=409, detail={"code": "target_not_active"})
     target.role = body.role
-    await _set_room_role(db, group.id, user_id, "admin" if body.role == "manager" else "member")
+    await _set_room_role(
+        db, await _group_conv_id(db, group.id), user_id, _ROOM_ROLE_BY_GROUP_ROLE.get(body.role, "member")
+    )
     await db.commit()
     return {"ok": True, "role": target.role}
 
@@ -520,15 +541,19 @@ async def transfer_owner(
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     group = await _resolve_group(db, str(group_id))
-    actor = await _require_owner(db, group, _session_uid)
-    target = await _my_membership(db, group.id, body.user_id)
+    locked = await _lock_group_members(db, group, [_session_uid, body.user_id])
+    actor = locked.get(_session_uid)
+    if actor is None or actor.status != "ACTIVE" or actor.role != "owner":
+        raise HTTPException(status_code=403, detail={"code": "owner_only"})
+    target = locked.get(body.user_id)
     if body.user_id == _session_uid or target is None or target.status != "ACTIVE":
         raise HTTPException(status_code=409, detail={"code": "target_not_active"})
     target.role = "owner"
     actor.role = "manager"
     group.owner_id = body.user_id
-    await _set_room_role(db, group.id, body.user_id, "owner")
-    await _set_room_role(db, group.id, _session_uid, "admin")
+    conv_id = await _group_conv_id(db, group.id)
+    await _set_room_role(db, conv_id, body.user_id, "owner")
+    await _set_room_role(db, conv_id, _session_uid, "admin")
     await db.commit()
     return {"ok": True}
 
@@ -575,9 +600,7 @@ async def remove_member(
         group.member_count = max(group.member_count - 1, 0)
 
     # 그룹 탈퇴/강퇴 시 오픈톡방 멤버십도 함께 끊는다 (알림 연동 필수 — dm.py remove_member 패턴).
-    conv_id = (
-        await db.execute(select(DmConversation.id).where(DmConversation.community_group_id == group.id))
-    ).scalar_one_or_none()
+    conv_id = await _group_conv_id(db, group.id)
     if conv_id is not None:
         conv_member = (
             await db.execute(
@@ -590,6 +613,7 @@ async def remove_member(
         ).scalar_one_or_none()
         if conv_member is not None:
             conv_member.left_at = datetime.now(UTC)
+            conv_member.role = "member"
             conv = await db.get(DmConversation, conv_id)
             if conv is not None:
                 conv.member_count = max(conv.member_count - 1, 0)
@@ -666,9 +690,7 @@ async def unban_member(
     target.status = "REMOVED"
     target.banned_at = None
     target.banned_by = None
-    conv_id = (
-        await db.execute(select(DmConversation.id).where(DmConversation.community_group_id == group.id))
-    ).scalar_one_or_none()
+    conv_id = await _group_conv_id(db, group.id)
     if conv_id is not None and target.room_banned:  # 그룹 밴이 만든 방 밴만 해제 (별도 DM 방 밴은 유지)
         room_ban = await db.get(DmConversationBan, (conv_id, user_id))
         if room_ban is not None:
@@ -1012,14 +1034,23 @@ async def _add_open_conversation_member(db: AsyncSession, group_id: uuid.UUID, u
             )
         )
     ).scalar_one_or_none()
+    group_role = (
+        await db.execute(
+            select(CommunityGroupMember.role).where(
+                CommunityGroupMember.group_id == group_id, CommunityGroupMember.user_id == user_id
+            )
+        )
+    ).scalar_one_or_none()
+    room_role = _ROOM_ROLE_BY_GROUP_ROLE.get(group_role or "member", "member")
     if member is None:
         db.add(
             DmConversationMember(
-                conversation_id=conv.id, user_id=user_id, role="member", joined_at=now, last_read_at=now
+                conversation_id=conv.id, user_id=user_id, role=room_role, joined_at=now, last_read_at=now
             )
         )
         conv.member_count += 1
     elif member.left_at is not None:
+        member.role = room_role
         member.left_at = None
         member.joined_at = now
         member.last_read_at = now

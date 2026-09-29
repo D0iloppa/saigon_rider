@@ -186,7 +186,7 @@ export default function GroupCreate() {
                 type="button"
                 className={styles.coverRemove}
                 aria-label={t('communityGroup.coverRemove')}
-                onClick={(e) => { e.preventDefault(); dropCover(); if (isEdit) setCoverCleared(true); }}
+                onClick={(e) => { e.preventDefault(); const hadNewPick = !!cover; dropCover(); if (isEdit && !hadNewPick) setCoverCleared(true); }}
               >
                 <X size={16} />
               </button>

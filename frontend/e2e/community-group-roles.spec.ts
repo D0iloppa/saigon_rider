@@ -111,4 +111,48 @@ test.describe('community group roles', () => {
     const leave = await request.delete(`${API}/community/groups/${group.id}/members/${owner.userId}`, { headers: H(owner) });
     expect(leave.status()).toBe(200);
   });
+  test('공식방 역할은 그룹 역할이 정본 — 내보냈다 재승인해도 방 admin 이 되살아나지 않고 방 역할 변경은 409', async ({ request }) => {
+    const o = await newUser(request, 'gr2o');
+    const u = await newUser(request, 'gr2u');
+    try {
+      const groupRes = await request.post(`${API}/community/groups`, {
+        headers: H(o),
+        data: {
+          name: `역할방${uniqueTag('g')}`,
+          topic: await firstTopic(request),
+          group_type: 'interest',
+          join_policy: 'open',
+          visibility: 'public',
+        },
+      });
+      expect(groupRes.status()).toBe(201);
+      const group = await groupRes.json();
+      const conv = group.conversation_id as string;
+      const G = `${API}/community/groups/${group.id}`;
+      const roomRole = async (uid: string) => {
+        const ms = await (await request.get(`${API}/dm/conversations/${conv}/members`, { headers: H(o) })).json();
+        return ms.find((m: { user_id: string }) => m.user_id === uid)?.role ?? null;
+      };
+      expect((await request.post(`${G}/join`, { headers: H(u) })).ok()).toBeTruthy();
+      expect((await request.patch(`${G}/members/${u.userId}/role`, { headers: H(o), data: { role: 'manager' } })).status()).toBe(200);
+      expect(await roomRole(u.userId)).toBe('admin');
+
+      // 내보내기 → 재가입 대기 → 방장 재승인: 방 역할은 member
+      expect((await request.delete(`${G}/members/${u.userId}`, { headers: H(o) })).status()).toBe(200);
+      expect((await request.post(`${G}/join`, { headers: H(u) })).ok()).toBeTruthy();
+      expect((await request.post(`${G}/members/${u.userId}/approve`, { headers: H(o) })).ok()).toBeTruthy();
+      expect(await roomRole(u.userId)).toBe('member');
+
+      // 그룹 공식방에서 방 단위 역할 변경은 막힌다
+      const res = await request.patch(`${API}/dm/conversations/${conv}/members/${u.userId}/role`, {
+        headers: H(o),
+        data: { role: 'admin' },
+      });
+      expect(res.status()).toBe(409);
+      expect((await res.json()).detail.code).toBe('group_room_role_managed_by_group');
+    } finally {
+      cleanupUser(u.userId);
+      cleanupUser(o.userId);
+    }
+  });
 });

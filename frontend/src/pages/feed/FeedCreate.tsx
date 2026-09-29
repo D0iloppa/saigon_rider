@@ -5,7 +5,7 @@ import { Camera, MapPin, Users, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { createFeedPost } from '@/api/feed';
-import { feedWriteErrorMessage } from './feedWriteErrors';
+import { toastFeedWriteError } from './feedWriteErrors';
 import { getGroup } from '@/api/community_groups';
 import { api } from '@/api/client';
 import { native } from '@/lib/native';
@@ -157,7 +157,7 @@ export default function FeedCreate() {
       if (groupId) navigate(-1);
       else navigate('/feed', { replace: true });
     } catch (err: any) {
-      toast.error(feedWriteErrorMessage(err, t, t('feedCreate.postError')));
+      toastFeedWriteError(err, t, navigate, groupId ? { id: groupId } : null);
     } finally {
       setPosting(false);
     }

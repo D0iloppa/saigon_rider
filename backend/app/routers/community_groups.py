@@ -468,7 +468,7 @@ async def list_group_posts(
 
 
 async def _add_open_conversation_member(db: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID) -> None:
-    """그룹 멤버 승인/가입 시 오픈톡방에도 반영 (join_open_conversation 과 동일 패턴, 기본 muted)."""
+    """그룹 멤버 승인/가입 시 그룹 공식 채팅방에도 반영. 공식 채널이므로 알림 켜진 상태로 시작(대표 판정 260929)."""
     conv = (
         await db.execute(select(DmConversation).where(DmConversation.community_group_id == group_id))
     ).scalar_one_or_none()
@@ -498,7 +498,7 @@ async def _add_open_conversation_member(db: AsyncSession, group_id: uuid.UUID, u
     if member is None:
         db.add(
             DmConversationMember(
-                conversation_id=conv.id, user_id=user_id, role="member", joined_at=now, last_read_at=now, muted_at=now
+                conversation_id=conv.id, user_id=user_id, role="member", joined_at=now, last_read_at=now
             )
         )
         conv.member_count += 1
@@ -506,5 +506,5 @@ async def _add_open_conversation_member(db: AsyncSession, group_id: uuid.UUID, u
         member.left_at = None
         member.joined_at = now
         member.last_read_at = now
-        member.muted_at = now
+        member.muted_at = None
         conv.member_count += 1

@@ -25,6 +25,8 @@
 
 ## 3. 거래 상태별 정밀도 전환 매트릭스 — **핵심 섹션 (제안, 대표 확정 필요)**
 
+> **[2026-09-29 폐기 — 약속 장소 핀]** 대표 지시: "약속은 어디서 보자 미리 말하는 건데 왜 지연해서 공개하지?" — 약속 장소 핀(`place_lat/lng`)의 정밀도 전환은 폐기, 참여자에게 항상 정확 공개(스토리보드 F-S4-01 FR-2 r10). 아래 매트릭스는 이력.
+
 `MarketplaceAppointment.status` 는 실제 코드상 `PROPOSED` / `ACCEPTED` / `COMPLETED` / `CANCELLED` 4종이며(`market.py` L1705~1966), `completion_requested_*` 필드가 ACCEPTED 내 하위 상태를 표현한다.
 
 정밀도 레벨을 3단으로 정의한다.

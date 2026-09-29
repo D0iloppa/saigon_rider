@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
@@ -178,9 +179,15 @@ async def force_complete(
     # title_transfer_reminders 앵커)를 complete_trade_set 이 처리한다. 세트가 없는 레거시 약속은 태워서 완료한다.
     conv = await db.get(DmConversation, appt.conversation_id)
     buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1
-    ts = await get_or_create_active_set(db, appt.conversation_id, buyer_id, listing.seller_id)
-    await upsert_item(db, ts.id, listing.id, listing.seller_id)
-    await complete_trade_set(db, ts, _admin_uuid(session), actor_type="admin")
+    try:
+        ts = await get_or_create_active_set(db, appt.conversation_id, buyer_id, listing.seller_id)
+        await upsert_item(db, ts.id, listing.id, listing.seller_id)
+        await complete_trade_set(db, ts, _admin_uuid(session), actor_type="admin")
+        # 매물 부분 유니크 위반이 autoflush 로 위 호출 안에서 터질 수 있어 명시 flush 까지 try 로 감싼다.
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail={"code": "listing_reservation_conflict"}) from None
 
     body_text = f"'{listing.title}' 거래가 운영 검토에 따라 완료 처리되었습니다. 사유: {body.reason}"
     for user_id in {listing.seller_id, appt.completion_requested_by} - {None}:

@@ -119,6 +119,8 @@ async def ensure_set_transaction(db: AsyncSession, ts: TradeSet) -> MarketplaceT
     (AWAITING_PAYMENT)에는 항목 변동마다 금액(set_total_vnd)·대표 매물을 다시 맞춘다. 세트 항목이
     바뀌는 모든 경로(담기·빼기·상태 변경·예약)가 부르는 단일 진입점. commit 은 호출부 몫."""
     await db.flush()  # 방금 바뀐 항목 상태를 아래 조회에 반영
+    # 세트 행 잠금 — 첫 거래 행 INSERT 경합 직렬화(uq_marketplace_transactions_trade_set 위반 방지)
+    await db.execute(select(TradeSet.id).where(TradeSet.id == ts.id).with_for_update())
     tx = (
         await db.execute(select(MarketplaceTransaction).where(MarketplaceTransaction.trade_set_id == ts.id))
     ).scalar_one_or_none()
@@ -151,6 +153,22 @@ async def ensure_set_transaction(db: AsyncSession, ts: TradeSet) -> MarketplaceT
         )
         db.add(tx)
     else:
+        # 검수(buyer_inspected_at) 후 금액이 바뀌었거나 검수 이후 새로 예약된 항목이 있으면 다른 물건을
+        # 본 것이므로 검수를 무효화한다(보수적).
+        if tx.buyer_inspected_at is not None:
+            reserved_after_inspection = (
+                await db.execute(
+                    select(TradeSetItem.id)
+                    .where(
+                        TradeSetItem.set_id == ts.id,
+                        TradeSetItem.status == "RESERVED",
+                        TradeSetItem.updated_at > tx.buyer_inspected_at,
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if tx.amount_vnd != amount or reserved_after_inspection is not None:
+                tx.buyer_inspected_at = None
         tx.amount_vnd = amount
         if first_item is not None:
             tx.listing_id = first_item
@@ -188,6 +206,7 @@ async def cancel_set_trade(
         item.updated_at = now
     tx.payment_status = "AWAITING_PAYMENT"
     tx.buyer_reported_at = None
+    tx.buyer_inspected_at = None
     tx.stall_notice_sent_at = None
     tx.updated_at = now
 

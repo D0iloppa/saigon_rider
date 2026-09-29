@@ -81,7 +81,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 코드베이스 인덱싱 (codebase-memory MCP)
 
-이 워크스페이스(`mnt-c-DEV-saigon_rider`)는 `codebase-memory` MCP 로 코드 그래프가 인덱싱되어 있다. 상세 사용 규칙은 [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §9.
+이 워크스페이스(`DEVELOP-DOIL-saigon_rider`)는 `codebase-memory` MCP 로 코드 그래프가 인덱싱되어 있다. 상세 사용 규칙은 [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §9.
 
 - 구조/의존관계/호출관계 파악이 필요할 땐 전체 파일 풀텍스트 검색보다 `search_graph`, `query_graph`, `trace_path`, `get_architecture` 등 MCP 조회를 우선 사용한다.
 - **코드를 수정했으면 그 세션 안에서 `index_repository` 로 재인덱싱해 그래프를 최신 상태로 반영한다.** (`repo_path: /DEVELOP/DOIL/saigon_rider`, 소규모 변경은 `mode: fast`/`moderate`, 구조 변경이 크면 `full`)
@@ -109,7 +109,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **상세 설계 문서는** `ai-docs/context/architecture.md`, `ai-docs/context/frontend.md`, `ai-docs/engine/sre-design-spec.md` 참조.
 
-**프론트 화면(한글 메뉴명) 관련 질문**("○○ 메뉴에 어떤 기능개선/부재가 있어?" 등)을 받으면 순서대로: (1) `mcp__codebase-memory__manage_adr`(mode: `get`, project: `mnt-c-DEV-saigon_rider`)로 압축 요약 ADR을 먼저 조회 — 메뉴 구조·SoT 위치·알려진 갭이 여기 있다. (2) 서브라우트/컴포넌트 세부 나열이 더 필요할 때만 [`ai-docs/context/frontend-page-map.md`](ai-docs/context/frontend-page-map.md)를 읽는다. (3) 실제 호출관계는 `search_graph`/`trace_path`로 조회한다. ADR과 md 파일은 항상 함께 갱신한다.
+**프론트 화면(한글 메뉴명) 관련 질문**("○○ 메뉴에 어떤 기능개선/부재가 있어?" 등)을 받으면 순서대로: (1) `mcp__codebase-memory__manage_adr`(mode: `get`, project: `DEVELOP-DOIL-saigon_rider`)로 압축 요약 ADR을 먼저 조회 — 메뉴 구조·SoT 위치·알려진 갭이 여기 있다. (2) 서브라우트/컴포넌트 세부 나열이 더 필요할 때만 [`ai-docs/context/frontend-page-map.md`](ai-docs/context/frontend-page-map.md)를 읽는다. (3) 실제 호출관계는 `search_graph`/`trace_path`로 조회한다. ADR과 md 파일은 항상 함께 갱신한다.
 
 ## 빠른 참조 포인터
 

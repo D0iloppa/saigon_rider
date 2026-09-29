@@ -1261,6 +1261,34 @@ class CommunityGroupMemberOut(BaseModel):
     joined_at: datetime
 
 
+class GroupInviteCandidateOut(BaseModel):
+    user_id: UUID
+    nickname: str | None
+    avatar_url: str | None
+    state: str  # 'member' | 'invited' | 'pending_request' | 'invitable'
+
+
+class GroupInviteSendRequest(BaseModel):
+    user_ids: list[UUID] = Field(min_length=1, max_length=20)
+
+
+class GroupInviteResultOut(BaseModel):
+    user_id: UUID
+    result: str  # 'sent' | 'skipped'
+    reason: str | None = None  # skipped 사유: not_candidate|member|invited|pending_request|blocked|unavailable
+
+
+class GroupInviteSendOut(BaseModel):
+    results: list[GroupInviteResultOut]
+
+
+class GroupInviteStateOut(BaseModel):
+    invite_id: UUID
+    status: str  # pending | accepted | declined | revoked
+    is_invitee: bool
+    group: CommunityGroupOut
+
+
 # ── DM ───────────────────────────────────────────────────────────
 
 

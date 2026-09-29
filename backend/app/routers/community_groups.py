@@ -2,13 +2,14 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import optional_user_session, verify_user_session
 from ..models import (
     CommunityGroup,
+    CommunityGroupInvite,
     CommunityGroupMember,
     DmConversation,
     DmConversationBan,
@@ -24,9 +25,17 @@ from ..schemas import (
     CommunityGroupMemberOut,
     CommunityGroupOut,
     CommunityGroupPatchRequest,
+    DmConversationCreateRequest,
+    DmMessageCreateRequest,
+    GroupInviteCandidateOut,
+    GroupInviteResultOut,
+    GroupInviteSendOut,
+    GroupInviteSendRequest,
+    GroupInviteStateOut,
     Page,
 )
 from ..utils import build_imgproxy_url, resolve_avatar_url
+from .dm import create_conversation, send_message
 from .feed import FeedPageOut, _enrich
 
 router = APIRouter(prefix="/community/groups", tags=["커뮤니티 그룹 (Community Group)"])
@@ -271,7 +280,9 @@ async def get_group(
     group = await _resolve_group(db, id_or_slug)
     if group.visibility == "private":
         membership = await _my_membership(db, group.id, session_uid)
-        if membership is None or membership.status != "ACTIVE":
+        if (membership is None or membership.status != "ACTIVE") and not await _has_pending_invite(
+            db, group.id, session_uid
+        ):
             raise HTTPException(status_code=404, detail="Group not found")
     return await _group_out(db, group, session_uid)
 
@@ -320,11 +331,19 @@ async def join_group(
     if group.join_policy == "invite":
         raise HTTPException(status_code=400, detail="This group requires an invite")
 
+    await _join_with_status(db, group, _session_uid, "ACTIVE" if group.join_policy == "open" else "PENDING")
+    await db.commit()
+    await db.refresh(group)
+    return await _group_out(db, group, _session_uid)
+
+
+async def _join_with_status(db: AsyncSession, group: CommunityGroup, user_id: uuid.UUID, target_status: str) -> None:
+    """가입 공통 경로 (직접 가입 / 초대 수락). 정책 판정은 호출부 몫이고 여기선 차단·밴 검사 + 멤버 행 + 공식 채팅 합류만."""
     blocked = (
         await db.execute(
             select(UserBlock).where(
-                ((UserBlock.blocker_id == group.owner_id) & (UserBlock.blocked_id == _session_uid))
-                | ((UserBlock.blocker_id == _session_uid) & (UserBlock.blocked_id == group.owner_id))
+                ((UserBlock.blocker_id == group.owner_id) & (UserBlock.blocked_id == user_id))
+                | ((UserBlock.blocker_id == user_id) & (UserBlock.blocked_id == group.owner_id))
             )
         )
     ).scalar_one_or_none()
@@ -332,30 +351,26 @@ async def join_group(
         raise HTTPException(status_code=403, detail="Blocked")
 
     now = datetime.now(UTC)
-    member = await _my_membership(db, group.id, _session_uid)
-    target_status = "ACTIVE" if group.join_policy == "open" else "PENDING"
+    member = await _my_membership(db, group.id, user_id)
+    was_active = member is not None and member.status == "ACTIVE"
 
     if member is None:
         db.add(
-            CommunityGroupMember(
-                group_id=group.id, user_id=_session_uid, role="member", status=target_status, joined_at=now
-            )
+            CommunityGroupMember(group_id=group.id, user_id=user_id, role="member", status=target_status, joined_at=now)
         )
         if target_status == "ACTIVE":
             group.member_count += 1
     elif member.status == "BANNED":
         raise HTTPException(status_code=403, detail="Banned from this group")
     elif member.status == "PENDING":
-        pass  # 이미 승인 대기 — 멱등
+        if target_status == "ACTIVE":  # 초대 수락(초대전용 그룹) — 대기 행은 승격
+            member.status = "ACTIVE"
+            group.member_count += 1
     else:
         pass  # 이미 ACTIVE — 멱등
 
-    if target_status == "ACTIVE" and (member is None or member.status != "ACTIVE"):
-        await _add_open_conversation_member(db, group.id, _session_uid)
-
-    await db.commit()
-    await db.refresh(group)
-    return await _group_out(db, group, _session_uid)
+    if target_status == "ACTIVE" and not was_active:
+        await _add_open_conversation_member(db, group.id, user_id)
 
 
 @router.post(
@@ -503,6 +518,255 @@ async def list_group_posts(
     ).all()
     items = [await _enrich(post, user, ride, db) for post, user, ride in rows]
     return FeedPageOut(items=items, total=total, page=page, size=size, has_more=offset + len(items) < total)
+
+
+# ── 그룹 초대 (대표 판정 260929) ─────────────────────────────────────
+
+
+async def _has_pending_invite(db: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID | None) -> bool:
+    if user_id is None:
+        return False
+    return (
+        await db.execute(
+            select(CommunityGroupInvite.id).where(
+                CommunityGroupInvite.group_id == group_id,
+                CommunityGroupInvite.invitee_id == user_id,
+                CommunityGroupInvite.status == "pending",
+            )
+        )
+    ).first() is not None
+
+
+async def _may_invite(db: AsyncSession, group: CommunityGroup, user_id: uuid.UUID) -> bool:
+    """ACTIVE 멤버면 누구나, 초대전용(invite) 그룹은 owner/manager 만."""
+    if group.status != "ACTIVE":
+        return False
+    m = await _my_membership(db, group.id, user_id)
+    if m is None or m.status != "ACTIVE":
+        return False
+    return group.join_policy != "invite" or m.role in _MANAGE_ROLES
+
+
+async def _require_inviter(db: AsyncSession, group: CommunityGroup, user_id: uuid.UUID) -> None:
+    if not await _may_invite(db, group, user_id):
+        raise HTTPException(status_code=403, detail={"code": "invite_forbidden"})
+
+
+def _related_user_cond(me: uuid.UUID):
+    """초대 후보 = 내가 팔로우하는 사람 + 나를 팔로우하는 사람 + 1:1(direct) DM 상대 (전역 검색 없음)."""
+    following = select(UserFollow.following_id).where(UserFollow.follower_id == me)
+    followers = select(UserFollow.follower_id).where(UserFollow.following_id == me)
+    dm_partners = select(
+        case((DmConversation.participant_1 == me, DmConversation.participant_2), else_=DmConversation.participant_1)
+    ).where(
+        DmConversation.conversation_type == "direct",
+        or_(DmConversation.participant_1 == me, DmConversation.participant_2 == me),
+    )
+    return or_(User.id.in_(following), User.id.in_(followers), User.id.in_(dm_partners))
+
+
+def _not_blocked_cond(me: uuid.UUID):
+    blocked = select(UserBlock.blocked_id).where(UserBlock.blocker_id == me)
+    blocking = select(UserBlock.blocker_id).where(UserBlock.blocked_id == me)
+    return User.id.notin_(blocked) & User.id.notin_(blocking)
+
+
+async def _invite_states(db: AsyncSession, group_id: uuid.UUID, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    members = dict(
+        (
+            await db.execute(
+                select(CommunityGroupMember.user_id, CommunityGroupMember.status).where(
+                    CommunityGroupMember.group_id == group_id, CommunityGroupMember.user_id.in_(user_ids)
+                )
+            )
+        ).all()
+    )
+    invited = set(
+        (
+            await db.execute(
+                select(CommunityGroupInvite.invitee_id).where(
+                    CommunityGroupInvite.group_id == group_id,
+                    CommunityGroupInvite.invitee_id.in_(user_ids),
+                    CommunityGroupInvite.status == "pending",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    states: dict[uuid.UUID, str] = {}
+    for uid in user_ids:
+        ms = members.get(uid)
+        if ms == "ACTIVE":
+            states[uid] = "member"
+        elif ms == "PENDING":
+            states[uid] = "pending_request"
+        elif ms == "BANNED":
+            states[uid] = "banned"
+        elif uid in invited:
+            states[uid] = "invited"
+        else:
+            states[uid] = "invitable"
+    return states
+
+
+@router.get(
+    "/{group_id}/invite-candidates", response_model=list[GroupInviteCandidateOut], summary="초대 후보 (관계 기반)"
+)
+async def list_invite_candidates(
+    group_id: uuid.UUID,
+    q: str | None = None,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    group = await _resolve_group(db, str(group_id))
+    await _require_inviter(db, group, _session_uid)
+
+    stmt = select(User).where(
+        User.status == "ACTIVE",
+        User.id != _session_uid,
+        _related_user_cond(_session_uid),
+        _not_blocked_cond(_session_uid),
+    )
+    keyword = (q or "").strip()
+    if keyword:
+        escaped = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        stmt = stmt.where(User.nickname.ilike(f"%{escaped}%", escape="\\"))
+    users = (await db.execute(stmt.order_by(User.nickname.asc()).limit(max(1, min(limit, 100))))).scalars().all()
+
+    states = await _invite_states(db, group.id, [u.id for u in users])
+    return [
+        GroupInviteCandidateOut(user_id=u.id, nickname=u.nickname, avatar_url=resolve_avatar_url(u), state=states[u.id])
+        for u in users
+        if states[u.id] != "banned"
+    ]
+
+
+@router.post("/{group_id}/invites", response_model=GroupInviteSendOut, summary="그룹 초대 보내기 (1:1 DM 카드)")
+async def send_invites(
+    group_id: uuid.UUID,
+    body: GroupInviteSendRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    group = await _resolve_group(db, str(group_id))
+    await _require_inviter(db, group, _session_uid)
+    gid = group.id
+
+    user_ids = list(dict.fromkeys(body.user_ids))
+    allowed = set(
+        (
+            await db.execute(
+                select(User.id).where(
+                    User.id.in_(user_ids),
+                    User.status == "ACTIVE",
+                    User.id != _session_uid,
+                    _related_user_cond(_session_uid),
+                    _not_blocked_cond(_session_uid),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    states = await _invite_states(db, gid, list(allowed))
+
+    results: list[GroupInviteResultOut] = []
+    for uid in user_ids:
+        if uid not in allowed:
+            results.append(GroupInviteResultOut(user_id=uid, result="skipped", reason="not_candidate"))
+            continue
+        if states[uid] != "invitable":
+            reason = "member" if states[uid] == "banned" else states[uid]
+            results.append(GroupInviteResultOut(user_id=uid, result="skipped", reason=reason))
+            continue
+        try:
+            # 앱이 1:1 DM 을 여는 것과 같은 경로(create_conversation: get-or-create + 차단 검사)와
+            # 메시지 전송 경로(send_message: 카드 검증·푸시 이벤트)를 그대로 태운다.
+            conv = await create_conversation(
+                DmConversationCreateRequest(other_user_id=uid), db, _session_uid, (None, None)
+            )
+            invite = CommunityGroupInvite(group_id=gid, inviter_id=_session_uid, invitee_id=uid)
+            db.add(invite)
+            await db.flush()
+            await send_message(
+                conv.id,
+                DmMessageCreateRequest(
+                    message_type="card", meta={"subtype": "group_invite", "inviteId": str(invite.id)}
+                ),
+                db,
+                _session_uid,
+            )
+            results.append(GroupInviteResultOut(user_id=uid, result="sent"))
+        except HTTPException:
+            await db.rollback()
+            results.append(GroupInviteResultOut(user_id=uid, result="skipped", reason="unavailable"))
+    return GroupInviteSendOut(results=results)
+
+
+async def _load_invite(db: AsyncSession, group: CommunityGroup, invite_id: uuid.UUID) -> CommunityGroupInvite:
+    invite = await db.get(CommunityGroupInvite, invite_id)
+    if invite is None or invite.group_id != group.id:
+        raise HTTPException(status_code=404, detail={"code": "invite_not_found"})
+    return invite
+
+
+@router.get(
+    "/{group_id}/invites/{invite_id}",
+    response_model=GroupInviteStateOut,
+    summary="초대 카드 상태 (초대자/초대받는 사람)",
+)
+async def get_invite_state(
+    group_id: uuid.UUID,
+    invite_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    group = await _resolve_group(db, str(group_id))
+    invite = await _load_invite(db, group, invite_id)
+    if _session_uid not in (invite.inviter_id, invite.invitee_id):
+        raise HTTPException(status_code=404, detail={"code": "invite_not_found"})
+    return GroupInviteStateOut(
+        invite_id=invite.id,
+        status=invite.status,
+        is_invitee=invite.invitee_id == _session_uid,
+        group=await _group_out(db, group, _session_uid),
+    )
+
+
+@router.post(
+    "/{group_id}/invites/{invite_id}/accept", response_model=CommunityGroupOut, summary="초대 수락 (가입 정책별)"
+)
+async def accept_invite(
+    group_id: uuid.UUID,
+    invite_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """open → ACTIVE / approval → 승인 대기(PENDING, 초대가 승인을 우회하지 않음) / invite → ACTIVE(유일한 진입 경로).
+    승인제여도 수락 시점에 초대는 accepted 로 닫는다(대기 상태는 멤버십 PENDING 이 표현)."""
+    group = await _resolve_group(db, str(group_id))
+    invite = await _load_invite(db, group, invite_id)
+    if invite.invitee_id != _session_uid:
+        raise HTTPException(status_code=404, detail={"code": "invite_not_found"})
+    if invite.status == "accepted":
+        return await _group_out(db, group, _session_uid)  # 멱등
+    if invite.status != "pending" or group.status != "ACTIVE":
+        raise HTTPException(status_code=409, detail={"code": "invite_not_pending"})
+    # 초대 이후 초대자가 강퇴·권한 상실했으면 초대는 무효 (초대전용 그룹 우회 차단)
+    if not await _may_invite(db, group, invite.inviter_id):
+        invite.status = "revoked"
+        invite.responded_at = datetime.now(UTC)
+        await db.commit()
+        raise HTTPException(status_code=409, detail={"code": "invite_not_pending"})
+
+    await _join_with_status(db, group, _session_uid, "PENDING" if group.join_policy == "approval" else "ACTIVE")
+    invite.status = "accepted"
+    invite.responded_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(group)
+    return await _group_out(db, group, _session_uid)
 
 
 async def _add_open_conversation_member(db: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID) -> None:

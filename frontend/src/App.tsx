@@ -112,6 +112,7 @@ const TradeSetItems = lazyWithRetry(() => import('@/pages/dm/TradeSetItems'));
 const GroupList = lazyWithRetry(() => import('@/pages/community/GroupList'));
 const GroupCreate = lazyWithRetry(() => import('@/pages/community/GroupCreate'));
 const GroupDetail = lazyWithRetry(() => import('@/pages/community/GroupDetail'));
+const GroupInvite = lazyWithRetry(() => import('@/pages/community/GroupInvite'));
 const CommunityMe = lazyWithRetry(() => import('@/pages/community/CommunityMe'));
 const CommunityLiked = lazyWithRetry(() => import('@/pages/community/CommunityLiked'));
 
@@ -708,6 +709,7 @@ export default function App() {
           <Route path="/community/me" element={<PrivateRoute><CommunityMe /></PrivateRoute>} />
           <Route path="/community/me/liked" element={<PrivateRoute><CommunityLiked /></PrivateRoute>} />
           <Route path="/group/:slug" element={<PrivateRoute><GroupDetail /></PrivateRoute>} />
+          <Route path="/group/:slug/invite" element={<PrivateRoute><GroupInvite /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><NotificationInbox /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />
           {/* 다른 사용자 프로필 — 종전 ProfileCard 바텀시트를 대체한다(2026-08-13).

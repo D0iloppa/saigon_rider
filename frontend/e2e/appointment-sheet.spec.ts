@@ -188,4 +188,28 @@ test.describe('F-DM-02 FR-8 r9 appointment pinned bar + sheet', () => {
 
     await expect(page.getByRole('button', { name: /제안 도착/ })).toBeVisible();
   });
+  test('P4 UI: 시트 지도는 상호작용 가능(높이 ≥200) — 드래그해도 시트가 닫히지 않고 재센터 버튼 노출', async ({ page, request }) => {
+    const a = await newUser(request, 'ma');
+    const b = await newUser(request, 'mb');
+    const convId = await pureRoom(request, a, b);
+    await propose(request, a, convId, 2);
+
+    await injectSession(page, b);
+    await page.addInitScript(() => window.localStorage.setItem('sr-lang', 'ko'));
+    await page.goto(`/dm/${convId}`);
+    await page.getByRole('button', { name: /제안 도착/ }).click();
+
+    const map = page.getByTestId('appt-sheet-map');
+    await expect(map).toBeVisible();
+    const box = await map.boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(200);
+
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + box!.width / 2 + 60, box!.y + box!.height / 2 + 40, { steps: 6 });
+    await page.mouse.up();
+
+    await expect(map).toBeVisible();
+    await expect(page.getByTestId('appt-sheet-map-recenter')).toBeVisible();
+  });
 });

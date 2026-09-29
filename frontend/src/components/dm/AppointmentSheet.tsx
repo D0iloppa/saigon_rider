@@ -1,8 +1,9 @@
-import { MapPin, Radio } from 'lucide-react';
+import { useRef } from 'react';
+import { LocateFixed, MapPin, Radio } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import type { Appointment } from '@/api/types';
-import ApptPlaceThumb from './ApptPlaceThumb';
+import OsmMap, { type OsmMapHandle } from '@/components/maps/OsmMap';
 import styles from './AppointmentSheet.module.css';
 
 /** 길안내 버튼 표시 상태 — DmDetail 이 카드와 시트에 같은 값을 넘긴다. */
@@ -43,6 +44,7 @@ export function AppointmentSheet({
   onAccept, onCancel, onNavigate, onRetryNav, onShareLocation, onWalkie, onViewInChat,
 }: Props) {
   const { t } = useTranslation();
+  const mapRef = useRef<OsmMapHandle>(null);
   if (!appointment) return null;
   const { status } = appointment;
   const canAccept = status === 'PROPOSED' && appointment.proposerId !== myId;
@@ -75,7 +77,23 @@ export function AppointmentSheet({
           <span className={styles.val}>{counterpartName}</span>
         </div>
         {appointment.placeLat != null && appointment.placeLng != null && (
-          <ApptPlaceThumb lat={appointment.placeLat} lng={appointment.placeLng} />
+          <div className={styles.map} data-testid="appt-sheet-map">
+            <OsmMap
+              ref={mapRef}
+              center={{ lat: appointment.placeLat, lng: appointment.placeLng }}
+              markers={[]}
+              pickedPoint={{ lat: appointment.placeLat, lng: appointment.placeLng }}
+            />
+            <button
+              type="button"
+              className={styles.recenter}
+              data-testid="appt-sheet-map-recenter"
+              aria-label={t('dm.apptMapRecenter', { defaultValue: '약속 장소로 돌아가기' })}
+              onClick={() => mapRef.current?.recenter(appointment.placeLat!, appointment.placeLng!)}
+            >
+              <LocateFixed size={18} />
+            </button>
+          </div>
         )}
         {status === 'ACCEPTED' && (
           <div className={styles.row}>

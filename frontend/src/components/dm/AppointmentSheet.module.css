@@ -87,3 +87,35 @@
   align-self: center;
   font-size: 13px;
 }
+
+/* 인터랙티브 지도 — 드래그·핀치가 시트 스크롤/닫기로 새지 않게 touch-action 을 막는다(시트 드래그는 grabber 에만 걸려 있다). */
+.map {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: clamp(200px, 32dvh, 280px);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--line);
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+.recenter {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--brand-500);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+}

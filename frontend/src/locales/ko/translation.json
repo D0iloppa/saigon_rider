@@ -1087,6 +1087,7 @@
     "apptPlaceDrag": "지도를 움직여 장소를 정하세요",
     "apptPlaceDetailPh": "예: 벤탄시장 정문 앞",
     "apptMapOpen": "약속 장소 지도 보기",
+    "apptMapRecenter": "약속 장소로 돌아가기",
     "translate": "번역",
     "showOriginal": "원문",
     "hideTranslation": "번역 숨기기",

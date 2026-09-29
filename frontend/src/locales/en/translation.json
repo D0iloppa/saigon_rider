@@ -1087,6 +1087,7 @@
     "apptPlaceDrag": "Move the map to set the spot",
     "apptPlaceDetailPh": "e.g. In front of Ben Thanh Market gate",
     "apptMapOpen": "View meeting place on map",
+    "apptMapRecenter": "Back to meeting place",
     "translate": "Translate",
     "showOriginal": "Original",
     "hideTranslation": "Hide translation",

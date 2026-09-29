@@ -798,6 +798,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 |---|---|---|
 | 약속 잡기(S4) | `pages/dm/AppointmentLocationPicker.tsx` | 약속 시트(장소·시각), 약속 카드(PROPOSED/ACCEPTED) |
 | 약속 독립 원칙(F-N-02 FR-7, 2026-09-29) | `DmDetail.tsx` 약속 카드 · `components/dm/TradeSetChips.tsx` + `tradeSetChipModel.ts` | 약속은 **모든 1:1 방**에서(매물 연결 선택, 순수 약속 = 매물 없음) — 카드는 만남 도구만. 거래·결제 퀵액션은 매물 방 세트 칩 행이 세트·결제 상태로만 제안(`getStageAction`). 결제는 세트 소유 → 거래 화면 경로의 파라미터가 `tradeSetId` |
+| 약속 고정 바·약속 시트·상태 카드(F-DM-02 FR-8·F-X-01 FR-1 r8, 2026-09-29) | `DmDetail.tsx` `.apptPinBar` · `components/dm/AppointmentSheet.tsx` | 칩 행이 없는 1:1 방 헤더 아래 약속 1줄 → 탭 = 약속 시트(카드와 같은 핸들러). 대화 상세 `active_appointment` 로 로드 범위 밖 약속도 도달. 수락·취소 시 방 맨 아래 `card` subtype `appointment_accepted`/`appointment_cancelled`, ACCEPTED 취소 + 예약중이면 판매자 `revert_prompt` |
 | 이동·위치초대(S5) | `components/shell/ActiveSessionBar.tsx` + `components/location/LiveLocationModal.tsx`(§3.8 710행), `RideNav.tsx`(§3.13) | 실시간 위치공유 카드+동의 모달, 길안내 핸드오프 |
 | 만남·교환(S6) | `pages/dm/TradeTransaction.tsx`(`/dm/:conversationId/trade/:tradeSetId`) | 확인→결제→전달 타임라인(대표 결정 C2 구현 완료). PAYMENT_REPORTED 상태에서 "문제가 있나요?" 접힘 행(`?openIssues=1`/`location.state.openIssues` 로 펼친 채 진입 — §3.14 참조) |
 | 완료·후기(S7) | `TradeTransaction.tsx`, `pages/profile/TradeHistory.tsx`(§3.11) | 완료 요청/처리 카드, 거래 이력 목록·후기 작성 |

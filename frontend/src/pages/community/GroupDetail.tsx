@@ -388,7 +388,7 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
             <AppImage src={m.avatarUrl ?? undefined} alt="" className={styles.memberAvatar} variant="circle" />
             <span className={styles.memberName}>{m.nickname ?? '—'}</span>
             <span className={styles.memberRole}>{t(`communityGroup.role_${m.role}`, { defaultValue: m.role })}</span>
-            {canManage && m.userId !== myUserId && (
+            {canManage && m.userId !== myUserId && m.role !== 'owner' && (m.role !== 'manager' || group.myRole === 'owner') && (
               <button
                 type="button"
                 className={`${styles.memberAction} ${styles.memberActionDanger}`}

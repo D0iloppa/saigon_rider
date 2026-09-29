@@ -123,7 +123,9 @@ export async function patchGroup(groupId: string, patch: PatchGroupParams): Prom
 
 export async function joinGroup(groupId: string): Promise<CommunityGroup> {
   requireSession();
-  const raw = await api.realFetch<any>(`/community/groups/${groupId}/join`, { method: 'POST' });
+  const raw = await api.realFetch<any>(`/community/groups/${groupId}/join`, { method: 'POST' }, 'bff', {
+    rethrow: true,
+  });
   return transformGroup(raw);
 }
 

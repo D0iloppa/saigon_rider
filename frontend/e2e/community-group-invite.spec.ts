@@ -140,6 +140,8 @@ test.describe('community group invite', () => {
     expect(kick.ok()).toBeTruthy();
     expect(await status()).toBe('REMOVED');
     expect((await (await join()).json()).my_membership_status).toBe('PENDING');
+    // 대기 중 재호출은 open 정책이어도 승격되지 않는다 (승인만이 승격)
+    expect((await (await join()).json()).my_membership_status).toBe('PENDING');
     const approve = await request.post(`${API}/community/groups/${group.id}/members/${invitee.userId}/approve`, { headers: H(owner) });
     expect(approve.ok()).toBeTruthy();
     expect(await status()).toBe('ACTIVE');

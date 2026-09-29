@@ -314,11 +314,11 @@ async function realFetchBlob(endpoint: string, service: Service = 'bff'): Promis
  *  보장되는 상태코드)만 상세를 노출하고, 그 외(422 검증오류 JSON·502 등 raw 응답·네트워크 오류)는
  *  fallback 문구를 쓴다. 다른 상태코드까지 열면 기술적 내용이 그대로 노출될 수 있다. */
 export function extractDetail(err: unknown, fallback: string): string {
-  const match = /^HTTP (?:429|409) \| (.+)$/.exec((err as any)?.message ?? '');
+  const match = /^HTTP (?:429|409|403) \| (.+)$/.exec((err as any)?.message ?? '');
   return match ? match[1] : fallback;
 }
 
-/** rethrow:true 호출부용 — 구조화된 {code, message} 409 응답에서 code 만 뽑아낸다
+/** rethrow:true 호출부용 — 구조화된 {code, message} 409/403 응답에서 code 만 뽑아낸다
  *  (재신고 차단 안내, R-3 260819 W3). 파싱 실패 시 null — 호출부가 기존 catch-all 문구로 폴백. */
 export function extractErrorCode(err: unknown): string | null {
   const match = /^HTTP (?:429|409) \| (.+)$/.exec((err as any)?.message ?? '');

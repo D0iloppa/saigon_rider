@@ -547,6 +547,10 @@ class CommunityGroupMember(Base):
     role: Mapped[str] = mapped_column(String(12), nullable=False, default="member")
     status: Mapped[str] = mapped_column(String(12), nullable=False, default="ACTIVE")
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # 강퇴(REMOVED) 후 재신청한 PENDING — join 재호출로 승격 불가, 승인(approve)만 (251)
+    requires_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # 그룹 영구차단이 공식 채팅방 밴을 직접 만들었는지 — 해제 시 그 밴만 지운다 (251)
+    room_banned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
 
 class CommunityGroupInvite(Base):

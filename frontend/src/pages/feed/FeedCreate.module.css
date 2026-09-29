@@ -16,6 +16,22 @@
   gap: 12px;
 }
 
+/* 그룹 게시 컨텍스트 — .card(flex:1)를 쓰면 빈 입력 박스처럼 늘어난다 */
+.groupContext {
+  flex: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .card {
   background: var(--surface);
   border: 1px solid var(--line);

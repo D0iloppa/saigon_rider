@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Camera, MapPin, X } from 'lucide-react';
+import { Camera, MapPin, Users, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { createFeedPost } from '@/api/feed';
@@ -185,7 +185,8 @@ export default function FeedCreate() {
 
       <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         {groupId && groupName && (
-          <div className={styles.card} style={{ padding: '8px 12px', fontSize: 13, color: 'var(--text-2)' }}>
+          <div className={styles.groupContext} data-testid="feed-create-group-context">
+            <Users size={14} strokeWidth={2.2} />
             {t('feedCreate.postingToGroup', { name: groupName })}
           </div>
         )}

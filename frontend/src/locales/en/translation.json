@@ -956,7 +956,7 @@
   "feedCreate": {
     "title": "New Post",
     "textPlaceholder": "What's on your mind?",
-    "groupTextPlaceholder": "Any neighborhood news today?",
+    "groupTextPlaceholder": "Share something with your group members",
     "postingToGroup": "Posting to {{name}}",
     "addPhoto": "Add Photo",
     "addLocation": "Add Location",

@@ -372,3 +372,43 @@
 }
 
 .shortcut:active { opacity: .85; }
+
+/* 그룹 주제 — 카드 메타 칩 + 그룹 탭 가로 스크롤 필터 (F-CM-02 r15) */
+.topicChip {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.topicRow {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 20px 4px;
+}
+
+.topicRow::-webkit-scrollbar { display: none; }
+
+.topicBtn {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.topicBtnActive {
+  border-color: var(--brand-500);
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-weight: 700;
+}

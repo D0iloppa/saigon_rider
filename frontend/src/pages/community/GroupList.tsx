@@ -10,6 +10,7 @@ import type { CommunityGroup } from '@/api/types';
 import { useUserStore } from '@/store/useUserStore';
 import { CommunityHeader } from './CommunityHeader';
 import { GroupCard, GroupCover } from './GroupCard';
+import { GROUP_TOPICS, groupTopicKey } from './groupTopics';
 import styles from './Community.module.css';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -22,6 +23,7 @@ export default function GroupList() {
   const [mine, setMine] = useState<CommunityGroup[]>([]);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [topic, setTopic] = useState('');
 
   useEffect(() => {
     if (!user) { setMine([]); return; }
@@ -33,11 +35,12 @@ export default function GroupList() {
     return () => window.clearTimeout(id);
   }, [query]);
 
-  const fetchPage = useCallback((page: number) => listGroups('all', page, 20, debouncedQuery), [debouncedQuery]);
+  const fetchPage = useCallback((page: number) => listGroups('all', page, 20, debouncedQuery, topic), [debouncedQuery, topic]);
   const { items: groups, isLoading, isLoadingMore, hasMore, sentinelRef } =
-    useInfiniteScroll<CommunityGroup>(fetchPage, 20, [debouncedQuery]);
+    useInfiniteScroll<CommunityGroup>(fetchPage, 20, [debouncedQuery, topic]);
 
   const searching = debouncedQuery.length > 0;
+  const filtering = searching || topic !== '';
 
   return (
     <div className={styles.page}>
@@ -66,7 +69,23 @@ export default function GroupList() {
           </div>
         </div>
 
-        {user && !searching && (
+        <div className={styles.topicRow} data-testid="group-topic-chips" role="radiogroup" aria-label={t('communityGroup.topicLabel')}>
+          {['', ...GROUP_TOPICS].map((c) => (
+            <button
+              key={c || 'all'}
+              type="button"
+              role="radio"
+              aria-checked={topic === c}
+              data-testid={`group-topic-${c || 'all'}`}
+              className={`${styles.topicBtn} ${topic === c ? styles.topicBtnActive : ''}`}
+              onClick={() => setTopic(c)}
+            >
+              {c ? t(groupTopicKey(c)) : t('communityGroup.topicAll')}
+            </button>
+          ))}
+        </div>
+
+        {user && !filtering && (
           <>
             <div className={styles.sectionTitle}>{t('communityGroup.myGroups')}</div>
             {mine.length > 0 ? (
@@ -94,11 +113,11 @@ export default function GroupList() {
         )}
 
         <div className={styles.sectionTitle}>
-          {searching ? t('communityGroup.searchResults') : t('communityGroup.browseTitle')}
+          {filtering ? t('communityGroup.searchResults') : t('communityGroup.browseTitle')}
         </div>
         {!isLoading && groups.length === 0 ? (
           <div className={styles.empty}>
-            {searching ? (
+            {filtering ? (
               <StateBlock icon={SearchX} title={t('communityGroup.searchEmpty')} desc={t('communityGroup.searchEmptySub')} />
             ) : (
               <StateBlock

@@ -301,6 +301,7 @@ export interface CommunityGroup {
   districtId: number | null;
   joinPolicy: string;
   visibility: string;
+  topic: string;
   ownerId: string | null;
   memberCount: number;
   postCount: number;

@@ -175,6 +175,32 @@
 
 .hiddenInput { display: none; }
 
+/* 주제 — 칩 그리드(단일 선택) */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  height: 36px;
+  padding: 0 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chipActive {
+  border-color: var(--brand-500);
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-weight: 700;
+}
+
 /* 선택지 — 라디오 카드 행(아이콘 · 제목 · 한 줄 설명 · 체크) */
 .options {
   display: flex;
@@ -254,9 +280,10 @@
   background: var(--brand-500);
 }
 
+/* 탭바가 하단 safe-area 를 이미 소화 — 여기서 다시 더하면 CTA 아래 빈 띠가 생긴다 */
 .submitBar {
   flex-shrink: 0;
-  padding: 12px 20px calc(12px + var(--bottom-safe, 0px));
+  padding: 12px 20px;
   border-top: 1px solid var(--line);
   background: var(--bg);
 }

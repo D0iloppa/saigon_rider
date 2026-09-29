@@ -15,6 +15,7 @@ function transformGroup(raw: any): CommunityGroup {
     districtId: raw.district_id ?? null,
     joinPolicy: raw.join_policy,
     visibility: raw.visibility,
+    topic: raw.topic ?? 'etc',
     ownerId: raw.owner_id ?? null,
     memberCount: raw.member_count,
     postCount: raw.post_count,
@@ -39,6 +40,7 @@ function transformMember(raw: any): CommunityGroupMember {
 
 export interface CreateGroupParams {
   name: string;
+  topic: string;
   description?: string;
   groupType?: 'interest' | 'neighborhood';
   wardId?: number;
@@ -54,6 +56,7 @@ export async function createGroup(params: CreateGroupParams): Promise<CommunityG
     method: 'POST',
     body: JSON.stringify({
       name: params.name,
+      topic: params.topic,
       description: params.description ?? null,
       group_type: params.groupType ?? 'interest',
       ward_id: params.wardId ?? null,
@@ -73,9 +76,10 @@ export interface GroupPage {
   size: number;
 }
 
-export async function listGroups(filter: 'all' | 'mine' = 'all', page = 1, size = 20, q = ''): Promise<GroupPage> {
+export async function listGroups(filter: 'all' | 'mine' = 'all', page = 1, size = 20, q = '', topic = ''): Promise<GroupPage> {
   const params = new URLSearchParams({ filter, page: String(page), size: String(size) });
   if (q.trim()) params.set('q', q.trim());
+  if (topic) params.set('topic', topic);
   const res = await api.realFetch<{ items: any[]; total: number; page: number; size: number }>(
     `/community/groups?${params}`,
   );
@@ -90,6 +94,7 @@ export async function getGroup(idOrSlug: string): Promise<CommunityGroup> {
 export interface PatchGroupParams {
   name?: string;
   description?: string;
+  topic?: string;
   joinPolicy?: 'open' | 'approval' | 'invite';
   visibility?: 'public' | 'private';
   coverContentId?: string;
@@ -101,6 +106,7 @@ export async function patchGroup(groupId: string, patch: PatchGroupParams): Prom
     body: JSON.stringify({
       name: patch.name ?? null,
       description: patch.description ?? null,
+      topic: patch.topic ?? null,
       join_policy: patch.joinPolicy ?? null,
       visibility: patch.visibility ?? null,
       cover_content_id: patch.coverContentId ?? null,

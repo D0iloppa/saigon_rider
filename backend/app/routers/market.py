@@ -2363,9 +2363,22 @@ async def _load_appointment(
     ).scalar_one_or_none()
     if listing is None:
         raise HTTPException(status_code=404, detail="Listing not found")
+    # propose_appointment 와 같은 연결 기준 — 최근 문의 매물(context_id) 이거나 방에 연결된 매물이면 된다.
+    linked = (
+        conv.context_id == appt.listing_id
+        or (
+            await db.execute(
+                select(DmConversationListing.listing_id).where(
+                    DmConversationListing.conversation_id == conv.id,
+                    DmConversationListing.listing_id == appt.listing_id,
+                )
+            )
+        ).scalar_one_or_none()
+        is not None
+    )
     if (
         conv.context_type != "listing"
-        or conv.context_id != appt.listing_id
+        or not linked
         or listing.seller_id not in (conv.participant_1, conv.participant_2)
         or appt.proposer_id not in (conv.participant_1, conv.participant_2)
     ):

@@ -251,6 +251,9 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
   const [pending, setPending] = useState<CommunityGroupMember[]>([]);
   const [loading, setLoading] = useState(true);
   const canManage = MANAGE_ROLES.has(group.myRole ?? '');
+  // 초대: ACTIVE 멤버 누구나, 초대전용 그룹은 owner/manager 만 (서버 규칙과 동일)
+  const canInvite = group.joinPolicy !== 'invite' || canManage;
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isMember) { setLoading(false); return; }
@@ -328,6 +331,17 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
       <h3 className={styles.sectionTitle}>
         {t('communityGroup.tabMembers')}
         <span className={styles.sectionCount}>{members.length}</span>
+        {canInvite && (
+          <button
+            type="button"
+            className={`${styles.memberAction} ${styles.inviteAction}`}
+            data-testid="group-invite-btn"
+            onClick={() => navigate(`/group/${group.slug ?? group.id}/invite`)}
+          >
+            <UserPlus size={14} strokeWidth={2.2} />
+            {t('communityGroup.invite')}
+          </button>
+        )}
       </h3>
       <div className={styles.memberCard}>
         {members.map((m) => (

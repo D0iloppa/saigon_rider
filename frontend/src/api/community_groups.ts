@@ -1,7 +1,7 @@
 import { api, requireSession } from './client';
 import { transformPost } from './feed';
 import type { FeedPost } from './types';
-import type { CommunityGroup, CommunityGroupMember } from './types';
+import type { CommunityGroup, CommunityGroupMember, GroupInviteCandidate, GroupInviteState } from './types';
 
 function transformGroup(raw: any): CommunityGroup {
   return {
@@ -148,4 +148,34 @@ export async function listGroupPosts(groupId: string, page = 1, size = 20): Prom
     `/community/groups/${groupId}/posts?${params}`,
   );
   return { items: res.items.map(transformPost), total: res.total, page: res.page, size: res.size, hasMore: res.has_more };
+}
+
+export async function listInviteCandidates(groupId: string, q = ''): Promise<GroupInviteCandidate[]> {
+  const params = new URLSearchParams();
+  if (q.trim()) params.set('q', q.trim());
+  const raw = await api.realFetch<any[]>(`/community/groups/${groupId}/invite-candidates?${params}`);
+  return raw.map((r) => ({
+    userId: r.user_id,
+    nickname: r.nickname ?? null,
+    avatarUrl: r.avatar_url ?? null,
+    state: r.state,
+  }));
+}
+
+export async function sendGroupInvites(groupId: string, userIds: string[]): Promise<{ sent: number }> {
+  const res = await api.realFetch<{ results: Array<{ user_id: string; result: string }> }>(
+    `/community/groups/${groupId}/invites`,
+    { method: 'POST', body: JSON.stringify({ user_ids: userIds }) },
+  );
+  return { sent: res.results.filter((r) => r.result === 'sent').length };
+}
+
+export async function getInviteState(groupId: string, inviteId: string): Promise<GroupInviteState> {
+  const raw = await api.realFetch<any>(`/community/groups/${groupId}/invites/${inviteId}`);
+  return { inviteId: raw.invite_id, status: raw.status, isInvitee: raw.is_invitee, group: transformGroup(raw.group) };
+}
+
+export async function acceptGroupInvite(groupId: string, inviteId: string): Promise<CommunityGroup> {
+  const raw = await api.realFetch<any>(`/community/groups/${groupId}/invites/${inviteId}/accept`, { method: 'POST' });
+  return transformGroup(raw);
 }

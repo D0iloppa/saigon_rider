@@ -18,6 +18,7 @@ import ApptPlaceThumb from '@/components/dm/ApptPlaceThumb';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { CardMessage } from '@/components/dm/CardMessage';
+import { GroupInviteCard } from '@/components/dm/GroupInviteCard';
 import cardStyles from '@/components/dm/CardMessage.module.css';
 import { TradeSetBar } from '@/components/dm/TradeSetBar';
 import { TradeSetChips } from '@/components/dm/TradeSetChips';
@@ -2504,6 +2505,9 @@ export default function DmDetail() {
                 )}
               </CardMessage>
             );
+          }
+          if (m.messageType === 'card' && m.meta?.subtype === 'group_invite') {
+            return <GroupInviteCard key={m.id} meta={m.meta} isMine={isMine} timeLabel={formatRelativeTime(m.createdAt)} />;
           }
           if (m.messageType === 'card' && m.meta?.subtype === 'bundle') {
             // F-DM-02(260928 실기기 피드백) — 구매자가 세트에 여러 매물을 담으면 남는 묶음 요청 카드(readonly 스냅샷).

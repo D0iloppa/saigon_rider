@@ -303,8 +303,6 @@ export default function UserProfile() {
                       원값 manner_temp 는 이 응답에 아예 없다. MarketDetail 의 판매자 신뢰뱃지 그룹과
                       같은 배치 관례(닉네임 행에 인증뱃지와 함께)를 따른다. */}
                   <TrustTierChip tier={profile.trustTier} />
-                  {/* P4-4: 맞팔 = 친구 표기 (신규 UI 컴포넌트 없이 기존 Chip 재사용) */}
-                  {profile.isFriend && <Chip variant="surface">{t('follow.friends')}</Chip>}
                 </div>
                 {riderStyleLabel && (
                   <Chip variant="surface"><RiderStyleIcon size={13} /> {riderStyleLabel}</Chip>

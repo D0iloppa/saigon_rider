@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowUp, Flag, Flame, Globe, Heart, MessageCircle, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { StatusBar } from '@/components/layout/StatusBar';
@@ -21,7 +21,6 @@ import { formatRelativeTime } from '@/lib/format';
 import type { FeedPost, Comment } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
-import { LevelBadge } from '@/components/ui/LevelBadge';
 import { useUserStore } from '@/store/useUserStore';
 import { useConfirmStore } from '@/store/useConfirmStore';
 import { loadSession } from '@/lib/session';
@@ -39,6 +38,8 @@ export default function FeedDetail() {
   const navigate = useNavigate();
   const { postId } = useParams<{ postId: string }>();
   const user = useUserStore((s) => s.user);
+  const { hash } = useLocation();
+  const commentsRef = useRef<HTMLDivElement>(null);
 
   const [post, setPost] = useState<FeedPost | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +69,11 @@ export default function FeedDetail() {
       })
       .finally(() => setLoading(false));
   }, [postId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 목록의 💬 → `#comments` 로 진입하면 로드 완료 후 댓글 구획으로 스크롤
+  useEffect(() => {
+    if (!loading && hash === '#comments') commentsRef.current?.scrollIntoView();
+  }, [loading, hash]);
 
   const handleCheer = async () => {
     if (!post) return;
@@ -246,10 +252,7 @@ export default function FeedDetail() {
                 <button className={styles.authorRow} type="button" onClick={handleAuthorTap}>
                   <AppImage src={post.userAvatarUrl ?? undefined} alt="" className={styles.authorAvatar} variant="circle" />
                   <div className={styles.authorInfo}>
-                    <span className={styles.authorName}>
-                      {post.userNickname ?? 'Unknown'}
-                      <LevelBadge level={post.userLevel} />
-                    </span>
+                    <span className={styles.authorName}>{post.userNickname ?? 'Unknown'}</span>
                     <span className={styles.authorSub}>{formatRelativeTime(post.createdAt)}</span>
                   </div>
                 </button>
@@ -269,7 +272,7 @@ export default function FeedDetail() {
               )}
 
               {/* 댓글 — 인라인 (MarketDetail otherSection 구획 관례) */}
-              <div className={styles.commentsSection}>
+              <div className={styles.commentsSection} id="comments" ref={commentsRef}>
                 <h2 className={styles.commentsTitle}>{t('feed.commentsCount', { count: comments.length })}</h2>
                 {comments.map((c) => (
                   <div key={c.id} className={`${feedStyles.comment} ${c.parentId ? feedStyles.commentReply : ''}`}>

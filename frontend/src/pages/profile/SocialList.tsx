@@ -11,7 +11,6 @@ import sys from '@/styles/system.module.css';
 import { fetchFollowCounts, fetchFollowers, fetchFollowing, followUser, unfollowUser } from '@/api/follows';
 import { useUserStore } from '@/store/useUserStore';
 import { useDialogStore } from '@/store/useDialogStore';
-import { LevelBadge } from '@/components/ui/LevelBadge';
 import { AppImage } from '@/components/ui/AppImage';
 import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
 import { formatNumber } from '@/lib/format';
@@ -151,7 +150,6 @@ export default function SocialList({ tab }: Props) {
                     <AppImage src={u.avatarUrl || DEFAULT_AVATAR_URL} alt="" className={styles.avatar} variant="circle" />
                     <span className={styles.name}>
                       {u.nickname ?? 'Unknown'}
-                      <LevelBadge level={u.level} />
                     </span>
                   </button>
                   {me && u.id !== me.id && (

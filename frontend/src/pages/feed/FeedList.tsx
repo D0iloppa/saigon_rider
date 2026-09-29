@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Camera, Flame, Globe, MapPin, MessageCircle, Newspaper, Plus, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { AlertCircle, Camera, Flame, Globe, MapPin, MessageCircle, Plus, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import sys from '@/styles/system.module.css';
@@ -22,8 +22,8 @@ import { toast } from '@/components/ui/Toast';
 import { resolveUsableLocation } from '@/lib/serviceLocation';
 import styles from './FeedList.module.css';
 
-type FilterKey = 'all' | 'neighborhood' | 'friends' | 'hot' | 'groups';
-const FILTER_KEYS: FilterKey[] = ['all', 'neighborhood', 'friends', 'hot', 'groups'];
+type FilterKey = 'all' | 'neighborhood' | 'following' | 'hot' | 'groups';
+const FILTER_KEYS: FilterKey[] = ['all', 'neighborhood', 'following', 'hot', 'groups'];
 // 탭 전환으로 언마운트돼도 스크롤 위치가 살아있게(P2-11) — URL 에 넣기 부적절한 값이라
 // sessionStorage 를 쓴다(MarketMain 의 scrollTop 저장 패턴과 동일 결).
 const FEED_SCROLL_KEY = 'feed_scroll_v1';
@@ -31,6 +31,23 @@ const FEED_SCROLL_KEY = 'feed_scroll_v1';
 // ImageViewer 는 src/components/ui/ImageViewer.tsx 로 승격됨 (2026-07-27).
 // 기존 import 경로(`from './FeedList'`)를 쓰는 코드와의 하위호환을 위해 re-export 유지.
 export { ImageViewer } from '@/components/ui/ImageViewer';
+
+// 본문 클램프 — 사진 글 3줄 / 글만 있는 글 6줄. 넘칠 때만 "더보기"(탭은 카드 탭과 같이 상세로 버블링).
+function ClampedCaption({ text, lines }: { text: string; lines: number }) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [overflow, setOverflow] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el) setOverflow(el.scrollHeight > el.clientHeight + 1);
+  }, [text, lines]);
+  return (
+    <div className={styles.postText}>
+      <p ref={ref} className={styles.postCaption} style={{ WebkitLineClamp: lines }}>{text}</p>
+      {overflow && <span className={styles.readMore}>{t('feed.readMore')}</span>}
+    </div>
+  );
+}
 
 // ─── FeedList ────────────────────────────────────────────────────────────────
 export default function FeedList() {
@@ -46,6 +63,8 @@ export default function FeedList() {
     return q && FILTER_KEYS.includes(q as FilterKey) && q !== 'neighborhood' ? (q as FilterKey) : 'all';
   });
   const [stories, setStories] = useState<StoryItem[]>([]);
+  // 사진 비율(가로/세로) — 로드 전엔 1:1 자리를 잡아 두고, 로드 후 1:1~4:5 로 제한해 반영
+  const [photoRatios, setPhotoRatios] = useState<Record<string, number>>({});
   // neighborhood 필터용 현재 위치 (state — 도착 시 재fetch 트리거)
   const [neighborhoodLoc, setNeighborhoodLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [neighborhoodRequest, setNeighborhoodRequest] = useState(0);
@@ -78,7 +97,7 @@ export default function FeedList() {
       if (!neighborhoodLoc) return { items: [], total: 0, page, size: 20 };
       return fetchFeed({ filter, lat: neighborhoodLoc.lat, lng: neighborhoodLoc.lng, userId: user?.id, page });
     }
-    if (filter === 'friends' && user) {
+    if (filter === 'following' && user) {
       return fetchFeed({ filter, userId: user.id, page });
     }
     return fetchFeed({ filter, page });
@@ -119,7 +138,7 @@ export default function FeedList() {
   const FILTERS: { key: FilterKey; label: string; Icon: LucideIcon }[] = [
     { key: 'all',          label: t('feed.filterAll'),          Icon: Globe },
     { key: 'neighborhood', label: t('feed.filterNeighborhood'), Icon: MapPin },
-    { key: 'friends',      label: t('feed.filterFriends'),      Icon: Users },
+    { key: 'following',    label: t('feed.filterFollowing'),    Icon: Users },
     { key: 'hot',          label: t('feed.filterHot'),          Icon: Flame },
     { key: 'groups',       label: t('feed.filterGroups'),       Icon: UsersRound },
   ];
@@ -214,12 +233,16 @@ export default function FeedList() {
         ) : (
           <div className={styles.feed}>
             {isLoading && posts.length === 0 ? (
-              /* 그리드 카드 골격 미러 스켈레톤 (스피너 단독 금지 — design-system §5) */
-              <div className={styles.feedGrid}>
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className={styles.feedCard}>
-                    <div className={styles.feedThumb}><div className={`shimmer ${styles.feedPhoto}`} /></div>
-                    <div className={styles.feedBody}>
+              /* 1열 카드 골격 미러 스켈레톤 (스피너 단독 금지 — design-system §5) */
+              <div className={styles.postList}>
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className={styles.postCard}>
+                    <div className={styles.postAuthor}>
+                      <div className={`shimmer ${styles.avatar}`} />
+                      <div className={`${sys.skelBar} ${sys.skelBarNarrow}`} />
+                    </div>
+                    <div className={`shimmer ${styles.postMedia}`} />
+                    <div className={styles.postBody}>
                       <div className={`${sys.skelBar} ${sys.skelBarWide}`} />
                       <div className={`${sys.skelBar} ${sys.skelBarNarrow}`} />
                     </div>
@@ -227,11 +250,12 @@ export default function FeedList() {
                 ))}
               </div>
             ) : (
-              <div className={styles.feedGrid}>
+              <div className={styles.postList}>
                 {posts.map((p) => (
                   <article
                     key={p.id}
-                    className={styles.feedCard}
+                    className={styles.postCard}
+                    data-testid="feed-post-card"
                     role="button"
                     tabIndex={0}
                     onClick={() => navigate(`/feed/post/${p.id}`)}
@@ -244,60 +268,83 @@ export default function FeedList() {
                       }
                     }}
                   >
-                    <div className={styles.feedThumb}>
-                      {p.photoUrl ? (
-                        <AppImage src={p.photoUrl} alt="" className={styles.feedPhoto} />
-                      ) : (
-                        <span className={styles.feedPlaceholder}><Newspaper size={22} /></span>
-                      )}
-                      {user && p.userId === user.id && <OwnerBadge label={t('common.myPostBadge')} className={styles.ownerBadge} />}
-                    </div>
-                    <span className={styles.feedBody}>
-                      <span className={styles.feedAuthor}>
-                        <button
-                          type="button"
-                          className={styles.avatarBtn}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (user && p.userId === user.id) {
-                              navigate('/profile');
-                            } else {
-                              navigate(`/profile/${p.userId}`);
-                            }
+                    <span className={styles.postAuthor}>
+                      <button
+                        type="button"
+                        className={styles.avatarBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (user && p.userId === user.id) {
+                            navigate('/profile');
+                          } else {
+                            navigate(`/profile/${p.userId}`);
+                          }
+                        }}
+                      >
+                        <AppImage src={p.userAvatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
+                      </button>
+                      {/* 닉네임도 프로필 진입점 — 아바타만 탭 가능한 건 인스타·Threads 관례와
+                          어긋나고 히트 영역이 작다(2026-08-13). */}
+                      <strong
+                        role="button"
+                        tabIndex={0}
+                        className={styles.nickBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter' && e.key !== ' ') return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
+                        }}
+                      >{p.userNickname ?? '—'}</strong>
+                      <small>{formatRelativeTime(p.createdAt)}</small>
+                      {user && p.userId === user.id && <OwnerBadge label={t('common.myPostBadge')} />}
+                    </span>
+                    {p.photoUrl && (
+                      <div className={styles.postMedia} style={{ aspectRatio: photoRatios[p.id] ?? 1 }}>
+                        <AppImage
+                          src={p.photoUrl}
+                          alt=""
+                          className={styles.postPhoto}
+                          onLoad={(e) => {
+                            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                            if (!w || !h) return;
+                            const ratio = Math.min(1, Math.max(0.8, w / h));
+                            setPhotoRatios((prev) => (prev[p.id] === ratio ? prev : { ...prev, [p.id]: ratio }));
                           }}
-                        >
-                          <AppImage src={p.userAvatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
-                        </button>
-                        {/* 닉네임도 프로필 진입점 — 아바타만 탭 가능한 건 인스타·Threads 관례와
-                            어긋나고 히트 영역이 22px 로 작다(2026-08-13). */}
-                        <strong
-                          role="button"
-                          tabIndex={0}
-                          className={styles.nickBtn}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key !== 'Enter' && e.key !== ' ') return;
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
-                          }}
-                        >{p.userNickname ?? '—'}</strong>
-                        <small>{formatRelativeTime(p.createdAt)}</small>
-                      </span>
-                      <span className={styles.feedCaption}>{p.caption ?? t('feed.noCaption')}</span>
+                        />
+                        {p.photoUrls.length > 1 && <span className={styles.mediaCount}>1/{p.photoUrls.length}</span>}
+                      </div>
+                    )}
+                    <span className={styles.postBody}>
+                      {p.caption && <ClampedCaption text={p.caption} lines={p.photoUrl ? 3 : 6} />}
                       <span className={styles.feedMeta}>
                         <button
                           type="button"
                           className={`${styles.cheerBtn} ${p.iCheered ? styles.cheerBtnActive : ''}`}
+                          aria-label={t('feed.cheer')}
+                          aria-pressed={p.iCheered}
                           onClick={(e) => handleCheer(p, e)}
                         >
-                          <Flame size={12} />
-                          {p.cheerCount > 0 && <span>{p.cheerCount}</span>}
+                          <Flame size={16} />
+                          <span>{p.cheerCount}</span>
                         </button>
-                        {p.commentCount > 0 && <span><MessageCircle size={12} />{p.commentCount}</span>}
+                        {/* 💬 = 상세의 댓글 위치로 (FeedDetail #comments) */}
+                        <button
+                          type="button"
+                          className={styles.cheerBtn}
+                          aria-label={t('comments')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/feed/post/${p.id}#comments`);
+                          }}
+                        >
+                          <MessageCircle size={16} />
+                          <span>{p.commentCount}</span>
+                        </button>
                       </span>
                     </span>
                   </article>

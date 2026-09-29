@@ -11,7 +11,6 @@ import SkeletonRows from '@/components/ui/SkeletonRows';
 import sys from '@/styles/system.module.css';
 import { useUserStore } from '@/store/useUserStore';
 import { searchUsers, followUser } from '@/api/follows';
-import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Button } from '@/components/ui/Button';
 import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
@@ -155,9 +154,7 @@ export default function FriendAdd() {
                   <div key={u.id} className={styles.userRow}>
                     <AppImage src={u.avatarUrl || DEFAULT_AVATAR_URL} alt="" className={styles.avatar} variant="circle" />
                     <div className={styles.userInfo}>
-                      <span className={styles.nickname}>
-                        {u.nickname} <LevelBadge level={u.level} />
-                      </span>
+                      <span className={styles.nickname}>{u.nickname}</span>
                     </div>
                     {u.id !== user.id && (
                       <Button size="sm" onClick={() => handleFollow(u.id)}>

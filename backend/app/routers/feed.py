@@ -148,6 +148,10 @@ async def get_feed(
 ):
     offset = (page - 1) * size
 
+    # 프론트 칩 "팔로잉" 의 키 — 기존 friends 쿼리와 동일(F-CM-01 FR-1 r12)
+    if filter == "following":
+        filter = "friends"
+
     if filter == "hot":
         # HN 스타일 시간감쇠: score = like_count / (age_hours + 2)^1.5
         # +2 는 갓 작성된 글의 분모 폭주(0 근접)를 막고, gravity=1.5 는 하루~이틀 내 감쇠가 뚜렷하도록 완만하게 잡은 값.

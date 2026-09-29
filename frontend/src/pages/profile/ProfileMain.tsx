@@ -21,7 +21,6 @@ import { useDialogStore } from '@/store/useDialogStore';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatNumber, formatRelativeTime, splitNumberParts } from '@/lib/format';
 import type { FeedPost, UserStats } from '@/api/types';
-import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Chip } from '@/components/ui/Chip';
 import { TrustTierChip } from '@/components/ui/TrustTierChip';
 import { StatusBar } from '@/components/layout/StatusBar';
@@ -372,11 +371,6 @@ export default function ProfileMain() {
             className={styles.avatar}
             variant="circle"
           />
-          {SHOW_LEGACY_GAME_ECONOMY && (
-            <div style={{ position: 'absolute', bottom: -10, left: '50%', transform: 'translateX(-50%)' }}>
-              <LevelBadge level={u.level} />
-            </div>
-          )}
         </div>
 
         <div className={styles.nickRow}>
@@ -897,7 +891,6 @@ export default function ProfileMain() {
           </div>
           <div className={styles.qrInfo}>
             <span className={styles.qrNickname}>{u.nickname}</span>
-            <LevelBadge level={u.level} />
           </div>
           <p className={styles.qrGuide}>{t('profile.shareGuide')}</p>
         </div>

@@ -51,11 +51,15 @@ export default function GroupBans() {
 
   useEffect(() => {
     if (!group || !canManage) return;
+    let cancelled = false; // 늦게 도착한 이전 검색 응답이 최신 결과를 덮지 않게
     setLoading(true);
     listGroupBans(group.id, debouncedQuery)
-      .then(setBans)
-      .catch(() => setBans([]))
-      .finally(() => setLoading(false));
+      .then((list) => !cancelled && setBans(list))
+      .catch(() => !cancelled && setBans([]))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
   }, [group, canManage, debouncedQuery]);
 
   const handleUnban = async () => {

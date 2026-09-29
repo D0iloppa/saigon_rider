@@ -87,7 +87,9 @@ export default function GroupDetail() {
     try {
       await removeGroupMember(group.id, me.id);
       toast.success(t('communityGroup.leftGroup'));
-      loadGroup();
+      // 비공개 그룹은 나가면 볼 수 없다(404) — 그룹 탭으로 돌아간다
+      if (group.visibility === 'private') navigate('/community/groups', { replace: true });
+      else loadGroup();
     } catch {
       toast.error(t('common.errorUnexpected'));
     }

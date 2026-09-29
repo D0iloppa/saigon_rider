@@ -2,7 +2,7 @@
 
 > **이 파일이 SoT 다.** `codebase-memory` MCP 의 `manage_adr` 은 **미러**로만 취급한다.
 > 이유: 2026-08-01 에 `manage_adr(mode='update')` 로 저장하고 17개 섹션까지 확인했으나, 이후 자동 재색인 뒤 `no_adr` 로 사라졌다. MCP 저장은 영속을 보장하지 않는다.
-> MCP 미러 갱신: `manage_adr(mode='update', project='mnt-c-DEV-saigon_rider', content=<이 파일 내용>)`
+> MCP 미러 갱신: `manage_adr(mode='update', project='DEVELOP-DOIL-saigon_rider', content=<이 파일 내용>)`
 >
 > 출처: 2026-07-31~08-01 출시차단 리메디에이션 세션의 실측·검증 사실 + `CLAUDE.md` + `ai-docs/context/frontend-page-map.md`.
 > 이 세션이 다루지 않은 영역(RP 경제 세부·DM·어드민 콘솔 내부)은 얇다 — 해당 영역 작업 시 page-map·코드 그래프를 함께 확인하고 확인한 사실을 여기 보강할 것.
@@ -179,6 +179,8 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 5. **OTP dev 우회는 운영 3중 게이트** — `docker-compose.prod.yml` 빈값 강제 + `_DEV_MODE` fail-safe 화이트리스트. 운영에서 플래그를 켜도 뚫리지 않는다
 6. **검색 관련**(`frontend-page-map.md` :77·:86·:109·:111): `/map/search` 는 신규 API 없이 `fetchBizMapItems` 재사용 · 검색결과에 거리 미표기(GPS 프롬프트 회피) · 검색어 보존 + 무결과 전용 상태 · 업체소식 "더보기" 없음 · **`WITHDRAWN` 매물은 검색·피드·상세에서 완전 비노출**(이 필터를 건드리지 말 것)
 7. **탈퇴회원 식별자는 해시로만 1년 보관**(2026-08-02) — 부정이용(재가입·제재회피) 방지 추적 목적. 전화번호·OAuth 식별자의 **원본은 보관하지 않는다.** `withdrawn_member_archive`(`170_withdrawn_member_archive.sql`).
+
+8. **약속은 거래 상태를 바꾸지 않는다 — 약속 독립 원칙**(2026-09-29 대표 판정, 스토리보드 F-N-02 FR-7 r7·r7.1 — *"약속은 거래가 아니라 그냥 순수 약속일 수도 있다 … 같이 오토바이 타고 어디 가자는 메신저로서의 약속"*). 약속은 모든 1:1 방의 만남 제안(`marketplace_appointments.listing_id` nullable, 게이트 없음, 이중 약속 허용). 거래 축은 거래 세트 항목 상태 하나, 결제는 세트 소유(`marketplace_transactions.trade_set_id`, 자체 `id` PK — 마이그레이션 243~245). 약속 카드는 만남 도구만, 거래·결제 퀵액션은 매물 방 세트 칩 행이 세트·결제 상태로만 제안(약속 시각 창 조건 없음). 선입금 방지는 [물건 확인했어요] 선행 조건 + 확인 1회로 유지(C2). 이중 거래는 `uq_trade_set_items_active_listing` 가 막는다.
 
 ### 탈퇴 계정 복구(restore) — 회귀 금지 보안 불변식 (2026-08-02)
 `pages/auth/AccountRestore.tsx`(`/auth/restore`). 탈퇴 후 30일 유예기간 내 같은 OAuth 계정 재로그인 시, OAuth 인증은 **정상적으로 끝까지** 수행하고(본인 확인 전제) 세션 대신 409 `{code:"account_deleted", restore_token, ...}`을 반환한다. 사용자가 명시적으로 [복구하기]를 눌러야 `POST /auth/account/restore` 호출(자동 복구 없음, 대표 요구).

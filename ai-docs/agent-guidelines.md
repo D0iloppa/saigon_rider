@@ -292,7 +292,7 @@ curl -s -X PATCH "$PLANE_BASE/issues/<ISSUE_ID>/" \
 
 ## 9. 코드베이스 그래프 (codebase-memory MCP)
 
-이 리포(`mnt-c-DEV-saigon_rider`)는 `codebase-memory` MCP 로 코드 그래프(노드/엣지)가 인덱싱되어 있다. 구조 파악·의존관계 추적을 풀텍스트 검색보다 우선 활용한다.
+이 리포(`DEVELOP-DOIL-saigon_rider`)는 `codebase-memory` MCP 로 코드 그래프(노드/엣지)가 인덱싱되어 있다. 구조 파악·의존관계 추적을 풀텍스트 검색보다 우선 활용한다.
 
 ### 사용 시점
 
@@ -320,7 +320,7 @@ curl -s -X PATCH "$PLANE_BASE/issues/<ISSUE_ID>/" \
 
 이 지침은 메인 세션에는 자동 적용되지만, `Agent` 도구로 띄우는 서브에이전트(특히 `Explore` 타입)에는 **자동으로 전파되지 않는다** — `Explore`는 기본적으로 grep/glob/Read 기반으로 동작하도록 설계돼 있어, 위임 프롬프트에 명시하지 않으면 MCP 그래프 조회를 아예 시도하지 않는다.
 
-- 구조/의존관계/호출관계/데이터 흐름 파악을 서브에이전트에 위임할 때는, 프롬프트에 **"먼저 `search_graph`/`trace_path`/`get_architecture`(project: `mnt-c-DEV-saigon_rider`)로 조회하고, 부족한 부분만 grep/Read로 보완하라"**를 명시적으로 포함시킨다.
+- 구조/의존관계/호출관계/데이터 흐름 파악을 서브에이전트에 위임할 때는, 프롬프트에 **"먼저 `search_graph`/`trace_path`/`get_architecture`(project: `DEVELOP-DOIL-saigon_rider`)로 조회하고, 부족한 부분만 grep/Read로 보완하라"**를 명시적으로 포함시킨다.
 - 위임 프롬프트에 이 지시를 빠뜨리지 않았는지, 결과 보고 후 실제로 MCP 도구를 호출했는지(트랜스크립트에서 `mcp__codebase-memory__*` 실제 tool_use 여부) 확인하는 습관을 들인다 — 도구 목록에 이름이 언급된 것과 실제 호출된 것은 다르다.
 
 ### 폴백 — MCP 가 로드되지 않은 환경

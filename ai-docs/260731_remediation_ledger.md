@@ -155,7 +155,7 @@ docker compose --env-file .env up --build -d <service>
 - pre-commit(ruff) 이 신규 테스트에서 `B017`(blind `Exception` assert → `AdsError`), `B905`(`zip(strict=)`) 를 잡아 수정 후 통과. ruff-format 자동정리분도 포함해 재검증(224 passed 동일).
 - 세션 이전 미커밋 작업(`auth.py`·`App.tsx`·`Splash`·`BizManage`·`.env.example`·`docker-compose.prod.yml`·`frontend-page-map.md` 등)은 **커밋에 포함하지 않았고 stash/pop 으로 온전히 복원 확인**.
 
-**📌 ADR 부재 발견**: `manage_adr(get, project=mnt-c-DEV-saigon_rider)` 조회 결과 **ADR 이 아예 없다**(`status: no_adr`, sections 0개). CLAUDE.md 는 "프론트 화면 관련 질문을 받으면 ADR 을 먼저 조회 — 메뉴 구조·SoT 위치·알려진 갭이 여기 있다"고 규정하지만 그 전제가 성립하지 않는다. 이번 1단계 변경은 라우트 추가/삭제·메뉴 구조 변경이 없어 `frontend-page-map.md` 동기화는 불필요하나, **ADR 신규 작성 자체는 이 리메디에이션 범위 밖의 별건 과업**이므로 감독이 임의 작성하지 않고 기록만 남긴다.
+**📌 ADR 부재 발견**: `manage_adr(get, project=DEVELOP-DOIL-saigon_rider)` 조회 결과 **ADR 이 아예 없다**(`status: no_adr`, sections 0개). CLAUDE.md 는 "프론트 화면 관련 질문을 받으면 ADR 을 먼저 조회 — 메뉴 구조·SoT 위치·알려진 갭이 여기 있다"고 규정하지만 그 전제가 성립하지 않는다. 이번 1단계 변경은 라우트 추가/삭제·메뉴 구조 변경이 없어 `frontend-page-map.md` 동기화는 불필요하나, **ADR 신규 작성 자체는 이 리메디에이션 범위 밖의 별건 과업**이므로 감독이 임의 작성하지 않고 기록만 남긴다.
 
 ---
 

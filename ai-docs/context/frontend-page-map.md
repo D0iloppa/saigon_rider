@@ -2,9 +2,9 @@
 
 > **목적**: "동네지도에 어떤 기능개선이 필요해?" 처럼 **한글 메뉴명 기준**으로 질문받았을 때, 바로 해당 라우트·페이지 파일·핵심 컴포넌트를 찾아가기 위한 진입점 색인.
 >
-> **먼저 ADR부터 확인**: 대부분의 질문은 이 문서 전체를 읽지 않고도 `mcp__codebase-memory__manage_adr(mode: "get", project: "mnt-c-DEV-saigon_rider")` 압축 요약 한 번으로 답이 된다(메뉴 구조·SoT 위치·알려진 갭). 이 문서는 ADR에서 다루지 않는 **서브라우트/컴포넌트 세부 나열**이 필요할 때만 펼쳐 보는 상세 참조다. 메뉴/라우트 구조를 바꾸면 ADR과 이 문서를 함께 갱신한다.
+> **먼저 ADR부터 확인**: 대부분의 질문은 이 문서 전체를 읽지 않고도 `mcp__codebase-memory__manage_adr(mode: "get", project: "DEVELOP-DOIL-saigon_rider")` 압축 요약 한 번으로 답이 된다(메뉴 구조·SoT 위치·알려진 갭). 이 문서는 ADR에서 다루지 않는 **서브라우트/컴포넌트 세부 나열**이 필요할 때만 펼쳐 보는 상세 참조다. 메뉴/라우트 구조를 바꾸면 ADR과 이 문서를 함께 갱신한다.
 >
-> **이 문서 vs codebase-memory MCP**: 이 문서는 "메뉴명 → 코드 위치"의 **얕은 정적 지도**다. 실제 호출관계·데이터 흐름(어떤 API/스토어/네이티브 함수를 부르는지, 변경 시 영향 범위)은 매번 최신 상태로 바뀌므로 여기 박제하지 않는다. 아래에서 찾은 파일/컴포넌트명을 `codebase-memory` MCP(`project: mnt-c-DEV-saigon_rider`)의 `search_graph`/`trace_path`/`get_architecture`에 넣어 **살아있는 그래프**로 조회한다 (사용법은 문서 하단 [MCP로 더 깊이 파기](#mcp로-더-깊이-파기) 참조, 상세 도구 규칙은 [`agent-guidelines.md`](../agent-guidelines.md) §9).
+> **이 문서 vs codebase-memory MCP**: 이 문서는 "메뉴명 → 코드 위치"의 **얕은 정적 지도**다. 실제 호출관계·데이터 흐름(어떤 API/스토어/네이티브 함수를 부르는지, 변경 시 영향 범위)은 매번 최신 상태로 바뀌므로 여기 박제하지 않는다. 아래에서 찾은 파일/컴포넌트명을 `codebase-memory` MCP(`project: DEVELOP-DOIL-saigon_rider`)의 `search_graph`/`trace_path`/`get_architecture`에 넣어 **살아있는 그래프**로 조회한다 (사용법은 문서 하단 [MCP로 더 깊이 파기](#mcp로-더-깊이-파기) 참조, 상세 도구 규칙은 [`agent-guidelines.md`](../agent-guidelines.md) §9).
 >
 > 라우트 정의 SoT: `frontend/src/App.tsx`. 한글 라벨 SoT: `frontend/src/locales/ko/translation.json`.
 >
@@ -412,7 +412,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **2열 그리드 카드 (2026-07-25, 정정 — 같은 날짜에 한 번 잘못 기록됐다가 재작업)**: ⚠️ 이 자리에는 한때 "리스트형 행(아바타 40px + 우측 56px 썸네일 + `+N` 배지 + 단일 컬럼)"으로 개편됐다는 서술이 있었으나, 참조 디자인을 잘못 지정했다가 정정 재작업된 결과 **사실이 아니다**. 실제 구현은 **2열 그리드**: `.feedGrid`(`grid-template-columns: repeat(2, minmax(0,1fr))`, gap 10px) — 참조 원본은 동네지도 "최초 진입 리스트 페이지"의 커뮤니티 탭(바텀시트 아님)이며, 그 dormant CSS가 `pages/map/NeighborhoodMapList.module.css:192-283`에 남아 있고 원본 JSX는 `git show 9fef1a2~1:frontend/src/pages/map/NeighborhoodMap.tsx`의 `.feedGrid` 블록이다. 이 CSS를 `FeedList.module.css`로 복사 이관했고 원본은 무수정. 카드 구성: 사진(`aspect-ratio 1.15`, 없으면 `Newspaper` 아이콘 플레이스홀더) → `.feedAuthor`(아바타 22px + 닉네임 12px/700 ellipsis + 상대시간 10px) → `.feedCaption`(13px, 2줄 클램프, min-height 36px, 캡션 없으면 `feed.noCaption` 폴백) → `.feedMeta`(🔥응원/💬댓글수, 응원은 카운트 0이어도 노출·댓글 수는 0이면 숨김). 카드 컨테이너는 `<button>`이 아니라 **`<article role="button" tabIndex={0}>`**(버튼 중첩 회피) — 클릭/Enter/Space → `/feed/post/:postId`, 내부 버튼 키다운 버블링은 `onKeyDown`의 `e.target !== e.currentTarget` 가드로 무시. **응원(🔥) 토글은 목록에서 살아있다**(`toggleCheer` 낙관적 카운트 갱신, 내부 `<button>` + `stopPropagation`), **아바타·닉네임 탭 → 프로필 페이지(`/profile/:userId`)로 push**(2026-08-13 — 종전 `ProfileCard` 시트에서 전환) — **댓글만 목록에서 불가**(`CommentSheet` 미복원, 댓글 수는 표시 전용이고 카드 클릭이 상세로 위임). 필터칩(전체/내 동네/친구/핫)·데이터 로딩·페이지네이션·`resolveUsableLocation()`은 무변경.
 - **그리드 카드 사진이 본문을 밀어내는 결함 수정 (2026-07-27)**: 대표 지적 — 커뮤니티 2열 그리드 카드가 사진만 보이고 본문이 안 보인다(홈 "커뮤니티 인기글" 카드는 [사진+내용]이 모두 보이니 구성을 동일하게 하라는 요구, 치수는 폭이 달라 동일 불가 — 구성만). **원인은 마크업이 아니었다** — `FeedList.tsx`는 사진 유무와 무관하게 `.feedBody`(작성자·본문·메타)를 이미 항상 렌더하고 있었다. `.feedPhoto`/`.feedPlaceholder` 그룹 셀렉터가 `aspect-ratio:1.15`를 걸었지만, 그게 `AppImage`의 래퍼 span(`AppImage.module.css` `.wrapper`가 `height:100%` 강제)에 적용됐고 부모에 정해진 높이가 없어 무력화되면서 사진이 자라 본문을 밀어냈다. **해소**: `.feedThumb` 래퍼 신설(`width:100%; aspect-ratio:1.15; overflow:hidden; flex-shrink:0`)로 사진을 고정 비율 박스에 가두고, `.feedPhoto`/`.feedPlaceholder`는 `width:100%; height:100%`로 단순화, `.feedCard`에 `display:flex; flex-direction:column` 명시. 사진 있음/없음/스켈레톤 3케이스 모두 같은 `.feedThumb`를 쓴다(치수 일치). **레퍼런스는 홈 카드** `HomePage.module.css:708~780`(`.commCard` flex column / `.commCardThumb` 고정 박스 / `.commCardBody` 제목 2줄 클램프·메타·댓글수) — 단 홈 카드 CSS는 하드코딩 hex(`#fff`/`#eeeef0`/`#1c1c1e`/`#8e8e93`/`#aeaeb2`)를 쓰므로 구조만 모방하고 색은 토큰을 썼다(홈 쪽 하드코딩은 다크모드 취약 기존 결함으로 남아 있음). **보존 확인**: 응원 토글(`cheerBtn`/`cheerBtnActive`)·아바타 탭(`avatarBtn`)·`<article role="button" tabIndex={0}>` + `onKeyDown` 가드(`e.target !== e.currentTarget`이면 return) + `stopPropagation` 전부 무변경(과거 오삭제 사고 이력이 있는 출시 기능). locale 신규 키 0개.
 - **신고 진입점 배선 (2026-09-09, 당근 비교 트리아지 F050)**: 피드 게시물·피드 댓글·그룹 DM 메시지 신고는 **백엔드 라우트가 이미 있었는데 프런트가 호출하지 않는 배선 누락** 상태였다(`backend/app/routers/feed.py:687` `POST /{post_id}/report`, `feed.py:727` `POST /{post_id}/comments/{comment_id}/report`, `backend/app/routers/dm.py:1367` `POST /conversations/{id}/messages/{message_id}/report` — 중복신고 가드 `_report_guard.py` 포함 전부 기구현). 이번에 프런트만 이었다: `api/feed.ts`에 `reportFeedPost`/`reportFeedComment`, `api/dm.ts`에 `reportGroupMessage`(`reportConversation` 패턴 미러, `rethrow: true`). `FeedDetail.tsx`는 상단바 `MoreVertical`(비작성자에게만) → 사유 바텀시트, 댓글은 좋아요 옆 `Flag` 아이콘(본인 댓글 숨김) — 이를 위해 `transformComment()`에 `raw.user_id` → `Comment.userId` 매핑 추가. `DmDetail.tsx`는 **기존 메시지 롱프레스 액션시트에 항목만 추가**했고 그룹(`!isDirect`)·타인 메시지에만 노출, 1:1 `reportConversation` UI 는 무변경. **증빙 첨부 단계는 의도적으로 뺐다** — 매물 신고의 `ReportDetailSheet` 대신 프로필·1:1 대화 신고와 같은 사유 선택 전용 경량 흐름(백엔드 `ReportCreateRequest.note` 는 optional). 라우트 신설 0개, i18n `feed.report*`/`dm.messageReportAction` ko·en·vi 동시 추가(2,528키 패리티). 근거: [`../task/active/260909_daangn_gap_triage/REPORT.md`](../task/active/260909_daangn_gap_triage/REPORT.md) F050. **주의**: 이 절 아래 관리자 콘솔 항목의 "신고센터는 아직 피드 미포함" 서술은 어드민 큐 기준이며, 사용자측 신고 접수 경로는 위와 같이 이제 존재한다.
-- **수동 QR 송금 안전 안내 (2026-09-10, 당근 비교 트리아지 F052 변형)**: 원안(사기계좌 조회·송금 차단)은 **보류**다 — 베트남에 사기계좌 조회 데이터 소스가 존재하는지 자체가 불명이고 외부 연동·법적 권한이 선행된다. 대신 **플랫폼이 계좌를 검증하지 않는다는 사실을 송금 직전에 알린다**(외부 API 없음, 백엔드 변경 0). 붙은 곳은 두 지점: `DmDetail.tsx` 의 `payment_qr` 말풍선(1198 부근)과 `TradeTransaction.tsx`(`/dm/:conversationId/trade/:appointmentId`)의 QR 섹션. 그리고 `송금했어요` 버튼은 `useConfirmStore` 확인 단계를 거치며, **이 버튼이 은행·결제사 확인이 아니라 본인 진술임**을 문구로 명시한다.
+- **수동 QR 송금 안전 안내 (2026-09-10, 당근 비교 트리아지 F052 변형)**: 원안(사기계좌 조회·송금 차단)은 **보류**다 — 베트남에 사기계좌 조회 데이터 소스가 존재하는지 자체가 불명이고 외부 연동·법적 권한이 선행된다. 대신 **플랫폼이 계좌를 검증하지 않는다는 사실을 송금 직전에 알린다**(외부 API 없음, 백엔드 변경 0). 붙은 곳은 두 지점: `DmDetail.tsx` 의 `payment_qr` 말풍선(1198 부근)과 `TradeTransaction.tsx`(`/dm/:conversationId/trade/:tradeSetId`)의 QR 섹션. 그리고 `송금했어요` 버튼은 `useConfirmStore` 확인 단계를 거치며, **이 버튼이 은행·결제사 확인이 아니라 본인 진술임**을 문구로 명시한다.
   > 🔒 **문구 규칙**: 이 안내는 **보증이 아니라 부인(否認)이다.** "안전한 거래입니다" 류로 고쳐 쓰지 마라 — 톤의 기준은 `database/init/232_marketplace_transactions.sql` 주석("PSP 검증을 주장하지 않는다")이다. 담는 내용은 ①QR·계좌는 판매자가 등록했고 플랫폼 미검증 ②표시된 것과 다른 계좌 요구에 응하지 말 것 ③앱은 송금 대행·대금 보관을 하지 않음 ④이상하면 신고.
   신고는 새로 만들지 않고 기존 `reportConversation` 시트를 재사용한다(`TradeTransaction` 은 자체 신고 상태가 없어 `/dm/:conversationId` 로 보내 그 진입점을 쓴다). 기존 `/guide/safe-trade`(`SafeTradeGuide.tsx`)는 **중복하지 않았다** — 그건 정적 교육 페이지고 이건 실제 송금 순간에 붙는 안내라 역할이 다르다. i18n `dm.tradeSafety*`/`dm.tradeReportPaymentConfirm*` ko·en·vi. 근거: [`../task/active/260909_daangn_gap_triage/REPORT.md`](../task/active/260909_daangn_gap_triage/REPORT.md) F052.
 - **거래 안전 절차 UX 고도화 (2026-09-16, 당근 안심결제 UX 레퍼런스 — UI/UX 한정)**: 당근 "안심결제" 배너·타임라인·FAQ·CS문의 6요소를 참고했으나 **"안심거래/안심결제" 명칭은 채택하지 않았다** — 이 앱은 대금을 보관·검증하지 않는 중개자일 뿐이라 그 명칭을 쓰면 위 F052 부인 고지(`tradeBoundaryNotice`/`tradeSafetyNotice`)와 모순된다. 같은 이유로 **구매자 보호수수료·결제내역 브레이크다운·PG 연동·적극적 분쟁중재는 범위에서 명시적으로 뺐다**(백엔드에 수수료 개념 자체가 없음 — `ad_payments`(광고결제·토스레일)뿐). 실제 변경: ①`DmDetail.tsx`에 **direct 방 전용** 거래 진행상태 배너 신설(`payment_qr` 메시지 존재 시 마운트 1회 `fetchMarketplaceTransaction` 조회, 폴링·신규 API 없음, CANCELLED/COMPLETED 시 미표시) — 우측 "이용안내" 링크는 `/guide/safe-trade`로. ②`TradeTransaction.tsx`: `TradeStep`에 `current` prop으로 3상태 표현, **거래취소**(기존 `cancelAppointment` API, `ACCEPTED && !reported`일 때만 노출 — 신고 이후 409는 안내 문구로 분기), FAQ 상위 3건 인라인 프리뷰(`/faq` `FaqList.tsx` 재사용, 신규 컴포넌트 없음)+전체보기, "고객센터에 문의하기"→`/settings/support`에 `state.inquiryDraft`(거래번호+매물명) 프리필 전달(`CustomerSupport.tsx`가 소비 후 state 1회성 소거). ③`SafeTradeGuide.tsx`에 판매자/구매자 역할 세그먼트+4단계 튜토리얼 섹션 추가(신규 라우트 없음, 실제 UI 캡처는 에셋 파이프라인 부재로 생략 — 필요 시 별건). moreSheet(4항목 포화)·DmDetail TopBar·TradeTransaction `onBack` 오버라이드 전부 무변경. i18n `dm.*` 19키+`safeTradeGuide.*` 20키 ko/en/vi 동시 추가(계약테스트 `tradeTransaction.contract.test.mjs` 4불변식 유지 확인됨).
@@ -742,7 +742,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | `/dm/:conversationId/board` | `pages/dm/DmBoard.tsx` | 그룹방 채널형 게시판 목록 |
 | `/dm/:conversationId/board/new` | `pages/dm/DmBoardCompose.tsx` | 게시판 글쓰기 |
 | `/dm/:conversationId/board/:postId` | `pages/dm/DmBoardPost.tsx` | 게시판 글 상세 + 댓글 스레드 |
-| `/dm/:conversationId/trade/:appointmentId` | `pages/dm/TradeTransaction.tsx` | 거래 진행(확인→결제→전달 타임라인, F-S6-01) — 상세는 §3.12 |
+| `/dm/:conversationId/trade/:tradeSetId` | `pages/dm/TradeTransaction.tsx` | 거래 진행(확인→결제→전달 타임라인, F-S6-01) — 상세는 §3.12 |
 | `/dm/:conversationId/items` | `pages/dm/TradeSetItems.tsx` | 거래 세트 물품 전체 페이지(F-DM-02 FR-6, 260928 실기기 피드백) — 2열 그리드 + 아이콘 전송, 구매자 전용 [물품편집] |
 | `/dm/group/new` | `pages/dm/DmGroupCreate.tsx` | 그룹 만들기(최소 생성 폼) |
 
@@ -797,8 +797,9 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | 단계 | 컴포넌트 | 내용 |
 |---|---|---|
 | 약속 잡기(S4) | `pages/dm/AppointmentLocationPicker.tsx` | 약속 시트(장소·시각), 약속 카드(PROPOSED/ACCEPTED) |
+| 약속 독립 원칙(F-N-02 FR-7, 2026-09-29) | `DmDetail.tsx` 약속 카드 · `components/dm/TradeSetChips.tsx` + `tradeSetChipModel.ts` | 약속은 **모든 1:1 방**에서(매물 연결 선택, 순수 약속 = 매물 없음) — 카드는 만남 도구만. 거래·결제 퀵액션은 매물 방 세트 칩 행이 세트·결제 상태로만 제안(`getStageAction`). 결제는 세트 소유 → 거래 화면 경로의 파라미터가 `tradeSetId` |
 | 이동·위치초대(S5) | `components/shell/ActiveSessionBar.tsx` + `components/location/LiveLocationModal.tsx`(§3.8 710행), `RideNav.tsx`(§3.13) | 실시간 위치공유 카드+동의 모달, 길안내 핸드오프 |
-| 만남·교환(S6) | `pages/dm/TradeTransaction.tsx`(`/dm/:conversationId/trade/:appointmentId`) | 확인→결제→전달 타임라인(대표 결정 C2 구현 완료). PAYMENT_REPORTED 상태에서 "문제가 있나요?" 접힘 행(`?openIssues=1`/`location.state.openIssues` 로 펼친 채 진입 — §3.14 참조) |
+| 만남·교환(S6) | `pages/dm/TradeTransaction.tsx`(`/dm/:conversationId/trade/:tradeSetId`) | 확인→결제→전달 타임라인(대표 결정 C2 구현 완료). PAYMENT_REPORTED 상태에서 "문제가 있나요?" 접힘 행(`?openIssues=1`/`location.state.openIssues` 로 펼친 채 진입 — §3.14 참조) |
 | 완료·후기(S7) | `TradeTransaction.tsx`, `pages/profile/TradeHistory.tsx`(§3.11) | 완료 요청/처리 카드, 거래 이력 목록·후기 작성 |
 
 ### 3.13 길안내 (`/ride-nav`)
@@ -1050,13 +1051,13 @@ CTA 바를 **채팅 = 주 행동 / 전화 = 보조 행동** 2열로 재구성했
 
 ```
 # 페이지 컴포넌트의 실제 호출관계(=연결된 API/store/native 함수) 확인
-mcp__codebase-memory__trace_path(project="mnt-c-DEV-saigon_rider", function_name="NeighborhoodMap", direction="outbound", depth=2)
+mcp__codebase-memory__trace_path(project="DEVELOP-DOIL-saigon_rider", function_name="NeighborhoodMap", direction="outbound", depth=2)
 
 # 특정 컴포넌트/함수를 텍스트로 찾기
-mcp__codebase-memory__search_graph(project="mnt-c-DEV-saigon_rider", query="SaigonMapV5")
+mcp__codebase-memory__search_graph(project="DEVELOP-DOIL-saigon_rider", query="SaigonMapV5")
 
 # 이 파일을 누가 쓰는지(영향범위) 역방향 추적
-mcp__codebase-memory__trace_path(project="mnt-c-DEV-saigon_rider", function_name="findWardAt", direction="inbound")
+mcp__codebase-memory__trace_path(project="DEVELOP-DOIL-saigon_rider", function_name="findWardAt", direction="inbound")
 ```
 
 `trace_path(function_name="NeighborhoodMap", ...)`로 실제 조회하면 `fetchListings`/`fetchAds`(`api/market.ts`), `fetchFeed`(`api/feed.ts`), `fetchPoiMapItems`(`api/poi.ts`), `fetchBizMapItems`(`api/biz.ts`), `useLocationStore`/`useUserStore`, `native.ts`의 위치 권한 함수까지 한 번에 나온다 — "동네지도가 어떤 백엔드/상태와 엮여있나"를 코드 안 뒤지고 바로 확인 가능.

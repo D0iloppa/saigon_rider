@@ -581,7 +581,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "https://translation.googleapis
 
 ## 8. 기존 결정(ADR / page-map)과의 저촉 검토
 
-**ADR**: `manage_adr(mode='get', project='mnt-c-DEV-saigon_rider')` 조회 결과 **`status: no_adr`** — 저장된 ADR 이 없다. 따라서 `대표 결정 — 건드리면 회귀` / `재작업 금지` 섹션과의 저촉은 **판정 불가(해당 없음)**. 기존 결정의 유일한 기록은 `ai-docs/context/frontend-page-map.md` 본문이다. → **후속 조치 권고**: 이 설계가 채택되면 ADR 을 생성해 검색 구조 결정을 기록해야 한다(CLAUDE.md 는 ADR 과 page-map 을 함께 갱신하도록 규정).
+**ADR**: `manage_adr(mode='get', project='DEVELOP-DOIL-saigon_rider')` 조회 결과 **`status: no_adr`** — 저장된 ADR 이 없다. 따라서 `대표 결정 — 건드리면 회귀` / `재작업 금지` 섹션과의 저촉은 **판정 불가(해당 없음)**. 기존 결정의 유일한 기록은 `ai-docs/context/frontend-page-map.md` 본문이다. → **후속 조치 권고**: 이 설계가 채택되면 ADR 을 생성해 검색 구조 결정을 기록해야 한다(CLAUDE.md 는 ADR 과 page-map 을 함께 갱신하도록 규정).
 
 **page-map 에서 확인한 검색·번역 관련 기존 결정** (모두 존중, 저촉 없음):
 

@@ -8,7 +8,7 @@
 
 ## 0. 핵심 전제 — ADR 부재
 
-`mcp__codebase-memory__manage_adr(mode='get', project='mnt-c-DEV-saigon_rider')` 조회 결과 **ADR이 비어있음** (`no_adr`). `CLAUDE.md`/`frontend-page-map.md`가 "먼저 ADR부터 확인"을 안내하지만 현재 저장된 내용이 없어, 이번 분석은 `frontend-page-map.md` + `architecture.md` + 코드 그래프(`search_graph`/`query_graph`/`get_code_snippet`) + 직접 Read로 전량 재구성했다. (별건이지만 세션 마무리 시 언급 필요 — 이번 태스크 범위 밖이라 ADR을 새로 쓰지는 않음.)
+`mcp__codebase-memory__manage_adr(mode='get', project='DEVELOP-DOIL-saigon_rider')` 조회 결과 **ADR이 비어있음** (`no_adr`). `CLAUDE.md`/`frontend-page-map.md`가 "먼저 ADR부터 확인"을 안내하지만 현재 저장된 내용이 없어, 이번 분석은 `frontend-page-map.md` + `architecture.md` + 코드 그래프(`search_graph`/`query_graph`/`get_code_snippet`) + 직접 Read로 전량 재구성했다. (별건이지만 세션 마무리 시 언급 필요 — 이번 태스크 범위 밖이라 ADR을 새로 쓰지는 않음.)
 
 ---
 

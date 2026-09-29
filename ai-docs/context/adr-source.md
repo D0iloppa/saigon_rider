@@ -2,7 +2,7 @@
 
 > **이 파일의 존재 이유**: `index_repository` 재인덱싱이 `manage_adr` 내용을 초기화시키는 알려진 버그가 있다
 > ([`agent-guidelines.md`](../agent-guidelines.md) §9 경고). 재인덱싱 직후 `manage_adr(mode='get')` 이 비어 있으면
-> **이 파일의 `##` 이하 전문을 그대로** `manage_adr(mode='update', project='mnt-c-DEV-saigon_rider', content=...)` 로 밀어넣어 복원한다.
+> **이 파일의 `##` 이하 전문을 그대로** `manage_adr(mode='update', project='DEVELOP-DOIL-saigon_rider', content=...)` 로 밀어넣어 복원한다.
 >
 > ADR 내용을 고칠 일이 생기면 **이 파일과 MCP 를 항상 함께** 갱신한다. 이 파일이 SoT 다.
 >
@@ -118,6 +118,7 @@ Zalo Graph API `/v2.0/me` 가 **베트남 밖 IP 를 error -501 로 차단**한�
 | **폴링 경로의 응답에 목록 단위 집계를 넣을 땐 배치로 계산한다** — 멤버·리액션 등 부가정보는 대화당 1회 조회해 파이썬에서 집계 | 그룹 읽음 인원수(`96e288c9`) — 메시지마다 쿼리를 돌리면 5초 폴링 tick 마다 N+1 |
 | **미읽음 뱃지 카운트는 `useDmStore` 한 곳에 모은다** — 새 카운트를 별도 state 로 두지 않는다 | 실사고 2026-09-13 — 알림벨만 `HomePage` 로컬 state 로 따로 관리해 마운트 1회 값이 고정됐다(커밋 `2b72de99`) |
 | **DB 세션(트랜잭션)을 연 채 외부 HTTP 를 await 하지 않는다.** 읽은 값만 챙기고 `commit()` 으로 트랜잭션을 닫은 뒤 외부 호출한다 | 실사고 2026-09-13 — `notify_user` 가 FCM 호출을 트랜잭션 안에서 기다려 커넥션이 idle-in-transaction 으로 누수, 풀(기본 5+10) 고갈 후 **푸시 전면 중단**(DLQ 62건, 발송 0건). 2차 안전망은 `engine/app/database.py` 의 `idle_in_transaction_session_timeout=30s` |
+| **약속은 거래 상태를 바꾸지 않는다(약속 독립 원칙)** — 약속은 모든 1:1 방의 만남 제안(매물 연결 선택). 거래 축은 거래 세트 항목 상태 하나, 결제(`marketplace_transactions`)는 세트 소유(`trade_set_id`, 자체 `id` PK). 거래·결제 퀵액션은 세트 칩 행이 제안 | 대표 판정 2026-09-29(스토리보드 F-N-02 FR-7 r7·r7.1). 이중 약속 허용 — 독점은 `uq_trade_set_items_active_listing` |
 
 ### 경로(routing) 정책 — D-ROUTE-1 (대표 결정 2026-09-10)
 

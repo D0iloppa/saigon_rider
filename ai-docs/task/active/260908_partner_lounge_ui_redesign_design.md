@@ -5,7 +5,7 @@
 - 범위: `/biz/manage` 운영 홈·성과와 기존 연결 기능의 정보구조·UI 설계. 결과물은 검토용 클릭 가능한 HTML 시안. 제품 코드·DB·계약·결제는 변경하지 않는다.
 - 가정: 이미 승인된 파트너가 반복 방문하는 모바일 관리 화면이다. 계정 승인(`status=APPROVED`)과 사업자 검증(`verificationStatus`)은 별개다. 아직 승인되지 않은 계정은 기존 `/biz/status` 흐름을 유지한다.
 - 근거 수준: 아래 발견은 현재 파일의 정적 코드 확인이다. 실제 운영 사용자 화면·실제 광고주 성과를 관찰한 결과가 아니다. 별도 T3의 브라우저 캡처는 출처·픽스처 여부를 해당 산출물에 명시한다.
-- 탐색: `codebase-memory.search_graph(project=mnt-c-DEV-saigon_rider, query=BizManage, include_connected=true)` 성공, 실제 파일로 재확인. 감독의 선행 ADR 조회는 transport 오류였다.
+- 탐색: `codebase-memory.search_graph(project=DEVELOP-DOIL-saigon_rider, query=BizManage, include_connected=true)` 성공, 실제 파일로 재확인. 감독의 선행 ADR 조회는 transport 오류였다.
 
 ## 1. 핵심 판단
 

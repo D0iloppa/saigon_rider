@@ -336,7 +336,7 @@ export default function FeedList() {
                         <button
                           type="button"
                           className={styles.cheerBtn}
-                          aria-label={t('comments')}
+                          aria-label={t('feed.comments')}
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/feed/post/${p.id}#comments`);

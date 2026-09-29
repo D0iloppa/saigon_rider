@@ -211,6 +211,7 @@
 .input {
   flex: 1;
   min-width: 0;
+  align-self: stretch; /* 옆 버튼과 같은 높이 */
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);

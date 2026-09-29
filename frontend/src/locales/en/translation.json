@@ -3020,7 +3020,15 @@
     "feedSection": "Posts",
     "feedEmpty": "No posts yet",
     "feedError": "Couldn't load posts",
-    "selfPreview": "This is how others see your profile"
+    "selfPreview": "This is how others see your profile",
+    "reviewsReceived": "Reviews received {{count}}",
+    "seeAll": "See all",
+    "reviewsEmpty": "No reviews yet",
+    "reviewsTitle": "Reviews received",
+    "reviewsError": "Couldn't load reviews",
+    "reviewCountValue": "{{count}} reviews",
+    "roleBuyer": "Buyer",
+    "roleSeller": "Seller"
   },
   "communityGroup": {
     "exploreTitle": "Explore groups",

@@ -549,6 +549,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 - `/profile/:userId/listings` → `pages/profile/ProfileListings.tsx` — 매물 전체, 2열 그리드(기존 `.marketGrid`/`ProfileListingCard.tsx` 그대로 재사용), 무한스크롤.
 - `/profile/:userId/posts` → `pages/profile/ProfilePosts.tsx` — 게시물 전체, 2열 그리드, 무한스크롤. 카드는 신규 `pages/profile/ProfileFeedCard.tsx`(`FeedList.tsx` 의 카드와는 별개 — 프로필 전용).
+- `/profile/:userId/reviews` → `pages/profile/ProfileReviews.tsx` — 받은 후기 전체(모든 별점, 최신순, 무한스크롤; 상단 ★평균·건수·태그 집계). 행은 `ProfileReviewRow.tsx` 공용(프로필 신뢰 카드 "받은 후기" 미리보기 = 태그 top3 + 최근 2건과 동일 컴포넌트). API `GET /users/{id}/reviews`, 프로필 응답 `review_summary` (F-P-01 FR-1 r11).
 - 두 라우트 모두 위 §3.5 "게시물" 항목이 이미 기술한 관례대로 **일반 라우트 + `BackgroundRoutes` 오버레이 양쪽에 등록**된다(`/profile/:userId` 와 동일 패턴).
 
 ### 3.6 게임 허브 하위 메뉴 상세

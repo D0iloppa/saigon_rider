@@ -121,6 +121,7 @@ const ProfileMain = lazyWithRetry(() => import('@/pages/profile/ProfileMain'));
 const UserProfile = lazyWithRetry(() => import('@/pages/profile/UserProfile'));
 const ProfileListings = lazyWithRetry(() => import('@/pages/profile/ProfileListings'));
 const ProfilePosts = lazyWithRetry(() => import('@/pages/profile/ProfilePosts'));
+const ProfileReviews = lazyWithRetry(() => import('@/pages/profile/ProfileReviews'));
 const TradeHistory = lazyWithRetry(() => import('@/pages/profile/TradeHistory'));
 const SocialList = lazyWithRetry(() => import('@/pages/profile/SocialList'));
 const FriendAdd = lazyWithRetry(() => import('@/pages/profile/FriendAdd'));
@@ -217,6 +218,7 @@ function BackgroundRoutes({ children }: { children: ReactNode }) {
             <Route path="/profile/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
             <Route path="/profile/:userId/listings" element={<PrivateRoute><ProfileListings /></PrivateRoute>} />
             <Route path="/profile/:userId/posts" element={<PrivateRoute><ProfilePosts /></PrivateRoute>} />
+            <Route path="/profile/:userId/reviews" element={<PrivateRoute><ProfileReviews /></PrivateRoute>} />
           </Routes>
         </div>
       )}
@@ -709,6 +711,7 @@ export default function App() {
           <Route path="/profile/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
           <Route path="/profile/:userId/listings" element={<PrivateRoute><ProfileListings /></PrivateRoute>} />
           <Route path="/profile/:userId/posts" element={<PrivateRoute><ProfilePosts /></PrivateRoute>} />
+          <Route path="/profile/:userId/reviews" element={<PrivateRoute><ProfileReviews /></PrivateRoute>} />
           <Route path="/trades" element={<PrivateRoute><TradeHistory /></PrivateRoute>} />
           <Route path="/followers/:userId" element={<PrivateRoute><SocialList tab="followers" /></PrivateRoute>} />
           <Route path="/following/:userId" element={<PrivateRoute><SocialList tab="following" /></PrivateRoute>} />

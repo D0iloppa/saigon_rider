@@ -3020,7 +3020,15 @@
     "feedSection": "게시물",
     "feedEmpty": "아직 작성한 게시물이 없어요",
     "feedError": "게시물을 불러오지 못했어요",
-    "selfPreview": "다른 사람에게 보이는 내 프로필이에요"
+    "selfPreview": "다른 사람에게 보이는 내 프로필이에요",
+    "reviewsReceived": "받은 후기 {{count}}",
+    "seeAll": "전체보기",
+    "reviewsEmpty": "아직 받은 후기가 없어요",
+    "reviewsTitle": "받은 후기",
+    "reviewsError": "후기를 불러오지 못했어요",
+    "reviewCountValue": "{{count}}건",
+    "roleBuyer": "구매자",
+    "roleSeller": "판매자"
   },
   "communityGroup": {
     "exploreTitle": "그룹 탐색",

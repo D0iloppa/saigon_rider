@@ -50,6 +50,8 @@ export interface FetchFeedOptions {
   minLng?: number;
   maxLng?: number;
   page?: number;
+  /** 지정 시 page 대신 이 오프셋부터 조회(서버 filter 에 무관하게 로드 개수 기준 페이징). */
+  offset?: number;
   size?: number;
   signal?: AbortSignal;
 }
@@ -80,6 +82,7 @@ export async function fetchFeed(
   }
 
   const params = new URLSearchParams({ filter, page: String(page), size: String(size), lang: i18n.language });
+  if (opts.offset != null) params.set('offset', String(opts.offset));
   if (opts.userId) params.set('user_id', opts.userId);
   if (opts.lat != null) params.set('lat', String(opts.lat));
   if (opts.lng != null) params.set('lng', String(opts.lng));

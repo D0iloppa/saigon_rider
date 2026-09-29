@@ -9,9 +9,9 @@ import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { getGroup, joinGroup, listMembers, removeGroupMember, approveMember, listGroupPosts, listGroupBans, unbanGroupMember } from '@/api/community_groups';
 import { extractErrorCode } from '@/api/client';
-import { toggleCheer } from '@/api/feed';
 import { toast } from '@/components/ui/Toast';
 import confirmStyles from '@/components/ui/ConfirmDialog.module.css';
+import { useCheerToggle } from '@/pages/feed/useCheerToggle';
 import { useUserStore } from '@/store/useUserStore';
 import type { CommunityGroup, CommunityGroupMember, FeedPost } from '@/api/types';
 import feedStyles from '@/pages/feed/FeedList.module.css';
@@ -239,11 +239,7 @@ function BoardTab({ group, isMember, navigate, t }: any) {
   const { items: posts, setItems: setPosts, isLoading, isLoadingMore, hasMore, sentinelRef } =
     useInfiniteScroll<FeedPost>(fetchPage, 20, [group.id, isMember]);
 
-  const handleCheer = async (p: FeedPost, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const { cheered, count } = await toggleCheer(p.id);
-    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, iCheered: cheered, cheerCount: count } : x)));
-  };
+  const handleCheer = useCheerToggle(setPosts);
 
   if (!isMember) {
     return <StateBlock icon={UsersRound} title={t('communityGroup.boardRequiresMembership')} />;

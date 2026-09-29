@@ -7,7 +7,7 @@ import StateBlock from '@/components/ui/StateBlock';
 import sys from '@/styles/system.module.css';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { PullIndicator } from '@/components/ui/PullIndicator';
-import { fetchFeed, toggleCheer, fetchStories } from '@/api/feed';
+import { fetchFeed, fetchStories } from '@/api/feed';
 import type { StoryItem } from '@/api/feed';
 import type { FeedPost } from '@/api/types';
 import { StoryAvatar } from '@/components/ui/StoryAvatar';
@@ -18,6 +18,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { toast } from '@/components/ui/Toast';
 import { resolveUsableLocation } from '@/lib/serviceLocation';
 import { FeedPostCard } from './FeedPostCard';
+import { useCheerToggle } from './useCheerToggle';
 import styles from './FeedList.module.css';
 
 type FilterKey = 'all' | 'neighborhood' | 'following' | 'hot';
@@ -121,13 +122,7 @@ export default function FeedList() {
     { key: 'hot',          label: t('feed.filterPopular'),          Icon: Flame },
   ];
 
-  const handleCheer = async (p: FeedPost, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const { cheered, count } = await toggleCheer(p.id);
-    setPosts((prev) =>
-      prev.map((x) => (x.id === p.id ? { ...x, iCheered: cheered, cheerCount: count } : x))
-    );
-  };
+  const handleCheer = useCheerToggle(setPosts);
 
   return (
     <div className={styles.page}>

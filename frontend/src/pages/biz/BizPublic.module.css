@@ -138,7 +138,6 @@
 }
 
 .tabContent {
-  min-height: calc(100dvh - var(--status-bar-height) - 112px);
   padding: 20px 20px 24px;
   transition: padding-top .16s ease;
 }

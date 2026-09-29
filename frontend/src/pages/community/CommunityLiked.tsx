@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, Heart } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
@@ -6,10 +6,10 @@ import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
-import { fetchFeed, toggleCheer } from '@/api/feed';
+import { fetchFeed } from '@/api/feed';
 import type { FeedPost } from '@/api/types';
-import { toast } from '@/components/ui/Toast';
 import { FeedPostCard } from '@/pages/feed/FeedPostCard';
+import { useCheerToggle } from '@/pages/feed/useCheerToggle';
 import feedStyles from '@/pages/feed/FeedList.module.css';
 import styles from './Community.module.css';
 
@@ -17,28 +17,20 @@ import styles from './Community.module.css';
 export default function CommunityLiked() {
   const { t } = useTranslation();
   // 전부 내가 좋아요한 글이라 응원 상태를 켠 채로 보여준다(목록 API 는 iCheered 를 주지 않는다).
+  // 해제로 로컬에서 제거된 만큼 page*size 오프셋이 어긋나므로, 2페이지부터는 로드된 개수를 오프셋으로 쓴다.
+  const loadedRef = useRef(0);
   const fetchPage = useCallback(
     async (page: number) => {
-      const res = await fetchFeed({ filter: 'liked', page });
+      const res = await fetchFeed({ filter: 'liked', page, offset: page > 1 ? loadedRef.current : undefined });
       return { ...res, items: res.items.map((p) => ({ ...p, iCheered: true })) };
     },
     [],
   );
   const { items: posts, setItems: setPosts, isLoading, isLoadingMore, hasMore, error, sentinelRef, reset } =
     useInfiniteScroll<FeedPost>(fetchPage, 20, []);
+  loadedRef.current = posts.length;
 
-  const handleCheer = async (p: FeedPost, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { cheered, count } = await toggleCheer(p.id);
-      // 좋아요 해제 시 목록에서 제거 — 서버 liked 집합과 로드 개수를 맞춰 다음 페이지 누락을 막는다.
-      setPosts((prev) => cheered
-        ? prev.map((x) => (x.id === p.id ? { ...x, iCheered: cheered, cheerCount: count } : x))
-        : prev.filter((x) => x.id !== p.id));
-    } catch {
-      toast.error(t('common.errorUnexpected'));
-    }
-  };
+  const handleCheer = useCheerToggle(setPosts, { removeOnUncheer: true });
 
   return (
     <div className={styles.page}>

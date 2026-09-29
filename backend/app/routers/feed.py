@@ -132,6 +132,9 @@ async def get_feed(
     filter: str = "all",
     page: int = 1,
     size: int = 20,
+    offset: int | None = Query(
+        None, ge=0, description="지정 시 page 대신 이 오프셋부터(좋아요 해제 후 목록 누락 방지)"
+    ),
     user_id: uuid.UUID | None = Query(None),
     author_id: uuid.UUID | None = Query(None),
     lat: Decimal | None = Query(None),
@@ -146,7 +149,8 @@ async def get_feed(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID | None = Depends(optional_user_session),
 ):
-    offset = (page - 1) * size
+    if offset is None:
+        offset = (page - 1) * size
 
     # 프론트 칩 "팔로잉" 의 키 — 기존 friends 쿼리와 동일(F-CM-01 FR-1 r12)
     if filter == "following":

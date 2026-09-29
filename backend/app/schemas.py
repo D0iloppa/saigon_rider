@@ -1115,6 +1115,43 @@ class FollowCountsOut(BaseModel):
     following_count: int
 
 
+class ReviewerOut(BaseModel):
+    id: UUID
+    nickname: str | None
+    avatar_url: str | None
+
+
+class ReviewItemOut(BaseModel):
+    id: UUID
+    rating: int
+    text: str | None
+    tags: list[str]
+    reviewer: ReviewerOut
+    # 그 거래에서 후기 작성자의 역할. 매물이 삭제돼 판별 불가면 None
+    reviewer_role: Literal["BUYER", "SELLER"] | None
+    created_at: datetime
+
+
+class ReviewTagCount(BaseModel):
+    tag: str
+    count: int
+
+
+class ReviewSummaryOut(BaseModel):
+    count: int
+    avg_rating: float | None
+    top_tags: list[ReviewTagCount]
+    # 별점 3 이상 + 본문 있는 최신 2건 (낮은 별점·본문 없는 후기는 전체보기에서만)
+    recent: list[ReviewItemOut]
+
+
+class UserReviewPage(Page[ReviewItemOut]):
+    """`GET /users/{id}/reviews` — 전체 후기(모든 별점). 헤더 집계는 매 페이지에 같이 싣는다."""
+
+    avg_rating: float | None
+    tag_counts: list[ReviewTagCount]
+
+
 class UserProfileOut(BaseModel):
     id: UUID
     nickname: str | None
@@ -1135,6 +1172,8 @@ class UserProfileOut(BaseModel):
     # WP-4(2026-09-09, 당근 비교 트리아지 F049) — 공개 프로필에 신뢰 티어칩을 노출하되
     # 원값 manner_temp 는 절대 내보내지 않는다. 서버에서 티어 문자열로 미리 변환한다.
     trust_tier: str
+    # F-P-01 FR-1 r11 — 받은 후기 요약(신뢰 카드 안 "받은 후기" 섹션)
+    review_summary: ReviewSummaryOut
 
 
 # ── 커뮤니티 그룹 (204_community_group.sql, Phase2) ────────────────

@@ -30,6 +30,7 @@ import sys from '@/styles/system.module.css';
 import styles from './UserProfile.module.css';
 import ProfileListingCard from './ProfileListingCard';
 import ProfileFeedCard from './ProfileFeedCard';
+import ProfileReviewRow, { reviewTagLabel } from './ProfileReviewRow';
 
 const RAIL_SIZE = 6;
 
@@ -219,6 +220,8 @@ export default function UserProfile() {
     );
   }
 
+  const goReviews = () => navigate(`/profile/${userId}/reviews`, { state: location.state });
+
   const riderStyleLabel = profile?.riderStyle === 'commuter'
     ? t('profileSetup.styleCommuterTitle')
     : profile?.riderStyle === 'cafe_hunter'
@@ -340,9 +343,47 @@ export default function UserProfile() {
                   </div>
                   <div>
                     <dt>{t('userProfile.marketReviews')}</dt>
-                    <dd className="num"><Star size={13} /> {profile.marketplaceAvgRating === null ? '—' : profile.marketplaceAvgRating.toFixed(1)} · {profile.marketplaceReviewCount}</dd>
+                    <dd className="num">
+                      {/* r11 — 후기가 있으면 셀 자체가 전체 후기 목록으로 가는 탭 대상 */}
+                      {profile.marketplaceReviewCount > 0 ? (
+                        <button type="button" className={styles.statLink} onClick={goReviews}>
+                          <Star size={13} /> {profile.marketplaceAvgRating === null ? '—' : profile.marketplaceAvgRating.toFixed(1)} · {profile.marketplaceReviewCount}
+                          <ChevronRight size={13} />
+                        </button>
+                      ) : (
+                        <><Star size={13} /> {profile.marketplaceAvgRating === null ? '—' : profile.marketplaceAvgRating.toFixed(1)} · {profile.marketplaceReviewCount}</>
+                      )}
+                    </dd>
                   </div>
                 </dl>
+              )}
+              {/* F-P-01 FR-1 r11 — 받은 후기: 태그 상위 3 + 최근 2건(별점 3↑·본문 있는 것만). 낮은 별점은 전체보기에서 노출 */}
+              {!(profile.marketplaceAvgRating === null && profile.marketplaceSoldCount === 0) && (
+                <div className={styles.reviewBlock}>
+                  <div className={styles.reviewHead}>
+                    <h3>{t('userProfile.reviewsReceived', { count: profile.reviewSummary.count })}</h3>
+                    {profile.reviewSummary.count > 0 && (
+                      <button type="button" className={styles.seeMoreBtn} onClick={goReviews}>
+                        {t('userProfile.seeAll')}
+                        <ChevronRight size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {profile.reviewSummary.count === 0 ? (
+                    <p className={styles.reviewEmpty}>{t('userProfile.reviewsEmpty')}</p>
+                  ) : (
+                    <>
+                      {profile.reviewSummary.topTags.length > 0 && (
+                        <div className={styles.reviewTags}>
+                          {profile.reviewSummary.topTags.map((c) => (
+                            <Chip key={c.tag} variant="surface">{reviewTagLabel(t, c.tag)} {c.count}</Chip>
+                          ))}
+                        </div>
+                      )}
+                      {profile.reviewSummary.recent.map((r) => <ProfileReviewRow key={r.id} review={r} />)}
+                    </>
+                  )}
+                </div>
               )}
             </section>
 

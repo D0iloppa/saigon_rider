@@ -33,9 +33,14 @@ from ..schemas import (
     Page,
     QuestHistoryOut,
     ReportCreateRequest,
+    ReviewerOut,
+    ReviewItemOut,
+    ReviewSummaryOut,
+    ReviewTagCount,
     UserLanguageUpdateRequest,
     UserOut,
     UserProfileOut,
+    UserReviewPage,
     UserStatsOut,
 )
 from ..services.ops_alerts import send_ops_alert
@@ -415,6 +420,121 @@ def _get_trust_tier(temp: Decimal) -> str:
     return "top"
 
 
+async def _assert_not_blocked(db: AsyncSession, viewer_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """양방향 차단이면 존재하지 않는 유저처럼 404 (프로필·후기 목록 공통)."""
+    if viewer_id == user_id:
+        return
+    blocked = (
+        await db.execute(
+            select(UserBlock.blocker_id).where(
+                or_(
+                    (UserBlock.blocker_id == viewer_id) & (UserBlock.blocked_id == user_id),
+                    (UserBlock.blocker_id == user_id) & (UserBlock.blocked_id == viewer_id),
+                )
+            )
+        )
+    ).first()
+    if blocked is not None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+
+async def _review_aggregate(db: AsyncSession, user_id: uuid.UUID) -> tuple[int, float | None, list[ReviewTagCount]]:
+    """받은 후기 전체의 (건수, 평균 별점, 태그별 건수 내림차순). 별점·태그 두 컬럼만 1쿼리로 읽는다."""
+    rows = (
+        await db.execute(
+            select(MarketplaceReview.rating, MarketplaceReview.manner_tags).where(
+                MarketplaceReview.target_id == user_id
+            )
+        )
+    ).all()
+    tag_counter: dict[str, int] = {}
+    for _rating, tags in rows:
+        for tag in tags or []:
+            tag_counter[tag] = tag_counter.get(tag, 0) + 1
+    avg = round(sum(r for r, _ in rows) / len(rows), 1) if rows else None
+    tag_counts = [
+        ReviewTagCount(tag=tag, count=cnt) for tag, cnt in sorted(tag_counter.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+    return len(rows), avg, tag_counts
+
+
+async def _review_items(db: AsyncSession, reviews: list[MarketplaceReview]) -> list[ReviewItemOut]:
+    """후기 행 → 응답 항목. 작성자·매물은 배치 조회(N+1 없음)."""
+    if not reviews:
+        return []
+    reviewers = {
+        u.id: u for u in (await db.execute(select(User).where(User.id.in_({r.reviewer_id for r in reviews})))).scalars()
+    }
+    listing_ids = {r.listing_id for r in reviews if r.listing_id}
+    seller_by_listing: dict[uuid.UUID, uuid.UUID] = {}
+    if listing_ids:
+        seller_by_listing = dict(
+            (
+                await db.execute(
+                    select(MarketplaceListing.id, MarketplaceListing.seller_id).where(
+                        MarketplaceListing.id.in_(listing_ids)
+                    )
+                )
+            ).all()
+        )
+    items = []
+    for r in reviews:
+        reviewer = reviewers[r.reviewer_id]
+        seller_id = seller_by_listing.get(r.listing_id) if r.listing_id else None
+        role = None if seller_id is None else ("SELLER" if seller_id == r.reviewer_id else "BUYER")
+        items.append(
+            ReviewItemOut(
+                id=r.id,
+                rating=r.rating,
+                text=(r.comment or "").strip() or None,
+                tags=list(r.manner_tags or []),
+                reviewer=ReviewerOut(
+                    id=reviewer.id, nickname=reviewer.nickname, avatar_url=resolve_avatar_url(reviewer)
+                ),
+                reviewer_role=role,
+                created_at=r.created_at,
+            )
+        )
+    return items
+
+
+@router.get("/{user_id}/reviews", response_model=UserReviewPage, summary="타유저가 받은 후기 전체 (모든 별점, 최신순)")
+async def get_user_reviews(
+    user_id: uuid.UUID,
+    page: int = 1,
+    size: int = 20,
+    db: AsyncSession = Depends(get_db),
+    viewer_id: uuid.UUID = Depends(verify_user_session),
+):
+    if (await _get_user_or_404(user_id, db)).deleted_at is not None:
+        raise HTTPException(status_code=404, detail="User not found")
+    await _assert_not_blocked(db, viewer_id, user_id)
+    page = max(page, 1)
+    size = min(max(size, 1), 50)
+    count, avg, tag_counts = await _review_aggregate(db, user_id)
+    reviews = (
+        (
+            await db.execute(
+                select(MarketplaceReview)
+                .where(MarketplaceReview.target_id == user_id)
+                .order_by(MarketplaceReview.created_at.desc(), MarketplaceReview.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return UserReviewPage(
+        items=await _review_items(db, list(reviews)),
+        total=count,
+        page=page,
+        size=size,
+        avg_rating=avg,
+        tag_counts=tag_counts,
+    )
+
+
 @router.get("/{user_id}/profile", response_model=UserProfileOut, summary="타유저 공개 프로필 조회")
 async def get_user_profile(
     user_id: uuid.UUID,
@@ -428,19 +548,7 @@ async def get_user_profile(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if viewer_id != user_id:
-        blocked = (
-            await db.execute(
-                select(UserBlock.blocker_id).where(
-                    or_(
-                        (UserBlock.blocker_id == viewer_id) & (UserBlock.blocked_id == user_id),
-                        (UserBlock.blocker_id == user_id) & (UserBlock.blocked_id == viewer_id),
-                    )
-                )
-            )
-        ).first()
-        if blocked is not None:
-            raise HTTPException(status_code=404, detail="User not found")
+    await _assert_not_blocked(db, viewer_id, user_id)
 
     follower_count = (
         await db.execute(select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user_id))
@@ -460,12 +568,23 @@ async def get_user_profile(
             is_friend = reverse is not None
 
     rider_style = user.rider_type.code if user.rider_type else None
-    review_count, review_avg = (
-        await db.execute(
-            select(func.count(), func.avg(MarketplaceReview.rating)).where(MarketplaceReview.target_id == user_id)
+    review_count, avg_rating, tag_counts = await _review_aggregate(db, user_id)
+    recent_rows = (
+        (
+            await db.execute(
+                select(MarketplaceReview)
+                .where(
+                    MarketplaceReview.target_id == user_id,
+                    MarketplaceReview.rating >= 3,
+                    func.length(func.trim(func.coalesce(MarketplaceReview.comment, ""))) > 0,
+                )
+                .order_by(MarketplaceReview.created_at.desc(), MarketplaceReview.id.desc())
+                .limit(2)
+            )
         )
-    ).one()
-    avg_rating = round(float(review_avg), 1) if review_count else None
+        .scalars()
+        .all()
+    )
     sold_count = (
         await db.execute(
             select(func.count(func.distinct(MarketplaceAppointment.listing_id)))
@@ -492,6 +611,12 @@ async def get_user_profile(
         marketplace_review_count=review_count,
         marketplace_avg_rating=avg_rating,
         trust_tier=_get_trust_tier(user.manner_temp),
+        review_summary=ReviewSummaryOut(
+            count=review_count,
+            avg_rating=avg_rating,
+            top_tags=tag_counts[:3],
+            recent=await _review_items(db, list(recent_rows)),
+        ),
     )
 
 

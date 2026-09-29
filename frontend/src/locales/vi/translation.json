@@ -3020,7 +3020,15 @@
     "feedSection": "Bài đăng",
     "feedEmpty": "Chưa có bài đăng nào",
     "feedError": "Không tải được bài đăng",
-    "selfPreview": "Đây là trang cá nhân của bạn khi người khác xem"
+    "selfPreview": "Đây là trang cá nhân của bạn khi người khác xem",
+    "reviewsReceived": "Đánh giá đã nhận {{count}}",
+    "seeAll": "Xem tất cả",
+    "reviewsEmpty": "Chưa có đánh giá nào",
+    "reviewsTitle": "Đánh giá đã nhận",
+    "reviewsError": "Không tải được đánh giá",
+    "reviewCountValue": "{{count}} đánh giá",
+    "roleBuyer": "Người mua",
+    "roleSeller": "Người bán"
   },
   "communityGroup": {
     "exploreTitle": "Khám phá nhóm",

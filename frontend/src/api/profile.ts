@@ -2,7 +2,9 @@ import { api, USE_MOCK } from './client';
 import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
 import type { UserDto } from './auth';
 import type { LoginResult } from './auth';
-import type { BadgeWithEarned, PageResponse, QuestHistoryItem, RiderStyle, UserProfile, UserStats } from './types';
+import type {
+  BadgeWithEarned, PageResponse, ProfileReview, QuestHistoryItem, ReviewTagCount, RiderStyle, UserProfile, UserStats,
+} from './types';
 
 export async function fetchMe(phone: string): Promise<UserDto | null> {
   if (USE_MOCK) return null;
@@ -97,6 +99,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
       marketplaceReviewCount: 0,
       marketplaceAvgRating: null,
       trustTier: 'new',
+      reviewSummary: { count: 0, avgRating: null, topTags: [], recent: [] },
     };
   }
 
@@ -117,6 +120,12 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
     marketplace_review_count: number;
     marketplace_avg_rating: number | null;
     trust_tier: UserProfile['trustTier'];
+    review_summary: {
+      count: number;
+      avg_rating: number | null;
+      top_tags: ReviewTagCount[];
+      recent: RawProfileReview[];
+    };
   }>(url);
 
   return {
@@ -136,6 +145,62 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
     marketplaceReviewCount: res.marketplace_review_count ?? 0,
     marketplaceAvgRating: res.marketplace_avg_rating ?? null,
     trustTier: res.trust_tier,
+    reviewSummary: {
+      count: res.review_summary.count,
+      avgRating: res.review_summary.avg_rating,
+      topTags: res.review_summary.top_tags,
+      recent: res.review_summary.recent.map(toProfileReview),
+    },
+  };
+}
+
+interface RawProfileReview {
+  id: string;
+  rating: number;
+  text: string | null;
+  tags: string[];
+  reviewer: { id: string; nickname: string | null; avatar_url: string | null };
+  reviewer_role: 'BUYER' | 'SELLER' | null;
+  created_at: string;
+}
+
+function toProfileReview(r: RawProfileReview): ProfileReview {
+  return {
+    id: r.id,
+    rating: r.rating,
+    text: r.text,
+    tags: r.tags,
+    reviewer: { id: r.reviewer.id, nickname: r.reviewer.nickname, avatarUrl: r.reviewer.avatar_url },
+    reviewerRole: r.reviewer_role,
+    createdAt: r.created_at,
+  };
+}
+
+export interface UserReviewsPage extends PageResponse<ProfileReview> {
+  avgRating: number | null;
+  tagCounts: ReviewTagCount[];
+}
+
+/** 받은 후기 전체(모든 별점, 최신순). 헤더 집계(avgRating·tagCounts)는 매 페이지 응답에 같이 온다. */
+export async function fetchUserReviews(userId: string, page = 1, size = 20): Promise<UserReviewsPage> {
+  if (USE_MOCK) {
+    return { items: [], total: 0, page, size, avgRating: null, tagCounts: [] };
+  }
+  const res = await api.realFetch<{
+    items: RawProfileReview[];
+    total: number;
+    page: number;
+    size: number;
+    avg_rating: number | null;
+    tag_counts: ReviewTagCount[];
+  }>(`/users/${userId}/reviews?page=${page}&size=${size}`);
+  return {
+    items: res.items.map(toProfileReview),
+    total: res.total,
+    page: res.page,
+    size: res.size,
+    avgRating: res.avg_rating,
+    tagCounts: res.tag_counts,
   };
 }
 

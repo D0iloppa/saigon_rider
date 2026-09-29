@@ -1,0 +1,10 @@
+.scroll { padding: 14px 16px 24px; }
+
+.summary { padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.summaryLine { display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 16px; font-weight: 800; }
+.summaryLine svg { color: var(--warn); fill: var(--warn); }
+.summaryCount { color: var(--text-3); font-size: 13px; font-weight: 600; }
+.tagRow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+
+.list { margin-top: 8px; }
+.list > * + * { border-top: 1px solid var(--line); }

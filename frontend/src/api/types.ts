@@ -192,6 +192,30 @@ export interface FollowUser {
   isFollowing: boolean; // 뷰어(세션 유저) 기준 팔로우 여부
 }
 
+// F-P-01 FR-1 r11 — 받은 후기 (공개 프로필 요약 + /profile/:userId/reviews 목록 공용)
+export interface ProfileReview {
+  id: string;
+  rating: number;
+  text: string | null;
+  tags: string[];
+  reviewer: { id: string; nickname: string | null; avatarUrl: string | null };
+  /** 그 거래에서 작성자의 역할 — 매물 삭제로 판별 불가면 null */
+  reviewerRole: 'BUYER' | 'SELLER' | null;
+  createdAt: string;
+}
+
+export interface ReviewTagCount {
+  tag: string;
+  count: number;
+}
+
+export interface ReviewSummary {
+  count: number;
+  avgRating: number | null;
+  topTags: ReviewTagCount[];
+  recent: ProfileReview[];
+}
+
 export interface UserProfile {
   id: string;
   nickname: string | null;
@@ -210,6 +234,7 @@ export interface UserProfile {
   marketplaceAvgRating: number | null;
   // WP-4(2026-09-09, F049) — 서버가 미리 변환한 신뢰 티어. 원값 manner_temp 는 실리지 않는다.
   trustTier: TrustTierKey;
+  reviewSummary: ReviewSummary;
 }
 
 export interface DmConversation {

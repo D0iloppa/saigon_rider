@@ -82,11 +82,19 @@ test.describe('community group invite', () => {
     await page.goto(`/group/${group.slug ?? group.id}/invite`);
     await expect(page.getByTestId('invite-row')).toHaveCount(1);
     await page.getByTestId('invite-row-checkbox').check();
+    const sent = page.waitForResponse((r) => r.url().includes('/invites') && r.request().method() === 'POST');
     await page.getByTestId('invite-send-btn').click();
+    expect((await sent).status()).toBe(200);
 
     // invitee: DM 방의 초대 카드 — [그룹 보기]만 있고 가입 버튼은 없다
-    const convs = await (await request.get(`${API}/dm/conversations?user_id=${invitee.userId}`, { headers: H(invitee) })).json();
-    const convId = convs.find((c: { other_user_id: string }) => c.other_user_id === owner.userId).id;
+    let convId = '';
+    await expect
+      .poll(async () => {
+        const convs = await (await request.get(`${API}/dm/conversations?user_id=${invitee.userId}`, { headers: H(invitee) })).json();
+        convId = convs.find((c: { other_user_id: string }) => c.other_user_id === owner.userId)?.id ?? '';
+        return convId;
+      })
+      .not.toBe('');
     await page.context().clearCookies();
     await injectSession(page, invitee);
     await page.goto(`/dm/${convId}`);

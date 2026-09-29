@@ -41,7 +41,7 @@ export function transformPost(raw: any): FeedPost {
 }
 
 export interface FetchFeedOptions {
-  filter?: 'all' | 'neighborhood' | 'following' | 'hot' | 'groups';
+  filter?: 'all' | 'neighborhood' | 'following' | 'hot' | 'groups' | 'liked';
   userId?: string;
   lat?: number;
   lng?: number;

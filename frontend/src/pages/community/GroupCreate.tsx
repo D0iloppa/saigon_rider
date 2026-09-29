@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Globe, Lock } from 'lucide-react';
+import { Camera, Globe, Lock, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
+import { AppImage } from '@/components/ui/AppImage';
+import { api } from '@/api/client';
+import { useUserStore } from '@/store/useUserStore';
 import { createGroup } from '@/api/community_groups';
 import { toast } from '@/components/ui/Toast';
 import feedStyles from '@/pages/feed/FeedList.module.css';
 import feedCreateStyles from '@/pages/feed/FeedCreate.module.css';
 import styles from '@/pages/dm/DmGroupCreate.module.css';
+import communityStyles from './Community.module.css';
 
 type Visibility = 'public' | 'private';
 type JoinPolicy = 'open' | 'approval';
@@ -23,9 +27,32 @@ export default function GroupCreate() {
   const [visibility, setVisibility] = useState<Visibility>('public');
   const [joinPolicy, setJoinPolicy] = useState<JoinPolicy>('open');
   const [submitting, setSubmitting] = useState(false);
+  const user = useUserStore((s) => s.user);
+  const [cover, setCover] = useState<{ preview: string; contentId: string | null; uploading: boolean } | null>(null);
+
+  const handleCoverSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (cover) URL.revokeObjectURL(cover.preview);
+    const preview = URL.createObjectURL(file);
+    setCover({ preview, contentId: null, uploading: true });
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('owner_type', 'user');
+      if (user) form.append('owner_id', user.id);
+      const res = await api.realFetchForm<{ id: string }>('/contents/upload', form);
+      setCover({ preview, contentId: res.id, uploading: false });
+    } catch (err: any) {
+      toast.error(err.message ?? t('feedCreate.uploadError'));
+      URL.revokeObjectURL(preview);
+      setCover(null);
+    }
+  };
 
   const handleCreate = async () => {
-    if (!name.trim() || submitting) return;
+    if (!name.trim() || submitting || cover?.uploading) return;
     setSubmitting(true);
     try {
       const group = await createGroup({
@@ -33,6 +60,7 @@ export default function GroupCreate() {
         description: description.trim() || undefined,
         visibility,
         joinPolicy,
+        coverContentId: cover?.contentId ?? undefined,
       });
       navigate(`/group/${group.slug ?? group.id}`, { replace: true });
     } catch {
@@ -46,6 +74,33 @@ export default function GroupCreate() {
     <div className={styles.page}>
       <TopBar title={t('communityGroup.createTitle')} />
       <div className={styles.body}>
+        <label className={communityStyles.coverPicker} data-testid="group-cover-picker" aria-label={t('communityGroup.coverLabel')}>
+          {cover ? (
+            <>
+              <AppImage src={cover.preview} alt="" className={communityStyles.coverPreview} />
+              <button
+                type="button"
+                className={communityStyles.coverRemove}
+                aria-label={t('communityGroup.coverRemove')}
+                onClick={(e) => { e.preventDefault(); URL.revokeObjectURL(cover.preview); setCover(null); }}
+              >
+                <X size={16} />
+              </button>
+            </>
+          ) : (
+            <span className={communityStyles.coverPickerInner}>
+              <Camera size={22} />
+              {t('communityGroup.coverLabel')}
+            </span>
+          )}
+          <input
+            className={communityStyles.hiddenInput}
+            data-testid="group-cover-input"
+            type="file"
+            accept="image/*"
+            onChange={handleCoverSelect}
+          />
+        </label>
         <input
           className={styles.titleInput}
           type="text"
@@ -112,7 +167,7 @@ export default function GroupCreate() {
         </div>
       </div>
       <div className={styles.submitBar}>
-        <Button onClick={handleCreate} disabled={!name.trim() || submitting} loading={submitting}>
+        <Button onClick={handleCreate} disabled={!name.trim() || submitting || !!cover?.uploading} loading={submitting}>
           {t('communityGroup.createSubmit')}
         </Button>
       </div>

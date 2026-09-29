@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, MessageCircle, MessagesSquare, Newspaper, Plus, UsersRound } from 'lucide-react';
+import { MessagesSquare, Newspaper, Plus, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { Button } from '@/components/ui/Button';
 import { AppImage } from '@/components/ui/AppImage';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
-import { formatRelativeTime } from '@/lib/format';
 import { getGroup, joinGroup, listMembers, removeGroupMember, approveMember, listGroupPosts } from '@/api/community_groups';
 import { toggleCheer } from '@/api/feed';
 import { toast } from '@/components/ui/Toast';
@@ -16,6 +15,9 @@ import { useConfirmStore } from '@/store/useConfirmStore';
 import { useUserStore } from '@/store/useUserStore';
 import type { CommunityGroup, CommunityGroupMember, FeedPost } from '@/api/types';
 import feedStyles from '@/pages/feed/FeedList.module.css';
+import { FeedPostCard } from '@/pages/feed/FeedPostCard';
+import { GroupCover } from './GroupCard';
+import communityStyles from './Community.module.css';
 import styles from './GroupDetail.module.css';
 
 type Tab = 'board' | 'chat' | 'members';
@@ -78,6 +80,7 @@ export default function GroupDetail() {
     <div className={styles.page}>
       <TopBar title={group.name} />
       <div className={styles.body}>
+        <GroupCover name={group.name} coverUrl={group.coverUrl} className={communityStyles.banner} />
         <div className={styles.header}>
           {group.description && <div className={styles.headerDesc}>{group.description}</div>}
           <div className={styles.headerMeta}>{t('communityGroup.memberCount', { count: group.memberCount })}</div>
@@ -180,43 +183,8 @@ function BoardTab({ group, isMember, navigate, t }: any) {
       {!isLoading && posts.length === 0 ? (
         <StateBlock icon={Newspaper} title={t('feed.emptyTitle')} desc={t('feed.emptySub')} />
       ) : (
-        <div className={feedStyles.feedGrid}>
-          {posts.map((p) => (
-            <article
-              key={p.id}
-              className={feedStyles.feedCard}
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate(`/feed/post/${p.id}`)}
-            >
-              <div className={feedStyles.feedThumb}>
-                {p.photoUrl ? (
-                  <AppImage src={p.photoUrl} alt="" className={feedStyles.feedPhoto} />
-                ) : (
-                  <span className={feedStyles.feedPlaceholder}><Newspaper size={22} /></span>
-                )}
-              </div>
-              <span className={feedStyles.feedBody}>
-                <span className={feedStyles.feedAuthor}>
-                  <AppImage src={p.userAvatarUrl ?? undefined} alt="" className={feedStyles.avatar} variant="circle" />
-                  <strong>{p.userNickname ?? '—'}</strong>
-                  <small>{formatRelativeTime(p.createdAt)}</small>
-                </span>
-                <span className={feedStyles.feedCaption}>{p.caption ?? t('feed.noCaption')}</span>
-                <span className={feedStyles.feedMeta}>
-                  <button
-                    type="button"
-                    className={`${feedStyles.cheerBtn} ${p.iCheered ? feedStyles.cheerBtnActive : ''}`}
-                    onClick={(e) => handleCheer(p, e)}
-                  >
-                    <Flame size={12} />
-                    {p.cheerCount > 0 && <span>{p.cheerCount}</span>}
-                  </button>
-                  {p.commentCount > 0 && <span><MessageCircle size={12} />{p.commentCount}</span>}
-                </span>
-              </span>
-            </article>
-          ))}
+        <div className={feedStyles.postList} style={{ padding: '12px 20px 0' }} data-testid="group-board-list">
+          {posts.map((p) => <FeedPostCard key={p.id} p={p} onCheer={handleCheer} />)}
         </div>
       )}
       <ScrollSentinel sentinelRef={sentinelRef} isLoadingMore={isLoadingMore} hasMore={hasMore} />

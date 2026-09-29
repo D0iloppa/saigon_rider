@@ -1,29 +1,27 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Camera, Flame, Globe, MapPin, MessageCircle, Plus, Users, UsersRound, type LucideIcon } from 'lucide-react';
-import { TopBar } from '@/components/layout/TopBar';
+import { AlertCircle, Camera, Flame, Globe, MapPin, Plus, Users, type LucideIcon } from 'lucide-react';
+import { CommunityHeader } from '@/pages/community/CommunityHeader';
 import StateBlock from '@/components/ui/StateBlock';
 import sys from '@/styles/system.module.css';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { fetchFeed, toggleCheer, fetchStories } from '@/api/feed';
 import type { StoryItem } from '@/api/feed';
-import { formatRelativeTime } from '@/lib/format';
 import type { FeedPost } from '@/api/types';
 import { StoryAvatar } from '@/components/ui/StoryAvatar';
-import { AppImage } from '@/components/ui/AppImage';
 import { Chip } from '@/components/ui/Chip';
-import { OwnerBadge } from '@/components/ui/OwnerBadge';
 import { useUserStore } from '@/store/useUserStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { toast } from '@/components/ui/Toast';
 import { resolveUsableLocation } from '@/lib/serviceLocation';
+import { FeedPostCard } from './FeedPostCard';
 import styles from './FeedList.module.css';
 
-type FilterKey = 'all' | 'neighborhood' | 'following' | 'hot' | 'groups';
-const FILTER_KEYS: FilterKey[] = ['all', 'neighborhood', 'following', 'hot', 'groups'];
+type FilterKey = 'all' | 'neighborhood' | 'following' | 'hot';
+const FILTER_KEYS: FilterKey[] = ['all', 'neighborhood', 'following', 'hot'];
 // 탭 전환으로 언마운트돼도 스크롤 위치가 살아있게(P2-11) — URL 에 넣기 부적절한 값이라
 // sessionStorage 를 쓴다(MarketMain 의 scrollTop 저장 패턴과 동일 결).
 const FEED_SCROLL_KEY = 'feed_scroll_v1';
@@ -31,23 +29,6 @@ const FEED_SCROLL_KEY = 'feed_scroll_v1';
 // ImageViewer 는 src/components/ui/ImageViewer.tsx 로 승격됨 (2026-07-27).
 // 기존 import 경로(`from './FeedList'`)를 쓰는 코드와의 하위호환을 위해 re-export 유지.
 export { ImageViewer } from '@/components/ui/ImageViewer';
-
-// 본문 클램프 — 사진 글 3줄 / 글만 있는 글 6줄. 넘칠 때만 "더보기"(탭은 카드 탭과 같이 상세로 버블링).
-function ClampedCaption({ text, lines }: { text: string; lines: number }) {
-  const { t } = useTranslation();
-  const ref = useRef<HTMLParagraphElement>(null);
-  const [overflow, setOverflow] = useState(false);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (el) setOverflow(el.scrollHeight > el.clientHeight + 1);
-  }, [text, lines]);
-  return (
-    <div className={styles.postText}>
-      <p ref={ref} className={styles.postCaption} style={{ WebkitLineClamp: lines }}>{text}</p>
-      {overflow && <span className={styles.readMore}>{t('feed.readMore')}</span>}
-    </div>
-  );
-}
 
 // ─── FeedList ────────────────────────────────────────────────────────────────
 export default function FeedList() {
@@ -63,8 +44,6 @@ export default function FeedList() {
     return q && FILTER_KEYS.includes(q as FilterKey) && q !== 'neighborhood' ? (q as FilterKey) : 'all';
   });
   const [stories, setStories] = useState<StoryItem[]>([]);
-  // 사진 비율(가로/세로) — 로드 전엔 1:1 자리를 잡아 두고, 로드 후 1:1~4:5 로 제한해 반영
-  const [photoRatios, setPhotoRatios] = useState<Record<string, number>>({});
   // neighborhood 필터용 현재 위치 (state — 도착 시 재fetch 트리거)
   const [neighborhoodLoc, setNeighborhoodLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [neighborhoodRequest, setNeighborhoodRequest] = useState(0);
@@ -139,8 +118,7 @@ export default function FeedList() {
     { key: 'all',          label: t('feed.filterAll'),          Icon: Globe },
     { key: 'neighborhood', label: t('feed.filterNeighborhood'), Icon: MapPin },
     { key: 'following',    label: t('feed.filterFollowing'),    Icon: Users },
-    { key: 'hot',          label: t('feed.filterHot'),          Icon: Flame },
-    { key: 'groups',       label: t('feed.filterGroups'),       Icon: UsersRound },
+    { key: 'hot',          label: t('feed.filterPopular'),          Icon: Flame },
   ];
 
   const handleCheer = async (p: FeedPost, e: React.MouseEvent) => {
@@ -153,7 +131,7 @@ export default function FeedList() {
 
   return (
     <div className={styles.page}>
-      <TopBar title={t('feed.title')} showBack={false} />
+      <CommunityHeader active="feed" />
 
       <div className={styles.scrollBody} ref={scrollBodyRef as React.RefObject<HTMLDivElement>}>
       <div style={contentStyle}>
@@ -172,7 +150,7 @@ export default function FeedList() {
         </div>
 
         {/* Filters */}
-        <div className={styles.filterRow} role="radiogroup" aria-label={t('feed.filterGroupLabel', { defaultValue: '피드 필터' })}>
+        <div className={styles.filterRow} data-testid="feed-filter-chips" role="radiogroup" aria-label={t('feed.filterGroupLabel', { defaultValue: '피드 필터' })}>
           {FILTERS.map((f) => (
             <Chip
               key={f.key}
@@ -193,17 +171,6 @@ export default function FeedList() {
               {f.label}
             </Chip>
           ))}
-          {/* 그룹 탐색 진입점 — /community/groups 로 가는 유일한 UI 경로 (F-CM-02 FR-1 A안).
-              필터가 아니라 이동이라 radiogroup 상태에는 참여하지 않는다. */}
-          <Chip
-            as="button"
-            variant="surface"
-            onClick={() => navigate('/community/groups')}
-            style={{ cursor: 'pointer' }}
-          >
-            <UsersRound size={13} strokeWidth={2.2} />
-            {t('feed.groupsNav', { defaultValue: '그룹' })}
-          </Chip>
         </div>
 
         {/* Posts */}
@@ -252,102 +219,7 @@ export default function FeedList() {
             ) : (
               <div className={styles.postList}>
                 {posts.map((p) => (
-                  <article
-                    key={p.id}
-                    className={styles.postCard}
-                    data-testid="feed-post-card"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigate(`/feed/post/${p.id}`)}
-                    onKeyDown={(e) => {
-                      // 내부 아바타/응원 버튼에서 버블링된 키다운은 무시 (그 버튼 자체가 반응한다)
-                      if (e.target !== e.currentTarget) return;
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        navigate(`/feed/post/${p.id}`);
-                      }
-                    }}
-                  >
-                    <span className={styles.postAuthor}>
-                      <button
-                        type="button"
-                        className={styles.avatarBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (user && p.userId === user.id) {
-                            navigate('/profile');
-                          } else {
-                            navigate(`/profile/${p.userId}`);
-                          }
-                        }}
-                      >
-                        <AppImage src={p.userAvatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
-                      </button>
-                      {/* 닉네임도 프로필 진입점 — 아바타만 탭 가능한 건 인스타·Threads 관례와
-                          어긋나고 히트 영역이 작다(2026-08-13). */}
-                      <strong
-                        role="button"
-                        tabIndex={0}
-                        className={styles.nickBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key !== 'Enter' && e.key !== ' ') return;
-                          e.preventDefault();
-                          e.stopPropagation();
-                          navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
-                        }}
-                      >{p.userNickname ?? '—'}</strong>
-                      <small>{formatRelativeTime(p.createdAt)}</small>
-                      {user && p.userId === user.id && <OwnerBadge label={t('common.myPostBadge')} />}
-                    </span>
-                    {p.photoUrl && (
-                      <div className={styles.postMedia} style={{ aspectRatio: photoRatios[p.id] ?? 1 }}>
-                        <AppImage
-                          src={p.photoUrl}
-                          alt=""
-                          className={styles.postPhoto}
-                          onLoad={(e) => {
-                            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
-                            if (!w || !h) return;
-                            const ratio = Math.min(1, Math.max(0.8, w / h));
-                            setPhotoRatios((prev) => (prev[p.id] === ratio ? prev : { ...prev, [p.id]: ratio }));
-                          }}
-                        />
-                        {p.photoUrls.length > 1 && <span className={styles.mediaCount}>1/{p.photoUrls.length}</span>}
-                      </div>
-                    )}
-                    <span className={styles.postBody}>
-                      {p.caption && <ClampedCaption text={p.caption} lines={p.photoUrl ? 3 : 6} />}
-                      <span className={styles.feedMeta}>
-                        <button
-                          type="button"
-                          className={`${styles.cheerBtn} ${p.iCheered ? styles.cheerBtnActive : ''}`}
-                          aria-label={t('feed.cheer')}
-                          aria-pressed={p.iCheered}
-                          onClick={(e) => handleCheer(p, e)}
-                        >
-                          <Flame size={16} />
-                          <span>{p.cheerCount}</span>
-                        </button>
-                        {/* 💬 = 상세의 댓글 위치로 (FeedDetail #comments) */}
-                        <button
-                          type="button"
-                          className={styles.cheerBtn}
-                          aria-label={t('feed.comments')}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/feed/post/${p.id}#comments`);
-                          }}
-                        >
-                          <MessageCircle size={16} />
-                          <span>{p.commentCount}</span>
-                        </button>
-                      </span>
-                    </span>
-                  </article>
+                  <FeedPostCard key={p.id} p={p} onCheer={handleCheer} />
                 ))}
               </div>
             )}

@@ -673,6 +673,7 @@
     "postNotFound": "Không tìm thấy bài viết",
     "noComments": "Hãy là người bình luận đầu tiên",
     "filterHot": "Hot",
+    "filterPopular": "Nổi bật",
     "filterGroupLabel": "Bộ lọc bảng tin",
     "emptyTitle": "Đang chờ check-in đầu tiên",
     "emptySub": "Hoàn thành chuyến đi và lưu lại khoảnh khắc ở Sài Gòn",
@@ -3067,6 +3068,20 @@
     "removeMember": "Xoá khỏi nhóm",
     "removeMemberConfirm": "Xoá thành viên này khỏi nhóm?",
     "pendingMembers": "Chờ duyệt",
-    "approveMember": "Duyệt"
+    "approveMember": "Duyệt",
+    "shellTitle": "Cộng đồng",
+    "segFeed": "Bảng tin",
+    "segGroup": "Nhóm",
+    "hubTitle": "Cộng đồng của tôi",
+    "myGroups": "Nhóm của tôi",
+    "myGroupsEmpty": "Bạn chưa tham gia nhóm nào",
+    "browseTitle": "Khám phá nhóm",
+    "typeNeighborhood": "Khu vực",
+    "typeInterest": "Sở thích",
+    "coverLabel": "Ảnh bìa",
+    "coverRemove": "Xoá ảnh bìa",
+    "myPosts": "Bài viết của tôi",
+    "likedPosts": "Bài viết đã thích",
+    "likedEmpty": "Bạn chưa thích bài viết nào"
   }
 }

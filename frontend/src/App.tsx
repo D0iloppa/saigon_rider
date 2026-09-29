@@ -112,6 +112,8 @@ const TradeSetItems = lazyWithRetry(() => import('@/pages/dm/TradeSetItems'));
 const GroupList = lazyWithRetry(() => import('@/pages/community/GroupList'));
 const GroupCreate = lazyWithRetry(() => import('@/pages/community/GroupCreate'));
 const GroupDetail = lazyWithRetry(() => import('@/pages/community/GroupDetail'));
+const CommunityMe = lazyWithRetry(() => import('@/pages/community/CommunityMe'));
+const CommunityLiked = lazyWithRetry(() => import('@/pages/community/CommunityLiked'));
 
 // 알림함
 const NotificationInbox = lazyWithRetry(() => import('@/pages/notifications/NotificationInbox'));
@@ -703,6 +705,8 @@ export default function App() {
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/community/groups" element={<PrivateRoute><GroupList /></PrivateRoute>} />
           <Route path="/community/groups/new" element={<PrivateRoute><GroupCreate /></PrivateRoute>} />
+          <Route path="/community/me" element={<PrivateRoute><CommunityMe /></PrivateRoute>} />
+          <Route path="/community/me/liked" element={<PrivateRoute><CommunityLiked /></PrivateRoute>} />
           <Route path="/group/:slug" element={<PrivateRoute><GroupDetail /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><NotificationInbox /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />

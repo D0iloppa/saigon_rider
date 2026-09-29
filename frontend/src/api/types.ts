@@ -338,6 +338,11 @@ export interface CommunityGroupMember {
   joinedAt: string;
 }
 
+export interface CommunityGroupBan extends CommunityGroupMember {
+  bannedAt: string | null;
+  bannedByNickname: string | null;
+}
+
 export interface GroupInviteCandidate {
   userId: string;
   nickname: string | null;

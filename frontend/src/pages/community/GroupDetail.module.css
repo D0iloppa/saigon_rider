@@ -68,11 +68,6 @@
   gap: 6px;
 }
 
-.editBtn {
-  cursor: pointer;
-  font-family: inherit;
-}
-
 .followCount {
   display: inline-flex;
   align-items: center;
@@ -274,11 +269,41 @@
 
 .ctaBar > .ctaNote:last-child { margin-bottom: 0; }
 
-.banListToggle {
-  display: block;
-  margin: 20px 0 12px;
-  color: var(--text-2);
+/* 헤더 우측 아이콘 버튼 — ⚙ 그룹 관리 / ⋮ 더보기 (CommunityHeader .menuBtn 미러) */
+.headerIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 4px 8px;
+  cursor: pointer;
 }
+
+/* 더보기 시트 (FeedDetail .reportSheet 미러) */
+.moreSheet {
+  padding: 8px 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.moreItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 6px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text);
+  background: none;
+  border: none;
+}
+
+.moreItem:active { background: var(--surface-2); }
+.moreItemDanger { color: var(--danger); }
 
 .kickBanRow {
   display: flex;

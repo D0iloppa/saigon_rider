@@ -551,6 +551,11 @@ class CommunityGroupMember(Base):
     requires_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     # 그룹 영구차단이 공식 채팅방 밴을 직접 만들었는지 — 해제 시 그 밴만 지운다 (251)
     room_banned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # 영구차단 시각/차단한 운영진 — 차단 관리 화면 표시용, 해제 시 비운다 (252)
+    banned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    banned_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class CommunityGroupInvite(Base):

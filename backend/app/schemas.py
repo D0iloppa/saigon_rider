@@ -1271,6 +1271,11 @@ class CommunityGroupMemberOut(BaseModel):
     joined_at: datetime
 
 
+class CommunityGroupBanOut(CommunityGroupMemberOut):
+    banned_at: datetime | None = None
+    banned_by_nickname: str | None = None
+
+
 class GroupInviteCandidateOut(BaseModel):
     user_id: UUID
     nickname: str | None

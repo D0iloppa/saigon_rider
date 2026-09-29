@@ -1,7 +1,7 @@
 import { api, requireSession } from './client';
 import { transformPost } from './feed';
 import type { FeedPost } from './types';
-import type { CommunityGroup, CommunityGroupMember, GroupInviteCandidate, GroupTopic } from './types';
+import type { CommunityGroup, CommunityGroupBan, CommunityGroupMember, GroupInviteCandidate, GroupTopic } from './types';
 
 function transformGroup(raw: any): CommunityGroup {
   return {
@@ -140,9 +140,16 @@ export async function removeGroupMember(groupId: string, userId: string, ban = f
   await api.realFetch(`/community/groups/${groupId}/members/${userId}${ban ? '?ban=true' : ''}`, { method: 'DELETE' });
 }
 
-export async function listGroupBans(groupId: string): Promise<CommunityGroupMember[]> {
-  const raw = await api.realFetch<any[]>(`/community/groups/${groupId}/bans`);
-  return raw.map(transformMember);
+export async function listGroupBans(groupId: string, q = ''): Promise<CommunityGroupBan[]> {
+  const params = new URLSearchParams();
+  if (q.trim()) params.set('q', q.trim());
+  const qs = params.toString();
+  const raw = await api.realFetch<any[]>(`/community/groups/${groupId}/bans${qs ? `?${qs}` : ''}`);
+  return raw.map((r) => ({
+    ...transformMember(r),
+    bannedAt: r.banned_at ?? null,
+    bannedByNickname: r.banned_by_nickname ?? null,
+  }));
 }
 
 export async function unbanGroupMember(groupId: string, userId: string): Promise<void> {

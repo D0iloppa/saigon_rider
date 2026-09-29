@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FileText, Globe, Lock, MessagesSquare, Newspaper, Plus, UserPlus, Users, UsersRound } from 'lucide-react';
+import { FileText, Globe, LogOut, Lock, MessagesSquare, MoreVertical, Newspaper, Plus, Settings, UserPlus, Users, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { AppImage } from '@/components/ui/AppImage';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
-import { getGroup, joinGroup, listMembers, removeGroupMember, approveMember, listGroupPosts, listGroupBans, unbanGroupMember } from '@/api/community_groups';
+import { getGroup, joinGroup, listMembers, removeGroupMember, approveMember, listGroupPosts } from '@/api/community_groups';
 import { extractErrorCode } from '@/api/client';
 import { toast } from '@/components/ui/Toast';
 import confirmStyles from '@/components/ui/ConfirmDialog.module.css';
@@ -39,6 +40,8 @@ export default function GroupDetail() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('board');
   const [joining, setJoining] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const [compactHeader, setCompactHeader] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const introRef = useRef<HTMLElement | null>(null);
@@ -75,6 +78,18 @@ export default function GroupDetail() {
       }
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!group || !me) return;
+    setLeaveOpen(false);
+    try {
+      await removeGroupMember(group.id, me.id);
+      toast.success(t('communityGroup.leftGroup'));
+      loadGroup();
+    } catch {
+      toast.error(t('common.errorUnexpected'));
     }
   };
 
@@ -135,7 +150,32 @@ export default function GroupDetail() {
 
   return (
     <div className={styles.page}>
-      <TopBar title={compactHeader ? group.name : undefined} />
+      <TopBar
+        title={compactHeader ? group.name : undefined}
+        rightContent={
+          isMember && MANAGE_ROLES.has(group.myRole ?? '') ? (
+            <button
+              type="button"
+              className={styles.headerIconBtn}
+              data-testid="group-manage-btn"
+              onClick={() => navigate(`/group/${group.slug ?? group.id}/manage`)}
+              aria-label={t('communityGroup.manageTitle')}
+            >
+              <Settings size={22} strokeWidth={2.2} />
+            </button>
+          ) : isMember && group.myRole !== 'owner' ? (
+            <button
+              type="button"
+              className={styles.headerIconBtn}
+              data-testid="group-more-btn"
+              onClick={() => setMoreOpen(true)}
+              aria-label={t('communityGroup.moreActions')}
+            >
+              <MoreVertical size={22} strokeWidth={2.2} />
+            </button>
+          ) : undefined
+        }
+      />
       <div ref={bodyRef} className={styles.body} onScroll={(e) => setCompactHeader(e.currentTarget.scrollTop > 72)}>
         <section ref={introRef} className={styles.intro}>
           <h1 className={styles.name}>{group.name}</h1>
@@ -160,16 +200,6 @@ export default function GroupDetail() {
             <span className={styles.followActions}>
               {isMember && <span className={styles.statusBadge}>{t('communityGroup.joined')}</span>}
               {isPending && <span className={styles.statusBadgeMuted}>{t('communityGroup.pending')}</span>}
-              {isMember && MANAGE_ROLES.has(group.myRole ?? '') && (
-                <button
-                  type="button"
-                  className={`${styles.statusBadgeMuted} ${styles.editBtn}`}
-                  data-testid="group-edit-btn"
-                  onClick={() => navigate(`/group/${group.slug ?? group.id}/edit`)}
-                >
-                  {t('communityGroup.editTitle')}
-                </button>
-              )}
             </span>
           </div>
           <GroupCover name={group.name} coverUrl={group.coverUrl} className={styles.banner} />
@@ -211,6 +241,34 @@ export default function GroupDetail() {
           )}
         </div>
       </div>
+
+      <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
+        <div className={styles.moreSheet}>
+          <button
+            type="button"
+            className={`${styles.moreItem} ${styles.moreItemDanger}`}
+            data-testid="group-leave-btn"
+            onClick={() => { setMoreOpen(false); setLeaveOpen(true); }}
+          >
+            <LogOut size={16} strokeWidth={2.2} /> {t('communityGroup.leaveGroup')}
+          </button>
+        </div>
+      </BottomSheet>
+      {leaveOpen && (
+        <div className={confirmStyles.backdrop} onClick={() => setLeaveOpen(false)}>
+          <div className={confirmStyles.dialog} onClick={(e) => e.stopPropagation()}>
+            <p className={confirmStyles.message}>{t('communityGroup.leaveGroupConfirm')}</p>
+            <div className={confirmStyles.actions}>
+              <button className={confirmStyles.cancel} onClick={() => setLeaveOpen(false)}>
+                {t('common.cancel')}
+              </button>
+              <button className={confirmStyles.confirm} data-testid="group-leave-confirm" onClick={handleLeave}>
+                {t('communityGroup.leaveGroup')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!isMember && !isPending && (
         <div className={styles.ctaBar}>
@@ -287,8 +345,6 @@ function BoardTab({ group, isMember, navigate, t }: any) {
 function MembersTab({ group, isMember, myUserId, t }: any) {
   const [members, setMembers] = useState<CommunityGroupMember[]>([]);
   const [pending, setPending] = useState<CommunityGroupMember[]>([]);
-  const [bans, setBans] = useState<CommunityGroupMember[]>([]);
-  const [showBans, setShowBans] = useState(false);
   const [kickTarget, setKickTarget] = useState<string | null>(null);
   const [kickBan, setKickBan] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -302,12 +358,10 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
     Promise.all([
       listMembers(group.id),
       canManage ? listMembers(group.id, 'pending') : Promise.resolve([]),
-      canManage ? listGroupBans(group.id) : Promise.resolve([]),
     ])
-      .then(([active, pendingList, banList]) => {
+      .then(([active, pendingList]) => {
         setMembers(active);
         setPending(pendingList);
-        setBans(banList);
       })
       .finally(() => setLoading(false));
   }, [group.id, isMember, canManage]);
@@ -320,18 +374,7 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
     setKickBan(false);
     try {
       await removeGroupMember(group.id, userId, ban);
-      const removed = members.find((m) => m.userId === userId);
       setMembers((prev) => prev.filter((m) => m.userId !== userId));
-      if (ban && removed) setBans((prev) => [{ ...removed, status: 'BANNED' }, ...prev]);
-    } catch {
-      toast.error(t('common.errorUnexpected'));
-    }
-  };
-
-  const handleUnban = async (userId: string) => {
-    try {
-      await unbanGroupMember(group.id, userId);
-      setBans((prev) => prev.filter((m) => m.userId !== userId));
     } catch {
       toast.error(t('common.errorUnexpected'));
     }
@@ -414,37 +457,6 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
           </div>
         ))}
       </div>
-      {canManage && (
-        <>
-          <button
-            type="button"
-            className={`${styles.memberAction} ${styles.banListToggle}`}
-            data-testid="group-ban-list"
-            onClick={() => setShowBans((v) => !v)}
-          >
-            {t('communityGroup.banList')} {bans.length}
-          </button>
-          {showBans && (
-            <div className={styles.memberCard}>
-              {bans.length === 0 && <p className={styles.ctaNote}>{t('communityGroup.banListEmpty')}</p>}
-              {bans.map((m) => (
-                <div key={m.userId} className={styles.memberRow}>
-                  <AppImage src={m.avatarUrl ?? undefined} alt="" className={styles.memberAvatar} variant="circle" />
-                  <span className={styles.memberName}>{m.nickname ?? '—'}</span>
-                  <button
-                    type="button"
-                    className={styles.memberAction}
-                    data-testid="ban-unban-btn"
-                    onClick={() => handleUnban(m.userId)}
-                  >
-                    {t('communityGroup.unban')}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
       {kickTarget && (
         <div className={confirmStyles.backdrop} onClick={() => setKickTarget(null)}>
           <div className={confirmStyles.dialog} onClick={(e) => e.stopPropagation()}>

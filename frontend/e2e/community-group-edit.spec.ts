@@ -69,7 +69,8 @@ test.describe('community group edit', () => {
     // owner: 편집 진입
     await injectSession(page, owner);
     await page.goto(`/group/${slug}`);
-    await page.getByTestId('group-edit-btn').click();
+    await page.getByTestId('group-manage-btn').click();
+    await page.getByTestId('manage-edit-row').click();
     await expect(page).toHaveURL(new RegExp(`/group/${slug}/edit$`));
     await expect(page.locator('#group-create-name')).toHaveValue(group.name);
     await expect(page.getByTestId(`group-create-topic-${from.code}`)).toHaveAttribute('aria-checked', 'true');
@@ -87,11 +88,11 @@ test.describe('community group edit', () => {
     const label = to.labels.ko ?? Object.values(to.labels)[0];
     await expect(page.getByTestId('group-detail-topic')).toHaveText(label);
 
-    // 일반 멤버: 편집 버튼 없음
+    // 일반 멤버: 관리 아이콘 없음
     await page.context().clearCookies();
     await injectSession(page, member);
     await page.goto(`/group/${slug}`);
     await expect(page.getByRole('heading', { name: newName })).toBeVisible();
-    await expect(page.getByTestId('group-edit-btn')).toHaveCount(0);
+    await expect(page.getByTestId('group-manage-btn')).toHaveCount(0);
   });
 });

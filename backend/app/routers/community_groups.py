@@ -24,6 +24,7 @@ from ..models import (
     UserFollow,
 )
 from ..schemas import (
+    CommunityGroupBanOut,
     CommunityGroupCreateRequest,
     CommunityGroupMemberOut,
     CommunityGroupOut,
@@ -496,6 +497,8 @@ async def remove_member(
     else:
         target.status = "BANNED" if ban else "REMOVED"
         target.role = "member"
+        target.banned_at = datetime.now(UTC) if ban else None
+        target.banned_by = _session_uid if ban else None
     if was_active:
         group.member_count = max(group.member_count - 1, 0)
 
@@ -533,9 +536,10 @@ async def remove_member(
     return {"ok": True}
 
 
-@router.get("/{group_id}/bans", response_model=list[CommunityGroupMemberOut], summary="차단 목록 (owner/manager)")
+@router.get("/{group_id}/bans", response_model=list[CommunityGroupBanOut], summary="차단 목록 (owner/manager)")
 async def list_bans(
     group_id: uuid.UUID,
+    q: str | None = None,  # 닉네임 부분일치 (LIKE 이스케이프 — 그룹 검색과 동일)
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
@@ -543,22 +547,31 @@ async def list_bans(
     actor = await _my_membership(db, group.id, _session_uid)
     if actor is None or actor.status != "ACTIVE" or actor.role not in _MANAGE_ROLES:
         raise HTTPException(status_code=403, detail="Only owner/manager can view bans")
-    rows = (
-        await db.execute(
-            select(CommunityGroupMember, User)
-            .join(User, CommunityGroupMember.user_id == User.id)
-            .where(CommunityGroupMember.group_id == group.id, CommunityGroupMember.status == "BANNED")
-            .order_by(CommunityGroupMember.joined_at.desc())
-        )
-    ).all()
+    stmt = (
+        select(CommunityGroupMember, User)
+        .join(User, CommunityGroupMember.user_id == User.id)
+        .where(CommunityGroupMember.group_id == group.id, CommunityGroupMember.status == "BANNED")
+        .order_by(CommunityGroupMember.banned_at.desc().nulls_last(), CommunityGroupMember.joined_at.desc())
+    )
+    keyword = (q or "").strip()
+    if keyword:
+        escaped = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        stmt = stmt.where(User.nickname.ilike(f"%{escaped}%", escape="\\"))
+    rows = (await db.execute(stmt)).all()
+    actor_ids = {m.banned_by for m, _ in rows if m.banned_by is not None}
+    actor_nicknames: dict[uuid.UUID, str | None] = {}
+    if actor_ids:  # 차단한 사람 닉네임은 한 번에 조회 (N+1 방지)
+        actor_nicknames = dict((await db.execute(select(User.id, User.nickname).where(User.id.in_(actor_ids)))).all())
     return [
-        CommunityGroupMemberOut(
+        CommunityGroupBanOut(
             user_id=m.user_id,
             nickname=u.nickname,
             avatar_url=resolve_avatar_url(u),
             role=m.role,
             status=m.status,
             joined_at=m.joined_at,
+            banned_at=m.banned_at,
+            banned_by_nickname=actor_nicknames.get(m.banned_by) if m.banned_by else None,
         )
         for m, u in rows
     ]
@@ -579,6 +592,8 @@ async def unban_member(
     if target is None or target.status != "BANNED":
         raise HTTPException(status_code=404, detail="Ban not found")
     target.status = "REMOVED"
+    target.banned_at = None
+    target.banned_by = None
     conv_id = (
         await db.execute(select(DmConversation.id).where(DmConversation.community_group_id == group.id))
     ).scalar_one_or_none()

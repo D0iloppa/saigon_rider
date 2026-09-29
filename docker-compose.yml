@@ -531,6 +531,10 @@ services:
       - "/migrations/251_community_group_member_rejoin_flag.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (251) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/252_community_group_member_ban_meta.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (252) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -638,6 +642,7 @@ services:
       - ./database/init/249_community_group_invites.sql:/migrations/249_community_group_invites.sql:ro
       - ./database/init/250_community_group_topics_table.sql:/migrations/250_community_group_topics_table.sql:ro
       - ./database/init/251_community_group_member_rejoin_flag.sql:/migrations/251_community_group_member_rejoin_flag.sql:ro
+      - ./database/init/252_community_group_member_ban_meta.sql:/migrations/252_community_group_member_ban_meta.sql:ro
     networks:
       - dev-net
     depends_on:

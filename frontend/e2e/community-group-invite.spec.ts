@@ -162,11 +162,56 @@ test.describe('community group invite', () => {
     expect(banned.status()).toBe(403);
     expect((await banned.json()).detail.code).toBe('group_banned');
 
-    // 차단 목록에서 해제 → REMOVED → 재가입은 승인 대기
-    await page.getByTestId('group-ban-list').click();
+    // 차단 멤버 관리(⚙ → 차단 멤버 관리): 언제/누가 메타 + 검색 + 해제 → REMOVED → 재가입은 승인 대기
+    const bansApi = await (await request.get(`${API}/community/groups/${group.id}/bans`, { headers: H(owner) })).json();
+    expect(bansApi).toHaveLength(1);
+    expect(bansApi[0].banned_at).toBeTruthy();
+    const bannedNickname: string = bansApi[0].nickname;
+    await page.getByTestId('group-manage-btn').click();
+    await page.getByTestId('manage-bans-row').click();
+    await expect(page).toHaveURL(new RegExp('/group/.+/bans$'));
+    await expect(page.getByTestId('ban-row')).toHaveCount(1);
+    await expect(page.getByTestId('ban-row-meta')).toContainText(/차단 \d{4}\.\d{2}\.\d{2} · 차단한 사람 /);
+    await page.getByTestId('ban-search-input').fill('zzzz-no-match');
+    await expect(page.getByTestId('ban-row')).toHaveCount(0);
+    await page.getByTestId('ban-search-input').fill(bannedNickname.slice(0, 3));
+    await expect(page.getByTestId('ban-row')).toHaveCount(1);
     await page.getByTestId('ban-unban-btn').click();
+    await page.getByTestId('ban-unban-confirm').click();
     await expect(page.getByTestId('ban-unban-btn')).toHaveCount(0);
     expect(await status()).toBe('REMOVED');
     expect((await (await join()).json()).my_membership_status).toBe('PENDING');
+  });
+
+  test('일반 멤버: ⋮ → 그룹 나가기 → 확인 → 비멤버(가입 CTA 복귀), 관리 아이콘 없음', async ({ page, request }) => {
+    owner = await newUser(request, 'glo');
+    invitee = await newUser(request, 'glm');
+    const groupRes = await request.post(`${API}/community/groups`, {
+      headers: H(owner),
+      data: {
+        name: `나가기그룹${uniqueTag('g')}`,
+        topic: await firstTopic(request),
+        group_type: 'interest',
+        join_policy: 'open',
+        visibility: 'public',
+      },
+    });
+    expect(groupRes.status()).toBe(201);
+    const group = await groupRes.json();
+    const joined = await request.post(`${API}/community/groups/${group.id}/join`, { headers: H(invitee) });
+    expect(joined.ok()).toBeTruthy();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => window.localStorage.setItem('sr-lang', 'ko'));
+    await injectSession(page, invitee);
+    await page.goto(`/group/${group.slug ?? group.id}`);
+    await expect(page.getByTestId('group-manage-btn')).toHaveCount(0);
+    await page.getByTestId('group-more-btn').click();
+    await page.getByTestId('group-leave-btn').click();
+    await page.getByTestId('group-leave-confirm').click();
+    await expect(page.getByRole('button', { name: '가입하기' })).toBeVisible();
+    await expect(page.getByTestId('group-more-btn')).toHaveCount(0);
+    const after = await (await request.get(`${API}/community/groups/${group.id}`, { headers: H(invitee) })).json();
+    expect(after.my_membership_status).toBeNull();
   });
 });

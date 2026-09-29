@@ -156,9 +156,8 @@ test.describe('community group invite', () => {
     await page.getByTestId('member-kick-btn').click();
     await page.getByTestId('member-kick-ban-checkbox').check();
     await page.getByTestId('member-kick-confirm').click();
-    await expect(page.getByTestId('member-kick-btn')).toHaveCount(0);
-
-    expect(await status()).toBe('BANNED');
+    // 내보내기 버튼은 시트 안이라 시트가 닫히는 순간 사라진다 — DELETE 완료는 상태로 기다린다
+    await expect.poll(status).toBe('BANNED');
     const banned = await join();
     expect(banned.status()).toBe(403);
     expect((await banned.json()).detail.code).toBe('group_banned');

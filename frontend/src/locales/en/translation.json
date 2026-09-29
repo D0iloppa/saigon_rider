@@ -3036,6 +3036,10 @@
     "roleSeller": "Seller"
   },
   "communityGroup": {
+    "editTitle": "Edit group",
+    "editSubmit": "Save",
+    "boardEmptyTitle": "No posts yet",
+    "boardEmptySub": "Be the first to post in this group",
     "createTitle": "Create group",
     "empty": "No groups yet",
     "joined": "Joined",

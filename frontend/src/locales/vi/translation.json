@@ -3036,6 +3036,10 @@
     "roleSeller": "Người bán"
   },
   "communityGroup": {
+    "editTitle": "Chỉnh sửa nhóm",
+    "editSubmit": "Lưu",
+    "boardEmptyTitle": "Chưa có bài viết nào",
+    "boardEmptySub": "Hãy đăng bài đầu tiên trong nhóm",
     "createTitle": "Tạo nhóm",
     "empty": "Chưa có nhóm nào",
     "joined": "Đã tham gia",

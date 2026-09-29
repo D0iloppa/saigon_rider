@@ -62,6 +62,17 @@
   margin-top: 10px;
 }
 
+.followActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editBtn {
+  cursor: pointer;
+  font-family: inherit;
+}
+
 .followCount {
   display: inline-flex;
   align-items: center;

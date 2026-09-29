@@ -3036,6 +3036,10 @@
     "roleSeller": "판매자"
   },
   "communityGroup": {
+    "editTitle": "그룹 편집",
+    "editSubmit": "저장",
+    "boardEmptyTitle": "아직 게시글이 없어요",
+    "boardEmptySub": "그룹의 첫 글을 남겨보세요",
     "createTitle": "그룹 만들기",
     "empty": "아직 그룹이 없어요",
     "joined": "가입됨",

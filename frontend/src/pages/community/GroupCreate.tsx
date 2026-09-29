@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Camera, Check, Globe, Lock, UserCheck, UserPlus, X, type LucideProps } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/Button';
 import { AppImage } from '@/components/ui/AppImage';
 import { api } from '@/api/client';
 import { useUserStore } from '@/store/useUserStore';
-import { createGroup } from '@/api/community_groups';
+import { createGroup, getGroup, patchGroup } from '@/api/community_groups';
 import { toast } from '@/components/ui/Toast';
+import type { CommunityGroup } from '@/api/types';
 import { pickTopicLabel, useGroupTopics } from './groupTopics';
 import styles from './GroupCreate.module.css';
 
@@ -49,14 +50,35 @@ export default function GroupCreate() {
   const { t, i18n } = useTranslation();
   const topics = useGroupTopics();
   const navigate = useNavigate();
+  // /group/:slug/edit 이면 편집 모드 — 같은 폼을 getGroup 값으로 채우고 PATCH 로 저장
+  const { slug } = useParams<{ slug: string }>();
+  const isEdit = !!slug;
+  const [editGroup, setEditGroup] = useState<CommunityGroup | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [topic, setTopic] = useState<string | null>(null);
   const [visibility, setVisibility] = useState<Visibility>('public');
-  const [joinPolicy, setJoinPolicy] = useState<JoinPolicy>('open');
+  const [joinPolicy, setJoinPolicy] = useState<JoinPolicy | 'invite'>('open');
   const [submitting, setSubmitting] = useState(false);
   const user = useUserStore((s) => s.user);
   const [cover, setCover] = useState<{ preview: string; contentId: string | null; uploading: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!slug) return;
+    getGroup(slug)
+      .then((g) => {
+        setEditGroup(g);
+        setName(g.name);
+        setDescription(g.description ?? '');
+        setTopic(g.topic);
+        setVisibility(g.visibility as Visibility);
+        setJoinPolicy(g.joinPolicy as JoinPolicy | 'invite');
+      })
+      .catch(() => {
+        toast.error(t('communityGroup.notFound'));
+        navigate(-1);
+      });
+  }, [slug, navigate, t]);
 
   const coverTokenRef = useRef(0);
   const previewRef = useRef<string | null>(null);
@@ -100,8 +122,21 @@ export default function GroupCreate() {
 
   const handleCreate = async () => {
     if (!name.trim() || !topic || submitting || cover?.uploading) return;
+    if (isEdit && !editGroup) return;
     setSubmitting(true);
     try {
+      if (editGroup) {
+        const saved = await patchGroup(editGroup.id, {
+          name: name.trim(),
+          topic,
+          description: description.trim() || undefined,
+          visibility,
+          joinPolicy,
+          coverContentId: cover?.contentId ?? undefined,
+        });
+        navigate(`/group/${saved.slug ?? saved.id}`, { replace: true });
+        return;
+      }
       const group = await createGroup({
         name: name.trim(),
         topic,
@@ -120,14 +155,16 @@ export default function GroupCreate() {
 
   return (
     <div className={styles.page}>
-      <TopBar title={t('communityGroup.createTitle')} />
+      <TopBar title={t(isEdit ? 'communityGroup.editTitle' : 'communityGroup.createTitle')} />
       <div className={styles.body}>
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>{t('communityGroup.basicInfo')}</h2>
 
           <label className={styles.coverRow} data-testid="group-cover-picker" aria-label={t('communityGroup.coverLabel')}>
-            <span className={`${styles.coverThumb} ${cover ? styles.coverThumbFilled : ''}`}>
-              {cover ? <AppImage src={cover.preview} alt="" className={styles.coverPreview} /> : <Camera size={22} />}
+            <span className={`${styles.coverThumb} ${cover || editGroup?.coverUrl ? styles.coverThumbFilled : ''}`}>
+              {cover || editGroup?.coverUrl
+                ? <AppImage src={cover?.preview ?? editGroup!.coverUrl!} alt="" className={styles.coverPreview} />
+                : <Camera size={22} />}
               {cover?.uploading && <span className={styles.coverUploading}>{t('communityGroup.coverUploading')}</span>}
             </span>
             <span className={styles.coverBody}>
@@ -136,7 +173,7 @@ export default function GroupCreate() {
                 <span className={styles.optional}>{t('communityGroup.optional')}</span>
               </span>
               <span className={styles.coverHint}>{t('communityGroup.coverHint')}</span>
-              <span className={styles.coverAction}>{cover ? t('communityGroup.coverChange') : t('communityGroup.coverPick')}</span>
+              <span className={styles.coverAction}>{cover || editGroup?.coverUrl ? t('communityGroup.coverChange') : t('communityGroup.coverPick')}</span>
             </span>
             {cover && (
               <button
@@ -250,8 +287,8 @@ export default function GroupCreate() {
         </section>
       </div>
       <div className={styles.submitBar}>
-        <Button onClick={handleCreate} disabled={!name.trim() || !topic || submitting || !!cover?.uploading} loading={submitting}>
-          {t('communityGroup.createSubmit')}
+        <Button onClick={handleCreate} disabled={!name.trim() || !topic || submitting || !!cover?.uploading || (isEdit && !editGroup)} loading={submitting} data-testid={isEdit ? 'group-edit-save' : undefined}>
+          {t(isEdit ? 'communityGroup.editSubmit' : 'communityGroup.createSubmit')}
         </Button>
       </div>
     </div>

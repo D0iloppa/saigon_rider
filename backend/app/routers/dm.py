@@ -2307,6 +2307,9 @@ async def get_trade_set(
     ts = await get_active_set(db, conv_id)
     if ts is None:
         raise HTTPException(status_code=404, detail="No active trade set")
+    # 멱등 — 거래 행 없이 RESERVED 항목만 있는 레거시 세트를 조회 시점에 보정한다.
+    await ensure_set_transaction(db, ts)
+    await db.commit()
     return await trade_set_out(db, ts)
 
 
@@ -2346,6 +2349,9 @@ async def add_trade_set_items(
     buyer_id = conv.participant_2 if conv.participant_1 == seller_id else conv.participant_1
 
     ts = await get_or_create_active_set(db, conv_id, buyer_id, seller_id)
+    # 송금 신고 이후엔 세트 구성 잠금(제거·판매중 전환 경로와 동일) — 금액이 신고 금액과 어긋나지 않게 한다.
+    if await _payment_locked(db, ts):
+        raise HTTPException(status_code=409, detail={"code": "payment_reported"})
     now = datetime.now(UTC)
     for listing in listings:
         await upsert_item(db, ts.id, listing.id, session_uid)
@@ -2498,6 +2504,8 @@ async def update_trade_set_status(
         await ensure_set_transaction(db, ts)
 
     elif body.status == "RESERVED":
+        if await _payment_locked(db, ts):
+            raise HTTPException(status_code=409, detail={"code": "payment_reported"})
         items = (
             (
                 await db.execute(

@@ -542,15 +542,17 @@ async def _handle_appointment_cancelled(payload: dict, *, source_event_id: str) 
         lang = (await langs_for_users(db, {recipient_id}))[recipient_id]
         title = t(lang, "appointment_cancelled.title")
         reason_code = payload.get("cancel_reason")
+        # 순수 약속(매물 없음)은 listing_title 이 없다 — 제목 없는 문구(_pure)로 렌더한다.
+        suffix = "" if payload.get("listing_title") else "_pure"
         body = (
             t(
                 lang,
-                "appointment_cancelled.body_with_reason",
+                f"appointment_cancelled.body_with_reason{suffix}",
                 title=payload.get("listing_title") or "",
                 reason=t(lang, f"cancel_reason.{reason_code}"),
             )
             if reason_code
-            else t(lang, "appointment_cancelled.body", title=payload.get("listing_title") or "")
+            else t(lang, f"appointment_cancelled.body{suffix}", title=payload.get("listing_title") or "")
         )
         inserted = await _insert_notification(
             db,

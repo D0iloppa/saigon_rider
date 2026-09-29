@@ -1404,7 +1404,7 @@ class DmBanOut(BaseModel):
 
 class AppointmentOut(BaseModel):
     id: UUID
-    listing_id: UUID
+    listing_id: UUID | None = None  # 순수 약속(매물 없는 1:1 만남)은 null
     conversation_id: UUID
     proposer_id: UUID
     seller_id: UUID | None = None

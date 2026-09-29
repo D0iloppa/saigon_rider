@@ -27,28 +27,37 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_marketplace_transactions_appointment
     ON marketplace_transactions (appointment_id) WHERE appointment_id IS NOT NULL;
 
 -- 2) trade_set_id + 백필(같은 방의 세트 중 listing_id 를 담은 것, ACTIVE 우선 · 최신순)
-ALTER TABLE marketplace_transactions
-    ADD COLUMN IF NOT EXISTS trade_set_id UUID REFERENCES trade_sets(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+    -- 컬럼을 처음 추가할 때만 백필 — 배포 재실행이 옛 행을 새 세트에 붙이지 않도록 한다.
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'marketplace_transactions' AND column_name = 'trade_set_id'
+    ) THEN
+        ALTER TABLE marketplace_transactions
+            ADD COLUMN IF NOT EXISTS trade_set_id UUID REFERENCES trade_sets(id) ON DELETE CASCADE;
 
--- 한 세트에 여러 옛 거래가 매칭되면(항목별 약속이 따로 있던 경우) 결제 진행이 가장 앞선 1건만 잇는다.
-UPDATE marketplace_transactions t
-SET trade_set_id = m.set_id
-FROM (
-    SELECT DISTINCT ON (c.set_id) c.tx_id, c.set_id
-    FROM (
-        SELECT DISTINCT ON (x.id) x.id AS tx_id, ts.id AS set_id, x.payment_status, x.updated_at
-        FROM marketplace_transactions x
-        JOIN trade_sets ts ON ts.conversation_id = x.conversation_id
-        JOIN trade_set_items i ON i.set_id = ts.id AND i.listing_id = x.listing_id
-        WHERE x.trade_set_id IS NULL
-        ORDER BY x.id, (ts.status = 'ACTIVE') DESC, ts.created_at DESC
-    ) c
-    ORDER BY c.set_id,
-             CASE c.payment_status WHEN 'PAYMENT_CONFIRMED' THEN 0 WHEN 'PAYMENT_REPORTED' THEN 1 ELSE 2 END,
-             c.updated_at DESC
-) m
-WHERE t.id = m.tx_id
-  AND NOT EXISTS (SELECT 1 FROM marketplace_transactions o WHERE o.trade_set_id = m.set_id);
+        -- 한 세트에 여러 옛 거래가 매칭되면(항목별 약속이 따로 있던 경우) 결제 진행이 가장 앞선 1건만 잇는다.
+        UPDATE marketplace_transactions t
+        SET trade_set_id = m.set_id
+        FROM (
+            SELECT DISTINCT ON (c.set_id) c.tx_id, c.set_id
+            FROM (
+                SELECT DISTINCT ON (x.id) x.id AS tx_id, ts.id AS set_id, x.payment_status, x.updated_at
+                FROM marketplace_transactions x
+                JOIN trade_sets ts ON ts.conversation_id = x.conversation_id
+                JOIN trade_set_items i ON i.set_id = ts.id AND i.listing_id = x.listing_id
+                WHERE x.trade_set_id IS NULL
+                ORDER BY x.id, (ts.status = 'ACTIVE') DESC, ts.created_at DESC
+            ) c
+            ORDER BY c.set_id,
+                     CASE c.payment_status WHEN 'PAYMENT_CONFIRMED' THEN 0 WHEN 'PAYMENT_REPORTED' THEN 1 ELSE 2 END,
+                     c.updated_at DESC
+        ) m
+        WHERE t.id = m.tx_id
+          AND NOT EXISTS (SELECT 1 FROM marketplace_transactions o WHERE o.trade_set_id = m.set_id);
+    END IF;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_marketplace_transactions_trade_set
     ON marketplace_transactions (trade_set_id) WHERE trade_set_id IS NOT NULL;

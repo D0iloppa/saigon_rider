@@ -11,10 +11,16 @@
 import logging
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 
 from ..database import AsyncSessionLocal
-from ..models import MarketplaceAppointment, MarketplaceListing, MarketplaceTransaction, TradeSet
+from ..models import (
+    MarketplaceAppointment,
+    MarketplaceListing,
+    MarketplaceTransaction,
+    TradeSet,
+    TradeSetItem,
+)
 from ..services import noti_events
 
 log = logging.getLogger(__name__)
@@ -72,7 +78,8 @@ async def _nudge_accepted_no_response(db, now: datetime) -> None:
     # 방별 최신 ACCEPTED 약속 시각 — 세트 거래의 "약속 이후 무응답" 앵커.
     latest = (
         select(MarketplaceAppointment.conversation_id, func.max(MarketplaceAppointment.when_at).label("last_when"))
-        .where(MarketplaceAppointment.status == "ACCEPTED")
+        # 순수 약속(listing_id NULL)은 거래 앵커가 아니다.
+        .where(MarketplaceAppointment.status == "ACCEPTED", MarketplaceAppointment.listing_id.is_not(None))
         .group_by(MarketplaceAppointment.conversation_id)
         .subquery()
     )
@@ -84,6 +91,8 @@ async def _nudge_accepted_no_response(db, now: datetime) -> None:
             .join(MarketplaceListing, MarketplaceListing.id == MarketplaceTransaction.listing_id)
             .where(
                 TradeSet.status == "ACTIVE",
+                # 예약중 항목이 있는 세트만 — 예약이 풀린 세트에는 결제 넛지를 보내지 않는다.
+                exists().where(TradeSetItem.set_id == TradeSet.id, TradeSetItem.status == "RESERVED"),
                 latest.c.last_when < cutoff,
                 MarketplaceTransaction.payment_status == "AWAITING_PAYMENT",
                 MarketplaceTransaction.stall_notice_sent_at.is_(None),

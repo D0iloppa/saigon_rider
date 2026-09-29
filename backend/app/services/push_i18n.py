@@ -127,6 +127,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "en": "The meetup for '{title}' was cancelled · {reason}",
         "vi": "Cuộc hẹn cho '{title}' đã bị hủy · {reason}",
     },
+    "appointment_cancelled.body_pure": {
+        "ko": "약속이 취소되었어요.",
+        "en": "The meetup was cancelled.",
+        "vi": "Cuộc hẹn đã bị hủy.",
+    },
+    "appointment_cancelled.body_with_reason_pure": {
+        "ko": "약속이 취소되었어요 · {reason}",
+        "en": "The meetup was cancelled · {reason}",
+        "vi": "Cuộc hẹn đã bị hủy · {reason}",
+    },
     # F-X-01 FR-1(260924 승인안) 취소 사유 칩 — 상대 알림 문구에 그대로 들어간다.
     "cancel_reason.SCHEDULE_CHANGED": {
         "ko": "일정이 바뀌었어요",

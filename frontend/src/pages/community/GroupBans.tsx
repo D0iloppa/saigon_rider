@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Search, SearchX, ShieldOff, UsersRound, X } from 'lucide-react';
+import { AlertCircle, Search, SearchX, ShieldOff, UsersRound, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { AppImage } from '@/components/ui/AppImage';
@@ -32,6 +32,8 @@ export default function GroupBans() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [unbanTarget, setUnbanTarget] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,14 +55,15 @@ export default function GroupBans() {
     if (!group || !canManage) return;
     let cancelled = false; // 늦게 도착한 이전 검색 응답이 최신 결과를 덮지 않게
     setLoading(true);
+    setLoadError(false);
     listGroupBans(group.id, debouncedQuery)
       .then((list) => !cancelled && setBans(list))
-      .catch(() => !cancelled && setBans([]))
+      .catch(() => !cancelled && setLoadError(true))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [group, canManage, debouncedQuery]);
+  }, [group, canManage, debouncedQuery, reloadKey]);
 
   const handleUnban = async () => {
     const userId = unbanTarget;
@@ -117,7 +120,15 @@ export default function GroupBans() {
       </div>
 
       <div className={styles.list}>
-        {!loading && bans.length === 0 ? (
+        {!loading && loadError ? (
+          <StateBlock
+            icon={AlertCircle}
+            tone="error"
+            title={t('communityGroup.banLoadError')}
+            actionLabel={t('common.retry')}
+            onAction={() => setReloadKey((k) => k + 1)}
+          />
+        ) : !loading && bans.length === 0 ? (
           debouncedQuery ? (
             <StateBlock icon={SearchX} title={t('communityGroup.searchEmpty')} desc={t('communityGroup.searchEmptySub')} />
           ) : (

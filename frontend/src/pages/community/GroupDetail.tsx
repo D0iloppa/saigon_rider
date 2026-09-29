@@ -90,8 +90,8 @@ export default function GroupDetail() {
       // 비공개 그룹은 나가면 볼 수 없다(404) — 그룹 탭으로 돌아간다
       if (group.visibility === 'private') navigate('/community/groups', { replace: true });
       else loadGroup();
-    } catch {
-      toast.error(t('common.errorUnexpected'));
+    } catch (err) {
+      toast.error(extractErrorCode(err) === 'owner_cannot_leave' ? t('communityGroup.ownerCannotLeave') : t('common.errorUnexpected'));
     }
   };
 

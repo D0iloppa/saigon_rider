@@ -479,6 +479,9 @@ async def remove_member(
     if actor is None or actor.status != "ACTIVE":
         raise HTTPException(status_code=403, detail="Not a member of this group")
     is_self = user_id == _session_uid
+    if is_self and actor.role == "owner":
+        # 방장 위임 기능이 생기기 전까지 방장은 나갈 수 없다 (그룹이 방장 없이 남는 것 방지).
+        raise HTTPException(status_code=409, detail={"code": "owner_cannot_leave"})
     if not is_self and actor.role not in _MANAGE_ROLES:
         raise HTTPException(status_code=403, detail="Only owner/manager can remove other members")
 

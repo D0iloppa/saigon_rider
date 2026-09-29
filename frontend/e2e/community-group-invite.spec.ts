@@ -214,4 +214,26 @@ test.describe('community group invite', () => {
     const after = await (await request.get(`${API}/community/groups/${group.id}`, { headers: H(invitee) })).json();
     expect(after.my_membership_status).toBeNull();
   });
+
+  // 운영자(manager) 승격 API 가 없어(DB 직접 조작 필요) 그룹 관리 [그룹 나가기](manage-leave-btn) UI 시나리오는 작성하지 않는다.
+  test('방장은 본인 탈퇴 불가: 409 owner_cannot_leave, 멤버십 유지', async ({ request }) => {
+    owner = await newUser(request, 'gow');
+    const groupRes = await request.post(`${API}/community/groups`, {
+      headers: H(owner),
+      data: {
+        name: `방장그룹${uniqueTag('g')}`,
+        topic: await firstTopic(request),
+        group_type: 'interest',
+        join_policy: 'open',
+        visibility: 'public',
+      },
+    });
+    expect(groupRes.status()).toBe(201);
+    const group = await groupRes.json();
+    const res = await request.delete(`${API}/community/groups/${group.id}/members/${owner.userId}`, { headers: H(owner) });
+    expect(res.status()).toBe(409);
+    expect((await res.json()).detail.code).toBe('owner_cannot_leave');
+    const after = await (await request.get(`${API}/community/groups/${group.id}`, { headers: H(owner) })).json();
+    expect(after.my_membership_status).toBe('ACTIVE');
+  });
 });

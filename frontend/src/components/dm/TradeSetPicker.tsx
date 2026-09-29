@@ -16,6 +16,8 @@ interface Props {
   conversationId: string;
   sellerId: string;
   sellerNickname: string;
+  /** 내가 판매자일 때 — 제목이 "내 판매 물품"(F-DM-02 FR-5). */
+  isSellerMe?: boolean;
   tradeSet: TradeSet | null;
   /** 세트가 아직 없을 때(첫 [+ 물품추가]) 미리 체크해 둘 방 컨텍스트 매물 — 이미 얘기 중인 물품이라 자동 포함. */
   contextListingId?: string | null;
@@ -24,7 +26,7 @@ interface Props {
 
 /** F-DM-02 FR-5(물품 선택)·FR-6(물품 편집, d5: 재진입으로 fold) — 전체화면 피커.
  * 판매자의 ON_SALE 매물 그리드에서 체크 → [담기]로 세트에 반영. */
-export function TradeSetPicker({ open, onClose, conversationId, sellerId, sellerNickname, tradeSet, contextListingId, onSaved }: Props) {
+export function TradeSetPicker({ open, onClose, conversationId, sellerId, sellerNickname, isSellerMe, tradeSet, contextListingId, onSaved }: Props) {
   const { t } = useTranslation();
   const [listings, setListings] = useState<ListingCard[]>([]);
   const [categories, setCategories] = useState<MarketCategory[]>([]);
@@ -115,7 +117,9 @@ export function TradeSetPicker({ open, onClose, conversationId, sellerId, seller
       header={
         <div className={styles.header}>
           <h2 className={styles.title}>
-            {t('dm.tradeSetPickerTitle', { nickname: sellerNickname, defaultValue: '{{nickname}}님의 판매 물품' })}
+            {isSellerMe
+              ? t('dm.tradeSetPickerTitleMine', { defaultValue: '내 판매 물품' })
+              : t('dm.tradeSetPickerTitle', { nickname: sellerNickname, defaultValue: '{{nickname}}님의 판매 물품' })}
           </h2>
           {categoryCodesPresent.size > 0 && (
             <div className={styles.categoryRow}>

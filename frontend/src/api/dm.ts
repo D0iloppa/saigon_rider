@@ -16,7 +16,7 @@ import type {
 function transformPriceOffer(raw: any): PriceOffer {
   return {
     id: raw.id,
-    listingId: raw.listing_id,
+    listingId: raw.listing_id ?? null,
     conversationId: raw.conversation_id,
     proposerId: raw.proposer_id,
     sellerId: raw.seller_id ?? null,
@@ -48,7 +48,8 @@ function transformAppointment(raw: any): Appointment {
 function transformCancelRequest(raw: any): TransactionCancelRequest {
   return {
     id: raw.id,
-    appointmentId: raw.appointment_id,
+    transactionId: raw.transaction_id,
+    appointmentId: raw.appointment_id ?? null,
     requesterId: raw.requester_id,
     reason: raw.reason,
     status: raw.status,
@@ -60,7 +61,10 @@ function transformCancelRequest(raw: any): TransactionCancelRequest {
 
 function transformTransaction(raw: any): MarketplaceTransaction {
   return {
-    appointmentId: raw.appointment_id,
+    id: raw.id,
+    tradeSetId: raw.trade_set_id ?? null,
+    tradeSetStatus: raw.trade_set_status ?? null,
+    appointmentId: raw.appointment_id ?? null,
     conversationId: raw.conversation_id,
     listingId: raw.listing_id,
     listingTitle: raw.listing_title,
@@ -71,8 +75,8 @@ function transformTransaction(raw: any): MarketplaceTransaction {
     paymentMethod: raw.payment_method,
     paymentStatus: raw.payment_status,
     qrMessageId: raw.qr_message_id ?? null,
-    appointmentStatus: raw.appointment_status,
-    whenAt: raw.when_at,
+    appointmentStatus: raw.appointment_status ?? null,
+    whenAt: raw.when_at ?? null,
     buyerInspectedAt: raw.buyer_inspected_at ?? null,
     buyerReportedAt: raw.buyer_reported_at ?? null,
     sellerConfirmedAt: raw.seller_confirmed_at ?? null,
@@ -531,46 +535,46 @@ export async function recordAppointmentArrival(
   });
 }
 
-export async function fetchMarketplaceTransaction(appointmentId: string): Promise<MarketplaceTransaction> {
-  return transformTransaction(await api.realFetch<any>(`/market/appointments/${appointmentId}/transaction`));
+export async function fetchMarketplaceTransaction(tradeSetId: string): Promise<MarketplaceTransaction> {
+  return transformTransaction(await api.realFetch<any>(`/market/trade-sets/${tradeSetId}/transaction`));
 }
 
-export async function reportMarketplacePayment(appointmentId: string): Promise<MarketplaceTransaction> {
+export async function reportMarketplacePayment(tradeSetId: string): Promise<MarketplaceTransaction> {
   return transformTransaction(await api.realFetch<any>(
-    `/market/appointments/${appointmentId}/transaction/payment-reported`,
+    `/market/trade-sets/${tradeSetId}/transaction/payment-reported`,
     { method: 'PATCH' },
   ));
 }
 
-export async function confirmMarketplaceItemInspection(appointmentId: string): Promise<MarketplaceTransaction> {
+export async function confirmMarketplaceItemInspection(tradeSetId: string): Promise<MarketplaceTransaction> {
   return transformTransaction(await api.realFetch<any>(
-    `/market/appointments/${appointmentId}/transaction/item-inspected`,
+    `/market/trade-sets/${tradeSetId}/transaction/item-inspected`,
     { method: 'PATCH' },
   ));
 }
 
-export async function confirmMarketplacePayment(appointmentId: string): Promise<MarketplaceTransaction> {
+export async function confirmMarketplacePayment(tradeSetId: string): Promise<MarketplaceTransaction> {
   return transformTransaction(await api.realFetch<any>(
-    `/market/appointments/${appointmentId}/transaction/payment-confirmed`,
+    `/market/trade-sets/${tradeSetId}/transaction/payment-confirmed`,
     { method: 'PATCH' },
   ));
 }
 
 /** F-X-01 FR-2 ①: 구매자가 오신고를 스스로 철회 — PAYMENT_REPORTED → ACCEPTED(AWAITING_PAYMENT) 복귀. */
-export async function cancelMarketplacePaymentReport(appointmentId: string): Promise<MarketplaceTransaction> {
+export async function cancelMarketplacePaymentReport(tradeSetId: string): Promise<MarketplaceTransaction> {
   return transformTransaction(await api.realFetch<any>(
-    `/market/appointments/${appointmentId}/transaction/payment-report-cancel`,
+    `/market/trade-sets/${tradeSetId}/transaction/payment-report-cancel`,
     { method: 'PATCH' },
   ));
 }
 
 /** F-X-01 FR-2 ②: 양측 합의 취소 요청 생성 — PAYMENT_REPORTED 교착 상태에서만 가능. */
 export async function createTransactionCancelRequest(
-  appointmentId: string,
+  tradeSetId: string,
   reason: AppointmentCancelReason,
 ): Promise<TransactionCancelRequest> {
   return transformCancelRequest(await api.realFetch<any>(
-    `/market/appointments/${appointmentId}/transaction/cancel-requests`,
+    `/market/trade-sets/${tradeSetId}/transaction/cancel-requests`,
     { method: 'POST', body: JSON.stringify({ reason }) },
   ));
 }
@@ -588,7 +592,7 @@ export async function respondTransactionCancelRequest(
 
 export async function registerMarketplacePaymentQr(
   conversationId: string,
-  appointmentId: string,
+  tradeSetId: string,
   ownerId: string,
   file: File,
 ): Promise<DmMessage> {
@@ -602,7 +606,7 @@ export async function registerMarketplacePaymentQr(
     `/dm/conversations/${conversationId}/payment-qr`,
     {
       method: 'POST',
-      body: JSON.stringify({ appointment_id: appointmentId, image_content_id: content.id }),
+      body: JSON.stringify({ trade_set_id: tradeSetId, image_content_id: content.id }),
     },
     'bff',
     { rethrow: true },

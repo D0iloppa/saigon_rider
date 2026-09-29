@@ -74,12 +74,12 @@ export default function TransactionListPage() {
         />
       </Space>
       <Table<TransactionRow>
-        rowKey="appointment_id"
+        rowKey="id"
         loading={isLoading}
         columns={columns}
         dataSource={data?.items ?? []}
         onRow={(record) => ({
-          onClick: () => navigate(`/transactions/${record.appointment_id}`),
+          onClick: () => navigate(`/transactions/${record.id}`),
           style: { cursor: 'pointer' },
         })}
         pagination={{ current: page, pageSize: size, total: data?.total ?? 0, onChange: setPage, showSizeChanger: false }}

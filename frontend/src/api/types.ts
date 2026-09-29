@@ -296,6 +296,8 @@ export interface CommunityGroupMember {
 
 export interface DmAppointmentMeta {
   appointmentId?: string;
+  /** payment_qr 메시지 — 결제는 세트 귀속(구 메시지는 appointmentId 만). */
+  tradeSetId?: string;
   when?: string;
   place?: string;
   placeLat?: number;
@@ -337,7 +339,8 @@ export type AppointmentStatus = 'PROPOSED' | 'ACCEPTED' | 'COMPLETED' | 'CANCELL
 
 export interface Appointment {
   id: string;
-  listingId: string;
+  /** 매물 없는 1:1 방의 순수 약속이면 null. */
+  listingId: string | null;
   conversationId: string;
   proposerId: string;
   sellerId: string | null;
@@ -363,7 +366,11 @@ export type AppointmentCancelReason = 'SCHEDULE_CHANGED' | 'TRADED_ELSEWHERE' | 
 export type MarketplacePaymentStatus = 'AWAITING_PAYMENT' | 'PAYMENT_REPORTED' | 'PAYMENT_CONFIRMED';
 
 export interface MarketplaceTransaction {
-  appointmentId: string;
+  id: string;
+  tradeSetId: string | null;
+  tradeSetStatus: 'ACTIVE' | 'CLOSED' | null;
+  /** 표시 전용 — 방의 최신 ACCEPTED 약속(있을 때만). 결제와 무관(F-N-02 FR-7 ④). */
+  appointmentId: string | null;
   conversationId: string;
   listingId: string;
   listingTitle: string;
@@ -374,8 +381,8 @@ export interface MarketplaceTransaction {
   paymentMethod: string;
   paymentStatus: MarketplacePaymentStatus;
   qrMessageId: string | null;
-  appointmentStatus: AppointmentStatus;
-  whenAt: string;
+  appointmentStatus: AppointmentStatus | null;
+  whenAt: string | null;
   buyerInspectedAt: string | null;
   buyerReportedAt: string | null;
   sellerConfirmedAt: string | null;
@@ -389,7 +396,8 @@ export type TransactionCancelRequestStatus = 'PENDING' | 'AGREED' | 'REJECTED' |
 
 export interface TransactionCancelRequest {
   id: string;
-  appointmentId: string;
+  transactionId: string;
+  appointmentId: string | null;
   requesterId: string;
   reason: AppointmentCancelReason;
   status: TransactionCancelRequestStatus;

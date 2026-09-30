@@ -384,6 +384,10 @@ services:
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (212) ON CONFLICT DO NOTHING;"
       - "-f"
+      - "/migrations/213_user_tracking.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (213) ON CONFLICT DO NOTHING;"
+      - "-f"
       - "/migrations/214_dm_conversation_merge_direct.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (214) ON CONFLICT DO NOTHING;"
@@ -605,6 +609,7 @@ services:
       - ./database/init/210_dm_voice_message.sql:/migrations/210_dm_voice_message.sql:ro
       - ./database/init/211_marketplace_location_shares.sql:/migrations/211_marketplace_location_shares.sql:ro
       - ./database/init/212_dm_conversation_bans.sql:/migrations/212_dm_conversation_bans.sql:ro
+      - ./database/init/213_user_tracking.sql:/migrations/213_user_tracking.sql:ro
       - ./database/init/214_dm_conversation_merge_direct.sql:/migrations/214_dm_conversation_merge_direct.sql:ro
       - ./database/init/215_dm_message_sync.sql:/migrations/215_dm_message_sync.sql:ro
       - ./database/init/216_live_activity_tokens.sql:/migrations/216_live_activity_tokens.sql:ro

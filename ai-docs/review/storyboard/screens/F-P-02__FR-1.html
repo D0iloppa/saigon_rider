@@ -953,10 +953,10 @@ body {
 .settingsBtn{position:absolute;top:8px;right:16px;width:40px;height:40px;border-radius:14px;background:rgba(255,255,255,.22);color:#fff;display:flex;align-items:center;justify-content:center;border:0;}
 .pfAvatarWrap{display:block;width:88px;height:88px;margin:4px auto 0;}
 .pfAvatar{display:block;width:88px;height:88px;border-radius:50%;border:4px solid #fff;box-shadow:var(--shadow-pop);}
-.pfNick{margin:10px 0 0;font-size:20px;font-weight:700;}
+.pfNickBtn{display:flex;align-items:center;justify-content:center;gap:4px;margin:10px auto 0;padding:2px 4px 2px 8px;background:none;border:0;color:#fff;}
+.pfNick{font-size:20px;font-weight:700;}
 .pfChips{display:flex;justify-content:center;gap:6px;margin-top:8px;}
 .pfChip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r-pill);background:rgba(255,255,255,.20);font-size:12px;font-weight:600;color:#fff;}
-.pfViewBtn{display:inline-flex;align-items:center;gap:2px;margin-top:10px;padding:5px 10px 5px 12px;border-radius:var(--r-pill);background:rgba(255,255,255,.22);font-size:12px;font-weight:600;color:#fff;}
 .pfDot{width:6px;height:6px;border-radius:50%;background:#fff;flex-shrink:0;}
 .socialRow{display:flex;align-items:center;justify-content:center;margin-top:16px;}
 .socialCell{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 16px;color:#fff;}
@@ -1058,12 +1058,10 @@ body {
   <div class="pfTop">
     <button class="settingsBtn" type="button" aria-label="설정"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></button>
     <span class="pfAvatarWrap"><span class="pfAvatar ph ph--avatar"></span></span>
-    <h1 class="pfNick">Thu Hà</h1>
+    <button class="pfNickBtn" type="button"><span class="pfNick">Thu Hà</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity:.75"><path d="m9 18 6-6-6-6"/></svg></button>
     <div class="pfChips">
       <span class="pfChip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg> 나이트 라이더</span>
-      <span class="pfChip"><span class="pfDot"></span>좋은 이웃</span>
     </div>
-    <button class="pfViewBtn" type="button">프로필 보기<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
     <div class="socialRow">
       <span class="socialCell"><span class="socialNum num">42</span><span class="socialLabel">팔로워</span></span>
       <span class="socialDivider"></span>

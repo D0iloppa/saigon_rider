@@ -51,7 +51,7 @@
 
 /* 헤더 배지 행: 칩 묶음은 줄바꿈 허용, 칩 글자는 한 줄 (F-N-02 FR-8 ⑥) */
 .chipsRow {
-  margin: 8px 0 10px;
+  margin: 8px 0 24px;
   padding: 0 16px;
   display: flex;
   /* 칩 묶음은 줄바꿈 허용(칩 글자 자체는 1줄) — 가로 스크롤은 배지가 잘려 보이지 않는다(vi 라벨) */
@@ -59,21 +59,6 @@
   justify-content: center;
   gap: 6px;
 }
-
-.viewProfileBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin: 0 auto 24px;
-  padding: 5px 10px 5px 12px;
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text-2);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.viewProfileBtn:active { opacity: .8; }
 
 /* Section 2: 소셜 + 액션 (fixed, Section 1 바로 아래) */
 .socialSection {
@@ -328,6 +313,7 @@
 
 .avatarWrap {
   position: relative;
+  display: block;
   width: 104px; height: 104px;
   margin: 16px auto 12px;
 }
@@ -370,9 +356,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   position: relative;
+  margin: 0 auto;
+  padding: 2px 4px 2px 8px;
+  color: inherit;
 }
+.nickRow:active { opacity: .8; }
+
+.nickVerified { flex-shrink: 0; }
+.nickChevron { flex-shrink: 0; opacity: .75; }
 
 .editNickBtn {
   font-size: 14px;

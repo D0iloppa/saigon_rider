@@ -22,7 +22,6 @@ import { expToNextLevel } from '@/lib/rewards';
 import { formatNumber, formatRelativeTime, splitNumberParts } from '@/lib/format';
 import type { FeedPost, UserStats } from '@/api/types';
 import { Chip } from '@/components/ui/Chip';
-import { TrustTierChip } from '@/components/ui/TrustTierChip';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { fetchMe, fetchUserStats } from '@/api/profile';
 import { fetchWallet } from '@/api/wallet';
@@ -364,18 +363,41 @@ export default function ProfileMain() {
           <Settings size={20} strokeWidth={2} />
         </button>
 
-        <div className={styles.avatarWrap}>
+        {/* 대표 판정 260930(260929 헤더 버튼 대체): 아바타·닉네임 줄을 누르면 공개 프로필 /profile/:내 id.
+            인증은 칩이 아니라 닉네임 옆 아이콘 — 인증 전후 헤더 줄 수가 같다. 신뢰 티어 칩은 상대가 보는
+            신호라 내 헤더에는 두지 않는다(공개 프로필·매물 상세에는 유지). */}
+        <button
+          type="button"
+          className={styles.avatarWrap}
+          onClick={() => navigate(`/profile/${u.id}`)}
+          aria-label={t('profile.viewProfile')}
+        >
           <AppImage
             src={u.avatarUrl}
             alt=""
             className={styles.avatar}
             variant="circle"
           />
-        </div>
+        </button>
 
-        <div className={styles.nickRow}>
-          <h1 className={styles.nick}>{u.nickname}</h1>
-        </div>
+        <button
+          type="button"
+          className={styles.nickRow}
+          data-testid="profile-view-public-btn"
+          onClick={() => navigate(`/profile/${u.id}`)}
+        >
+          <span className={styles.nick}>{u.nickname}</span>
+          {u.phoneVerified && (
+            <BadgeCheck
+              size={18}
+              className={styles.nickVerified}
+              data-testid="profile-verified-badge"
+              role="img"
+              aria-label={t('profile.phoneVerifiedBadge')}
+            />
+          )}
+          <ChevronRight size={18} className={styles.nickChevron} aria-hidden="true" />
+        </button>
 
         <div className={styles.chipsRow}>
           <Chip variant="surface">
@@ -387,25 +409,7 @@ export default function ProfileMain() {
               <><Moon size={13} /> {t('profileSetup.styleNightRiderTitle')}</>
             )}
           </Chip>
-          <TrustTierChip temp={u.mannerTemp} />
-          {u.phoneVerified && (
-            <Chip variant="surface" data-testid="profile-verified-badge">
-              <BadgeCheck size={13} /> {t('profile.phoneVerifiedBadge')}
-            </Chip>
-          )}
         </div>
-
-        {/* 대표 판정 260929: 헤더 = 정체성/신뢰. 공개 프로필 진입은 시트 행이 아니라 헤더 버튼으로
-            (공개 프로필 페이지 /profile/:userId 를 내 id 로 연다 — 2026-09-10 요청의 배치 변경). */}
-        <button
-          type="button"
-          className={styles.viewProfileBtn}
-          data-testid="profile-view-public-btn"
-          onClick={() => navigate(`/profile/${u.id}`)}
-        >
-          {t('profile.viewProfile')}
-          <ChevronRight size={14} />
-        </button>
 
         {SHOW_LEGACY_GAME_ECONOMY && (
           <>

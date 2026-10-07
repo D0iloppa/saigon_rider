@@ -388,20 +388,28 @@ _VN_MOBILE_RE = re.compile(r"^(?:\+?84|0)([35789]\d{8})$", re.ASCII)
 # 우회 완화 경로에서도 국가코드 접두는 정식 경로와 동일하게 벗겨낸 뒤 로컬부만 정규화한다
 # (안 벗기면 "+84"+"00000" 같은 입력이 84 중복(+848400000)으로 정규화되는 버그가 남는다).
 _VN_PREFIX_RE = re.compile(r"^(?:\+?84|0)")
+# 비VN: '+' 로 시작하는 E.164 (국가코드 첫 자리 1~9, 총 7~15자리). 국가별 세부 규칙은 SMS 채널(Twilio)이 최종 판정.
+_E164_RE = re.compile(r"^\+[1-9]\d{6,14}$", re.ASCII)
 
 
 def _normalize_vn_phone(raw: str) -> str | None:
-    """공백·구분자 제거 후 VN 모바일 검증, E.164(+84…) 정규형 반환. 비VN이면 None.
+    """공백·구분자 제거 후 국가 무관 정규화, E.164(+…) 정규형 반환. 실패 시 None.
 
-    __DEV OTP 우회(_otp_bypass_enabled()) 활성 시에만: 정식 VN 형식이 아니어도 국가코드 접두를
+    VN 접두(+84/84/0)로 시작하면 기존 VN 모바일 규칙만 적용(+84…). 그 외는 '+' 로 시작하는
+    E.164 만 통과(국가 무관 — SMS 채널은 sms_client 가 +84 여부로 라우팅).
+
+    __DEV OTP 우회(_otp_bypass_enabled()) 활성 시에만: 정식 형식이 아니어도 국가코드 접두를
     벗겨낸 로컬부만 숫자로 추출해 4자리 이상이면 +84 접두로 정규화한다(운영에서는 이 완화 분기
     자체가 평가되지 않음). request/verify 양쪽 엔드포인트가 이 함수 하나만 호출하므로 정규화
     결과는 항상 동일하다.
     """
     compact = re.sub(r"[ \-.()]", "", raw.strip())
-    m = _VN_MOBILE_RE.match(compact)
-    if m:
-        return f"+84{m.group(1)}"
+    if _VN_PREFIX_RE.match(compact):
+        m = _VN_MOBILE_RE.match(compact)
+        if m:
+            return f"+84{m.group(1)}"
+    elif _E164_RE.match(compact):
+        return compact
     if _otp_bypass_enabled():
         local = _VN_PREFIX_RE.sub("", compact, count=1)
         digits = re.sub(r"\D", "", local)
@@ -421,7 +429,7 @@ async def request_otp(
     """세션 유저의 휴대폰 인증 코드 발송. 응답에 코드는 절대 포함되지 않는다."""
     phone = _normalize_vn_phone(body.phone)
     if phone is None:
-        raise HTTPException(status_code=400, detail="Invalid Vietnamese mobile number")
+        raise HTTPException(status_code=400, detail="Invalid phone number")
 
     now = datetime.now(UTC)
     bypass = _otp_bypass_enabled()
@@ -498,7 +506,7 @@ async def verify_otp(
     """코드 검증 성공 시 users.phone + phone_verified_at 설정. 폰 1개 = 계정 1개 (UNIQUE 강제)."""
     phone = _normalize_vn_phone(body.phone)
     if phone is None:
-        raise HTTPException(status_code=400, detail="Invalid Vietnamese mobile number")
+        raise HTTPException(status_code=400, detail="Invalid phone number")
 
     now = datetime.now(UTC)
     otp = (

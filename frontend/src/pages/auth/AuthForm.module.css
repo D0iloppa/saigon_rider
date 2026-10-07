@@ -107,6 +107,15 @@
   font-weight: 500;
 }
 
+/* 국가코드 입력 — `.input input` 전역 스타일(flex:1·24px)을 .code 와 같은 굵기·크기로 덮는다 */
+.input input.codeInput {
+  flex: 0 0 auto;
+  width: 3.4ch;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
 .bottomMesh {
   position: absolute;
   bottom: 0;

@@ -13,7 +13,7 @@ type Step = 'phone' | 'otp';
 
 // 백엔드 에러 계약(고정 detail 문자열) → 사용자 메시지 i18n 키 매핑
 const ERROR_MAP: [string, string][] = [
-  ['Invalid Vietnamese mobile number', 'phoneVerify.errInvalidPhone'],
+  ['Invalid phone number', 'phoneVerify.errInvalidPhone'],
   ['Please wait before requesting another code', 'phoneVerify.errResendCooldown'],
   ['Too many OTP requests', 'phoneVerify.errTooManyRequests'],
   ['No OTP requested for this phone', 'phoneVerify.errNoOtpRequested'],
@@ -37,7 +37,8 @@ export default function PhoneVerify() {
   const markPhoneVerified = useUserStore((s) => s.markPhoneVerified);
 
   const [step, setStep] = useState<Step>('phone');
-  const [localDigits, setLocalDigits] = useState(''); // +84 뒤 로컬 자릿수 (VN 고정 — 계약상 VN 번호만 허용)
+  const [countryCode, setCountryCode] = useState('84'); // 국가코드 숫자(기본 84). 국가 목록은 두지 않는다 — 서버가 최종 판정
+  const [localDigits, setLocalDigits] = useState(''); // 국가코드 뒤 로컬 자릿수
   const [normalizedPhone, setNormalizedPhone] = useState(''); // 백엔드가 돌려준 E.164 — verify 호출에 그대로 사용
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState<string | null>(null);
@@ -76,8 +77,16 @@ export default function PhoneVerify() {
     return () => clearInterval(timer);
   }, [expiresIn]);
 
-  // 백엔드 _VN_MOBILE_RE 와 정합: 로컬부 3/5/7/8/9로 시작하는 9자리. 우회 활성 시에만 4자리 이상으로 완화.
-  const phoneValid = otpDevBypass ? /^[0-9]{4,}$/.test(localDigits) : /^[35789]\d{8}$/.test(localDigits);
+  // 84 → 백엔드 _VN_MOBILE_RE 와 정합: 로컬부 3/5/7/8/9로 시작하는 9자리.
+  // 그 외 → 백엔드 _E164_RE 와 정합: 국가코드 1~3자리(첫 자리 1~9) + 번호, 합계 7~15자리 (서버가 최종 판정).
+  // 우회 활성 시에만 4자리 이상으로 완화.
+  const isVn = countryCode === '84';
+  const countryCodeValid = /^[1-9]\d{0,2}$/.test(countryCode);
+  const phoneValid = otpDevBypass
+    ? countryCodeValid && /^[0-9]{4,}$/.test(localDigits)
+    : isVn
+      ? /^[35789]\d{8}$/.test(localDigits)
+      : countryCodeValid && localDigits.length > 0 && (countryCode + localDigits).length >= 7 && (countryCode + localDigits).length <= 15;
   const phoneFormatHint = localDigits.length > 0 && !phoneValid && !error;
 
   const requestOtp = async (phone: string) => {
@@ -99,7 +108,7 @@ export default function PhoneVerify() {
 
   const handleRequestOtp = () => {
     if (!phoneValid || loading) return;
-    void requestOtp(`+84${localDigits}`);
+    void requestOtp(`+${countryCode}${localDigits}`);
   };
 
   const handleResend = () => {
@@ -157,14 +166,25 @@ export default function PhoneVerify() {
 
             <div className={`${styles.input} ${error ? styles.inputError : ''}`}>
               <div className={styles.inputShine} />
-              {/* 계약상 VN 번호만 허용 — 국가 선택 없이 +84 고정 */}
+              {/* 국가코드 직접 입력(기본 84) — 국가 목록 하드코딩 금지, 채널 라우팅은 서버(sms_client) 담당 */}
               <div className={styles.flagGroup}>
-                <span className={`fi fi-vn ${styles.flagEmoji}`} />
-                <span className={styles.code}>+84</span>
+                <span className={styles.code}>+</span>
+                <input
+                  type="tel"
+                  className={styles.codeInput}
+                  aria-label={t('phoneVerify.countryCodeLabel')}
+                  value={countryCode}
+                  onChange={(e) => {
+                    setCountryCode(e.target.value.replace(/\D/g, '').slice(0, 3));
+                    setError(null);
+                  }}
+                  inputMode="numeric"
+                  maxLength={3}
+                />
               </div>
               <input
                 type="tel"
-                placeholder={t('phoneVerify.phonePlaceholder')}
+                placeholder={t(isVn ? 'phoneVerify.phonePlaceholder' : 'phoneVerify.phonePlaceholderIntl')}
                 value={localDigits}
                 onChange={(e) => {
                   setLocalDigits(e.target.value.replace(/\D/g, ''));
@@ -179,7 +199,7 @@ export default function PhoneVerify() {
             {phoneFormatHint && (
               <p className={styles.error}>
                 <CircleAlert size={14} className={styles.errorIcon} />
-                {t(otpDevBypass ? 'phoneVerify.phoneFormatHintDev' : 'phoneVerify.phoneFormatHint')}
+                {t(otpDevBypass ? 'phoneVerify.phoneFormatHintDev' : isVn ? 'phoneVerify.phoneFormatHint' : 'phoneVerify.phoneFormatHintIntl')}
               </p>
             )}
 

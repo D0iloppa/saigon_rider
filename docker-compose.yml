@@ -746,6 +746,11 @@ services:
       - TRANSLATE_API_KEY=${TRANSLATE_API_KEY:-}
       - TRANSLATE_PROVIDER=${TRANSLATE_PROVIDER:-google}
       - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
+      # 비 +84 번호 OTP SMS 채널(Twilio). 미설정 시 dev 는 __DEV 스텁, 운영은 fail-loud (sms_client.py).
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER:-}
+      - TWILIO_MESSAGING_SERVICE_SID=${TWILIO_MESSAGING_SERVICE_SID:-}
       # Zalo OAuth 인증 호출을 베트남 IP 프록시로 경유 (-501 우회). 미설정 시 직접 호출. CLAUDE.md '## Zalo 인증 프록시 VPS' 참조.
       - ZALO_API_PROXY=${ZALO_API_PROXY:-}
       # F-17/F-18: 신고 접수·미처리 예외 운영자 알림 웹훅. 미설정 시 로그만(무동작).

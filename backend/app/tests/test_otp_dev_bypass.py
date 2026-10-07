@@ -134,7 +134,7 @@ class OtpPhoneFormatBypassTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(HTTPException) as raised:
                 await auth.request_otp(req_body, req_db, uuid.uuid4())
         self.assertEqual(raised.exception.status_code, 400)
-        self.assertEqual(raised.exception.detail, "Invalid Vietnamese mobile number")
+        self.assertEqual(raised.exception.detail, "Invalid phone number")
 
     async def test_dev_without_flag_malformed_phone_request_rejected(self):
         """dev 환경이어도 OTP_DEV_BYPASS 미설정이면 형식 완화되지 않는다."""

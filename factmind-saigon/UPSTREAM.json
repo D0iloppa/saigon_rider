@@ -1,0 +1,134 @@
+{
+  "entries": [
+    {
+      "local": "core/fetch.py",
+      "upstream": [
+        {
+          "path": "site/public_delivery.py",
+          "lines": "19-143"
+        }
+      ],
+      "upstream_commit": "f6b1772314e577c213eb2bc625690e5a5d34a5be",
+      "upstream_sha256": "66ca839e5c67d5eb1b08595a29106096e3d748adad422f8b7de2813c989e2769",
+      "local_sha256": "545e024c3b12890677eb5565543cc0f5e0ec2ad2da22cf16f0238dbb5db089fb",
+      "status": "unchanged"
+    },
+    {
+      "local": "core/site_report.py",
+      "upstream": [
+        {
+          "path": "site/site_report.py",
+          "lines": "19-224"
+        }
+      ],
+      "upstream_commit": "f6b1772314e577c213eb2bc625690e5a5d34a5be",
+      "upstream_sha256": "0a5752301dd8e9212dfaf6b0b0af3f91a4805bf25598cf75eb3129e387b99fdd",
+      "local_sha256": "91e707c7c5251144366eb63c5a21f4890316bd9a036ecde6cfdc050300003ef1",
+      "status": "unchanged"
+    },
+    {
+      "local": "core/access.py",
+      "upstream": [
+        {
+          "path": "site/public_delivery.py",
+          "lines": "146-281"
+        }
+      ],
+      "upstream_commit": "f6b1772314e577c213eb2bc625690e5a5d34a5be",
+      "upstream_sha256": "66ca839e5c67d5eb1b08595a29106096e3d748adad422f8b7de2813c989e2769",
+      "local_sha256": "db3c1e3cda580189df2556a847bb32f086ebeb82c71a0413136445583c082b43",
+      "status": "unchanged"
+    },
+    {
+      "local": "core/bundle.py",
+      "upstream": [
+        {
+          "path": "site/public_delivery.py",
+          "lines": "284-349,376-521"
+        }
+      ],
+      "upstream_commit": "f6b1772314e577c213eb2bc625690e5a5d34a5be",
+      "upstream_sha256": "66ca839e5c67d5eb1b08595a29106096e3d748adad422f8b7de2813c989e2769",
+      "local_sha256": "98e338e62cee26ebdf85300b786ce350d25b1bfe0c4bf6bdc02c49ef5f74715f",
+      "status": "unchanged"
+    },
+    {
+      "local": "core/verify.py",
+      "upstream": [
+        {
+          "path": "site/self_service.py",
+          "lines": "176-190"
+        }
+      ],
+      "upstream_commit": "f6b1772314e577c213eb2bc625690e5a5d34a5be",
+      "upstream_sha256": "7557de85c099f352092175235e3600dd31e88662689907bbe105bd8854039fb6",
+      "local_sha256": "d812dd7494d7d6309b997424d3bc63a14d9285dc6e0ca3769510a0abf54862a1",
+      "status": "unchanged"
+    },
+    {
+      "local": "core/indexnow.py",
+      "upstream": [
+        {
+          "path": "site/public_delivery.py",
+          "lines": "354-365"
+        }
+      ],
+      "upstream_commit": "f6b1772314e577c213eb2bc625690e5a5d34a5be",
+      "upstream_sha256": "66ca839e5c67d5eb1b08595a29106096e3d748adad422f8b7de2813c989e2769",
+      "local_sha256": "efba650f8490095e8d54cdc20c618b2760bc7aa0d6a83cabd007c7f130119074",
+      "status": "unchanged"
+    },
+    {
+      "local": "core/bots.py",
+      "upstream": [
+        {
+          "path": "site/observation_collect.py",
+          "lines": "48-206"
+        }
+      ],
+      "upstream_commit": "f6b1772314e577c213eb2bc625690e5a5d34a5be",
+      "upstream_sha256": "91c298ab78dbe196e315b8d89ab2d4634ab316fe556d7cfd6940ca7acbbc8860",
+      "local_sha256": "19202dbe996af8e472fc8171b6f5b10510c230dfbd2c2b45f3111d5634273f98",
+      "status": "unchanged"
+    },
+    {
+      "local": "core/bot_policy_upstream.json",
+      "upstream": [
+        {
+          "path": "site/observation_policy.json",
+          "lines": "whole file"
+        }
+      ],
+      "upstream_commit": "f6b1772314e577c213eb2bc625690e5a5d34a5be",
+      "upstream_sha256": "c80d8f48e464ac39986e6c747bd73fb00a770f7d41bd7746869b187b1fbdd479",
+      "local_sha256": "c80d8f48e464ac39986e6c747bd73fb00a770f7d41bd7746869b187b1fbdd479",
+      "status": "unchanged"
+    },
+    {
+      "local": "core/bot_policy.json",
+      "upstream": [
+        {
+          "path": "site/observation_policy.json",
+          "lines": "whole file, Yeti/Daum removed"
+        }
+      ],
+      "upstream_commit": "f6b1772314e577c213eb2bc625690e5a5d34a5be",
+      "upstream_sha256": "c80d8f48e464ac39986e6c747bd73fb00a770f7d41bd7746869b187b1fbdd479",
+      "local_sha256": "e4df2b7c6436b1ce1db51f9afb1f04431631aab984decc4fc692afe0bef85a62",
+      "status": "unchanged"
+    },
+    {
+      "local": "core/locale/ko.py",
+      "upstream": [
+        {
+          "path": "site/public_delivery.py",
+          "lines": "wording only"
+        }
+      ],
+      "upstream_commit": "f6b1772314e577c213eb2bc625690e5a5d34a5be",
+      "upstream_sha256": "66ca839e5c67d5eb1b08595a29106096e3d748adad422f8b7de2813c989e2769",
+      "local_sha256": "aaf1e50786dfb84ce32c1f26dbcc96ddfc3cf42ff80dd20f89845ed79fc5ef4b",
+      "status": "unchanged"
+    }
+  ]
+}

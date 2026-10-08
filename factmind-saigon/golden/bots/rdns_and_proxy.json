@@ -1,0 +1,111 @@
+{
+  "feeds": {},
+  "prefetch": [],
+  "proxy_cases": [
+    {
+      "headers": {
+        "X-Real-IP": "203.0.113.7"
+      },
+      "remote": "10.1.2.3"
+    },
+    {
+      "headers": {
+        "X-Forwarded-For": "1.1.1.1, 203.0.113.8"
+      },
+      "remote": "10.1.2.3"
+    },
+    {
+      "headers": {
+        "X-Real-IP": "garbage"
+      },
+      "remote": "10.1.2.3"
+    },
+    {
+      "headers": {
+        "X-Real-IP": "1.2.3.4"
+      },
+      "remote": "203.0.113.50"
+    },
+    {
+      "headers": {},
+      "remote": "192.168.1.5"
+    },
+    {
+      "headers": {},
+      "remote": "nope"
+    }
+  ],
+  "rdns": {
+    "fwd": {
+      "crawl-66-249-66-1.googlebot.com": [
+        "66.249.66.1"
+      ],
+      "crawl.naver.com": [
+        "211.249.0.1"
+      ],
+      "msnbot-40-77-167-1.search.msn.com": [
+        "10.0.0.1"
+      ]
+    },
+    "ptr": {
+      "18.97.0.1": [],
+      "211.249.0.1": [
+        "crawl.naver.com"
+      ],
+      "40.77.167.1": [
+        "msnbot-40-77-167-1.search.msn.com"
+      ],
+      "66.249.66.1": [
+        "crawl-66-249-66-1.googlebot.com"
+      ],
+      "66.249.66.2": [
+        "evil.example.com"
+      ],
+      "66.249.66.3": [
+        "crawl-x.googlebot.com.evil.test"
+      ],
+      "66.249.66.4": "TIMEOUT"
+    }
+  },
+  "referers": [],
+  "trusted": [
+    "10.0.0.0/8",
+    "172.16.0.0/12"
+  ],
+  "uas": [
+    "Googlebot/2.1",
+    "Mozilla/5.0 (compatible; bingbot/2.0)",
+    "CCBot/2.0",
+    "Perplexity-User/1.0"
+  ],
+  "verify": [
+    {
+      "bot": "googlebot",
+      "ip": "66.249.66.1"
+    },
+    {
+      "bot": "googlebot",
+      "ip": "66.249.66.2"
+    },
+    {
+      "bot": "googlebot",
+      "ip": "66.249.66.3"
+    },
+    {
+      "bot": "googlebot",
+      "ip": "66.249.66.4"
+    },
+    {
+      "bot": "bingbot",
+      "ip": "40.77.167.1"
+    },
+    {
+      "bot": "ccbot",
+      "ip": "18.97.0.1"
+    },
+    {
+      "bot": "yeti",
+      "ip": "211.249.0.1"
+    }
+  ]
+}

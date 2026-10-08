@@ -1,0 +1,50 @@
+{
+  "expected_phrases": [
+    "Espresso",
+    "Cold brew"
+  ],
+  "methods": [
+    "A01",
+    "A02",
+    "A03",
+    "A04",
+    "A05",
+    "A06",
+    "A07"
+  ],
+  "official": "https://shop.example.com/menu",
+  "records": [
+    {
+      "canonical": [
+        "https://shop.example.com/menu"
+      ],
+      "final_url": "https://shop.example.com/menu",
+      "links": [
+        "/about"
+      ],
+      "response_text": "<!doctype html><html><head><title>Menu</title></head><body><p>Espresso and pour over.</p></body></html>",
+      "url": "https://shop.example.com/menu"
+    },
+    {
+      "headers": {
+        "content-type": "text/plain"
+      },
+      "response_text": "User-agent: *\nAllow: /\n",
+      "url": "https://shop.example.com/robots.txt"
+    },
+    {
+      "headers": {
+        "content-type": "application/xml"
+      },
+      "response_text": "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>https://shop.example.com/menu</loc></url></urlset>",
+      "url": "https://shop.example.com/sitemap.xml"
+    },
+    {
+      "http_status": 404,
+      "probe": "missing_page",
+      "response_text": "not found",
+      "url": "https://shop.example.com/zz-missing"
+    }
+  ],
+  "url": "https://shop.example.com/menu"
+}

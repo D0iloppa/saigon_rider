@@ -1,0 +1,41 @@
+{
+  "directory": {
+    "lists": []
+  },
+  "list_page": {
+    "entries": [],
+    "path": "lists/apps/",
+    "population": null,
+    "title": "앱"
+  },
+  "listing": null,
+  "origin": "https://factmind.example/",
+  "population": null,
+  "rss": [],
+  "sid": "app/나 1",
+  "site_control": {
+    "host": "todo.example.com",
+    "kind": "site_control",
+    "method": "dns_txt",
+    "verified_on": "2026-09-14"
+  },
+  "snapshot": {
+    "api": {
+      "fact_details": {
+        "category": "생산성",
+        "features": [
+          "메모",
+          "할 일",
+          "공유"
+        ],
+        "intro": "간단한 메모 앱",
+        "url": "https://todo.example.com"
+      },
+      "name": "Todo & Notes"
+    },
+    "jsonld": {
+      "@type": "WebApplication"
+    },
+    "lastmod": "2026-09-15T00:00:00+00:00"
+  }
+}

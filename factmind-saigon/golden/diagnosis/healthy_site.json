@@ -1,0 +1,31 @@
+{
+  "name": "Hanoi Coffee",
+  "probe": {
+    "http_status": 404,
+    "response_text": "not found"
+  },
+  "records": {
+    "https://shop.example.com/": {
+      "response_text": "<!doctype html><html><head><title>Hanoi Coffee</title><link rel=\"canonical\" href=\"https://shop.example.com/\"></head><body><h1>Hanoi Coffee</h1><p>Specialty coffee roaster in Hanoi, open daily from morning.</p><a href=\"/menu\">Menu</a><a href=\"/about\">About</a></body></html>"
+    },
+    "https://shop.example.com/about": {
+      "response_text": "<!doctype html><html><head><title>About</title></head><body><h1>About</h1><p>Our story began in a small alley in the old quarter.</p></body></html>"
+    },
+    "https://shop.example.com/menu": {
+      "response_text": "<!doctype html><html><head><title>Menu</title></head><body><h1>Menu</h1><p>Espresso, pour over and cold brew prices listed here.</p></body></html>"
+    },
+    "https://shop.example.com/robots.txt": {
+      "headers": {
+        "content-type": "text/plain"
+      },
+      "response_text": "User-agent: *\nAllow: /\nSitemap: https://shop.example.com/sitemap.xml\n"
+    },
+    "https://shop.example.com/sitemap.xml": {
+      "headers": {
+        "content-type": "application/xml"
+      },
+      "response_text": "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>https://shop.example.com/</loc></url><url><loc>https://shop.example.com/menu</loc></url></urlset>"
+    }
+  },
+  "url": "https://shop.example.com/"
+}

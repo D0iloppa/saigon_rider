@@ -1,0 +1,25 @@
+{
+  "name": "Blocked Shop",
+  "probe": {
+    "http_status": 200,
+    "response_text": "<!doctype html><html><head><title>App</title><link rel=\"canonical\" href=\"https://other.example.net/\"><meta name=\"robots\" content=\"noindex\"></head><body><div id=\"root\"></div><noscript>Enable JS</noscript></body></html>"
+  },
+  "records": {
+    "https://blocked.example.org/": {
+      "response_text": "<!doctype html><html><head><title>App</title><link rel=\"canonical\" href=\"https://other.example.net/\"><meta name=\"robots\" content=\"noindex\"></head><body><div id=\"root\"></div><noscript>Enable JS</noscript></body></html>"
+    },
+    "https://blocked.example.org/robots.txt": {
+      "headers": {
+        "content-type": "text/plain"
+      },
+      "response_text": "User-agent: Googlebot\nDisallow: /\n\nUser-agent: Bingbot\nDisallow: /\n"
+    },
+    "https://blocked.example.org/sitemap.xml": {
+      "headers": {
+        "content-type": "text/html"
+      },
+      "response_text": "<!DOCTYPE html><html><body>app</body></html>"
+    }
+  },
+  "url": "https://blocked.example.org/"
+}

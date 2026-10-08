@@ -4,7 +4,7 @@
 core를 바꾸는 커밋마다 항목 1개를 쓴다. 필드:
 - `Kind`: `code`(코드 변경) | `learning`(측정에서 배운 것 — 증거 링크 필수) | `no-backport`(역이식 불필요)
 - `Why`: 변경 이유와 증거 · `How-to-apply-upstream`: 업스트림에 적용하는 방법
-- `Forwarded`: `pending` | `done <커밋>` | `declined <사유>` · `Verified`: `no` | `yes <패리티 run id>`
+- `Forwarded`: `pending` | `applied <업스트림 커밋>` | `not-needed <사유>` · `Verified`: `no` | `yes <패리티 run id>` (`tools/fm_parity.py`가 출력한 run id만)
 
 ---
 
@@ -15,4 +15,4 @@ Files: core/fetch.py core/site_report.py core/access.py core/bundle.py core/veri
 Why: 초기 이식 — 시장·로캘 특이값(문구·BOTS·UA·국가·통화·요일·정책)을 기본값=업스트림인 파라미터로 분리. 동작 변경 없음.
 How-to-apply-upstream: 로캘 파라미터화는 업스트림에 적용할 가치가 있음(ko-KR 기본값이라 업스트림 동작 불변) — 패리티 픽스처 생성 후(P2-B) 적용 여부 결정.
 Forwarded: pending
-Verified: no
+Verified: yes 20261008-14e5b934

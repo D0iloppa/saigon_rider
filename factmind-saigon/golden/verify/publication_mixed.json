@@ -1,0 +1,49 @@
+{
+  "checks": [
+    {
+      "body": "<html>profile</html>",
+      "kind": "profile",
+      "url": "https://factmind.example/profiles/shop-001/"
+    },
+    {
+      "body": "{\"name\": \"Hanoi Coffee\"}",
+      "kind": "facts",
+      "url": "https://factmind.example/profiles/shop-001/facts.json"
+    },
+    {
+      "body": null,
+      "kind": "list",
+      "url": "https://factmind.example/lists/cafe/"
+    },
+    {
+      "body": null,
+      "kind": "list",
+      "url": "https://factmind.example/lists/gone/"
+    }
+  ],
+  "name": "Hanoi Coffee",
+  "profile_url": "https://factmind.example/profiles/shop-001/",
+  "responses": {
+    "https://factmind.example/lists/cafe/": {
+      "canonical": [
+        "https://factmind.example/lists/cafe/"
+      ],
+      "links": [
+        "/profiles/shop-001/"
+      ],
+      "response_text": "Hanoi Coffee and others"
+    },
+    "https://factmind.example/lists/gone/": {
+      "error": "dns failure"
+    },
+    "https://factmind.example/profiles/shop-001/": {
+      "canonical": [
+        "https://factmind.example/profiles/shop-001/"
+      ],
+      "match_body": true
+    },
+    "https://factmind.example/profiles/shop-001/facts.json": {
+      "sha": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  }
+}

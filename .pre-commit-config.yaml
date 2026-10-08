@@ -50,3 +50,12 @@ repos:
         language: system
         pass_filenames: false
         files: ^frontend/src/.*\.css$
+      # FactMind core 역이식 가드(§3.9 G4a): core/ 변경 커밋엔 BACKPORT.md 원장 항목이 같이 스테이지돼야 하고,
+      # core/ 는 app·sqlalchemy·fastapi·factmind_saigon.saigon 을 import 하면 안 된다. 스테이지 상태를 직접
+      # 읽으므로 pass_filenames=false. (벤더 코드의 업스트림 한줄 스타일 보존 — ruff 는 이 폴더에 걸지 않는다.)
+      - id: fm-core-guard
+        name: factmind core guard
+        entry: python tools/check_fm_core.py
+        language: system
+        pass_filenames: false
+        files: ^factmind-saigon/

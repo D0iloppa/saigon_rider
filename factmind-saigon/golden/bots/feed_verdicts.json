@@ -1,0 +1,71 @@
+{
+  "feeds": {
+    "anthropic_bots": "{\"creationTime\": \"2026-10-01T00:00:00.000\", \"prefixes\": [{\"ipv4Prefix\": \"198.51.100.0/25\"}]}",
+    "openai_searchbot": "{\"creationTime\": \"2026-10-01T00:00:00.000\", \"prefixes\": [{\"ipv4Prefix\": \"203.0.113.0/24\"}, {\"ipv6Prefix\": \"2001:db8::/32\"}]}"
+  },
+  "prefetch": [
+    {
+      "Purpose": "prefetch"
+    },
+    {
+      "Sec-Purpose": "prefetch;prerender"
+    },
+    {
+      "X-Moz": "preview"
+    },
+    {}
+  ],
+  "proxy_cases": [],
+  "rdns": {
+    "fwd": {},
+    "ptr": {}
+  },
+  "referers": [
+    "https://chatgpt.com/c/1",
+    "https://www.perplexity.ai/search",
+    "https://chatgpt.com.evil.test/",
+    "not a url",
+    ""
+  ],
+  "trusted": [],
+  "uas": [
+    "Mozilla/5.0 (compatible; OAI-SearchBot/1.0; +https://openai.com/searchbot)",
+    "Mozilla/5.0 (compatible; Googlebot/2.1)",
+    "Mozilla/5.0 (compatible; Yeti/1.1)",
+    "Mozilla/5.0 (compatible; Daum/4.1)",
+    "Google-Extended",
+    "Mozilla/5.0 (Windows NT 10.0) Chrome/120",
+    "",
+    "ClaudeBot/1.0"
+  ],
+  "verify": [
+    {
+      "bot": "oai_searchbot",
+      "ip": "203.0.113.9"
+    },
+    {
+      "bot": "oai_searchbot",
+      "ip": "2001:db8::5"
+    },
+    {
+      "bot": "oai_searchbot",
+      "ip": "192.0.2.1"
+    },
+    {
+      "bot": "chatgpt_user",
+      "ip": "203.0.113.9"
+    },
+    {
+      "bot": "claudebot",
+      "ip": "198.51.100.7"
+    },
+    {
+      "bot": "daum",
+      "ip": "203.0.113.9"
+    },
+    {
+      "bot": "oai_searchbot",
+      "ip": null
+    }
+  ]
+}

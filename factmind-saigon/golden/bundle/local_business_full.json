@@ -1,0 +1,139 @@
+{
+  "directory": {
+    "lists": [
+      {
+        "entries": [
+          {
+            "name": "하노이 커피",
+            "url": "https://factmind.example/profiles/shop-001/"
+          }
+        ],
+        "title": "마포구 카페",
+        "url": "https://factmind.example/lists/cafe/mapo/"
+      },
+      {
+        "entries": [],
+        "title": "바",
+        "url": "https://factmind.example/lists/bar/"
+      }
+    ]
+  },
+  "list_page": {
+    "entries": [
+      {
+        "name": "하노이 커피",
+        "updated": "2026-10-01T09:00:00+00:00",
+        "url": "https://factmind.example/profiles/shop-001/"
+      },
+      {
+        "name": "가게 A",
+        "updated": "2026-09-20T09:00:00+00:00",
+        "url": "https://factmind.example/profiles/shop-002/"
+      }
+    ],
+    "path": "lists/cafe/mapo/",
+    "population": {
+      "criteria": "마포구 로스터리 카페",
+      "known_omissions": "없음",
+      "members": [
+        {
+          "name": "가게 C",
+          "source_url": "https://c.example.com/"
+        }
+      ],
+      "researched_at": "2026-09-30"
+    },
+    "title": "마포구 카페"
+  },
+  "listing": [
+    "https://factmind.example/lists/cafe/mapo/",
+    "마포구 카페"
+  ],
+  "origin": "https://factmind.example",
+  "population": {
+    "criteria": "마포구 로스터리 카페",
+    "known_omissions": "신규 개업 매장",
+    "members": [
+      {
+        "name": "가게 A",
+        "source_url": "https://a.example.com/"
+      },
+      {
+        "name": "가게 B",
+        "source_url": "https://b.example.com/"
+      }
+    ],
+    "researched_at": "2026-09-30",
+    "source": "SURVEY"
+  },
+  "rss": [
+    {
+      "description": "로스터리 카페",
+      "published": "2026-10-01T09:00:00Z",
+      "title": "하노이 커피 — 카페",
+      "url": "https://factmind.example/profiles/shop-001/"
+    },
+    {
+      "description": "",
+      "published": "not-a-date",
+      "title": "가게 A",
+      "url": "https://factmind.example/profiles/shop-002/"
+    }
+  ],
+  "sid": "shop-001",
+  "site_control": {
+    "kind": "business_check",
+    "verified_on": "2026-09-29"
+  },
+  "snapshot": {
+    "api": {
+      "fact_details": {
+        "address": "서울 마포구 월드컵로 1",
+        "category": "카페",
+        "geo": {
+          "latitude": 37.5,
+          "longitude": 126.9
+        },
+        "hours": {
+          "typed_value": {
+            "breakTime": "12:00-13:00",
+            "closed": "일요일",
+            "weekday": "09:00 - 18:00",
+            "weekend": "10:00-17:00"
+          }
+        },
+        "intro": "직접 볶은 원두를 파는 로스터리 카페입니다.",
+        "menus": [
+          {
+            "name": "에스프레소",
+            "price": 4500
+          },
+          {
+            "name": "핸드드립",
+            "price": 6000
+          },
+          {
+            "name": "시즌 메뉴"
+          }
+        ],
+        "price": {
+          "conditions": {
+            "name": "아메리카노 기준"
+          },
+          "typed_value": 4500,
+          "unit": "원"
+        },
+        "url": "https://example.com/shop"
+      },
+      "name": "하노이 커피 <본점>"
+    },
+    "jsonld": {
+      "@type": "LocalBusiness",
+      "sameAs": [
+        "https://example.com/shop",
+        "ftp://skip.me"
+      ]
+    },
+    "lastmod": "2026-10-01T09:00:00+00:00"
+  }
+}

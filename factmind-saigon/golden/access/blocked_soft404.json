@@ -1,0 +1,55 @@
+{
+  "expected_phrases": [
+    "Blocked Shop"
+  ],
+  "methods": [
+    "A01",
+    "A02",
+    "A04",
+    "A05",
+    "A06",
+    "A07"
+  ],
+  "official": "https://blocked.example.org/shop",
+  "records": [
+    {
+      "canonical": [
+        "https://other.example.net/"
+      ],
+      "final_url": "https://blocked.example.org/shop",
+      "links": [
+        "#contact",
+        "#top"
+      ],
+      "meta_robots": [
+        "noindex"
+      ],
+      "response_text": "<!doctype html><html><head><title>App</title><meta name=\"robots\" content=\"noindex,nosnippet\"></head><body><div id=\"root\"></div></body></html>",
+      "url": "https://blocked.example.org/shop"
+    },
+    {
+      "headers": {
+        "content-type": "text/html"
+      },
+      "response_text": "<html><body>app</body></html>",
+      "url": "https://blocked.example.org/robots.txt"
+    },
+    {
+      "headers": {
+        "content-type": "application/xml"
+      },
+      "response_text": "<sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><sitemap><loc>https://blocked.example.org/s1.xml</loc></sitemap></sitemapindex>",
+      "url": "https://blocked.example.org/sitemap.xml"
+    },
+    {
+      "probe": "missing_page",
+      "response_text": "<!doctype html><html><head><title>App</title><meta name=\"robots\" content=\"noindex,nosnippet\"></head><body><div id=\"root\"></div></body></html>",
+      "url": "https://blocked.example.org/zz-missing"
+    },
+    {
+      "error": "timeout",
+      "url": "https://blocked.example.org/gone"
+    }
+  ],
+  "url": "https://blocked.example.org/shop"
+}

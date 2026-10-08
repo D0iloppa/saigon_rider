@@ -692,7 +692,7 @@ export default function MarketMain() {
                 ) : (
                   <div className={`${sys.stateWrap} ${sys.stateWrapLg}`}>
                     <div className={sys.stateIcon}>
-                      <PackageOpen size={30} strokeWidth={2} />
+                      <PackageOpen size={44} strokeWidth={2} />
                     </div>
                     <div className={sys.stateTitle}>{t('market.emptyTitle', { defaultValue: '근처에 매물이 없어요' })}</div>
                     <div className={sys.stateDesc}>{t('market.emptySub', { defaultValue: '첫 매물을 등록해보세요' })}</div>

@@ -285,7 +285,7 @@
 /* 전면 빈 상태(화면 전체가 비는 목록, 예: 마켓) — 기본은 시트·섹션 안 소형 기준이라
    전면에선 작아 보인다는 피드백으로 아이콘·문구·버튼을 키운 변형. <StateBlock large> 가 소비. */
 .stateWrapLg { gap: 12px; }
-.stateWrapLg .stateIcon { width: 64px; height: 64px; }
+.stateWrapLg .stateIcon { width: 88px; height: 88px; }
 .stateWrapLg .stateTitle { font-size: 17px; }
 .stateWrapLg .stateDesc { font-size: 14.5px; max-width: 280px; }
 .stateWrapLg .stateBtn { height: 44px; padding: 0 22px; font-size: 15px; }

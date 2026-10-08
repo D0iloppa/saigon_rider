@@ -20,4 +20,5 @@ FactMind(`/DEVELOP/Blueurban/factmind`, 이식 기준 커밋 `f6b1772`)의 코�
 ## 검증·동기화
 - `python factmind-saigon/tools/fm_upstream.py --upstream /DEVELOP/Blueurban/factmind` — `UPSTREAM.json`(core 파일별 업스트림 출처·sha256)과 현재 상태 비교(`unchanged`/`local-modified`/`upstream-ahead`/`both`/`unknown-upstream`). 읽기 전용; 이식·동기화 직후에만 `--record`.
 - `python factmind-saigon/tools/fm_parity.py --target saigon` / `--target upstream --path /DEVELOP/Blueurban/factmind/site` — `golden/` 픽스처(입력만)를 두 타깃에 통과시킨 전체 다이제스트가 같아야 한다(번들은 바이트, 나머지는 로캘 문구·`reason_code` 제외 구조). 마지막 줄 `run id`(`YYYYMMDD-<다이제스트 앞 8자>`)를 `BACKPORT.md`의 `Verified: yes <run id>`에 적는다.
+- 첫 역이식 2026-10-08: BP-0002 → FactMind `bd13494`, 런북 `docs/SAIGON-BACKPORT.md`(FactMind `da4644f`), 패리티 도구·픽스처 사본 `tools/saigon-parity/`.
 - core 변경 커밋은 `BACKPORT.md` 항목을 함께 스테이지해야 한다(pre-commit `fm-core-guard`, `tools/check_fm_core.py`).

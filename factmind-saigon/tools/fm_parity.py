@@ -24,7 +24,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True  # never leave __pycache__ in the upstream checkout
 
 HERE = Path(__file__).resolve().parent
-GOLDEN = HERE.parent / 'golden'
+GOLDEN = HERE / 'golden' if (HERE / 'golden').is_dir() else HERE.parent / 'golden'  # next to the script (upstream copy) or one level up (saigon)
 DROP = {'title', 'fix', 'problem', 'reason', 'reason_text', 'reason_code', 'reads'}
 PROBE = re.compile(r'factmind-missing-[0-9a-f]{24}')
 

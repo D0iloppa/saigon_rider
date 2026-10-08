@@ -20,7 +20,6 @@ import {
   type FmSubjectStatus,
 } from '../../api/fm'
 
-const PUBLIC_ORIGIN = 'https://saigon-rider.com'
 const LOCALES: FmLocale[] = ['vi', 'ko', 'en']
 const STATUS_META: Record<FmSubjectStatus, { label: string; tone: string }> = {
   draft: { label: '초안', tone: 'neutral' },
@@ -36,10 +35,6 @@ const emptyLoc = (): FmLocalized => ({ vi: '', ko: '', en: '' })
 function StatusTag({ status }: { status: FmSubjectStatus }) {
   const meta = STATUS_META[status]
   return <Tag className={`admin-status admin-status-${meta.tone}`}>{meta.label}</Tag>
-}
-
-function publicHref(row: Pick<FmSubjectRow, 'kind' | 'slug'>) {
-  return row.kind === 'platform' ? `${PUBLIC_ORIGIN}/l/` : `${PUBLIC_ORIGIN}/b/${row.slug}/`
 }
 
 function SubjectDetail({ id }: { id: string }) {
@@ -182,8 +177,8 @@ function PlatformFactsCard() {
   )
 }
 
-function DiagnoseCard() {
-  const [url, setUrl] = useState(PUBLIC_ORIGIN)
+function DiagnoseCard({ defaultUrl }: { defaultUrl: string }) {
+  const [url, setUrl] = useState(defaultUrl)
   const [locale, setLocale] = useState<'ko-KR' | 'vi' | 'en'>('ko-KR')
   const diagnose = useFmDiagnose()
   const result = diagnose.data
@@ -191,7 +186,7 @@ function DiagnoseCard() {
   return (
     <Card title="사이트 진단">
       <Space wrap style={{ marginBottom: 12 }}>
-        <Input style={{ width: 360 }} value={url} onChange={(e) => setUrl(e.target.value)} />
+        <Input style={{ width: 360 }} placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
         <Select
           style={{ width: 110 }}
           value={locale}
@@ -245,7 +240,9 @@ export default function FactMindPage() {
   const withdraw = useFmWithdraw()
 
   const items = data?.items ?? []
-  const count = (pred: (r: FmSubjectRow) => boolean) => items.filter(pred).length
+  const counts = data?.counts
+  const platformUrl = items.find((r) => r.kind === 'platform')?.url
+  const diagnoseDefault = platformUrl ? new URL(platformUrl).origin : ''
 
   const columns = [
     { title: '종류', dataIndex: 'kind', width: 90, render: (k: string) => <Tag>{k}</Tag> },
@@ -254,8 +251,8 @@ export default function FactMindPage() {
       title: 'slug',
       dataIndex: 'slug',
       render: (s: string | null, r: FmSubjectRow) =>
-        r.status === 'published' && (s || r.kind === 'platform') ? (
-          <a href={publicHref(r)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{s ?? '/l/'}</a>
+        r.url ? (
+          <a href={r.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{s ?? '/l/'}</a>
         ) : (
           s ?? '-'
         ),
@@ -267,6 +264,7 @@ export default function FactMindPage() {
     {
       title: '검증',
       dataIndex: 'verified_at',
+      width: 170,
       render: (v: string | null, r: FmSubjectRow) => (
         <span>{r.verification_ok === null ? '-' : r.verification_ok ? '✓' : '✗'} {v ? fmt(v) : ''}</span>
       ),
@@ -274,8 +272,10 @@ export default function FactMindPage() {
     {
       title: '',
       key: 'actions',
+      width: 180,
+      fixed: 'right' as const,
       render: (_: unknown, r: FmSubjectRow) => (
-        <Space size="small" onClick={(e) => e.stopPropagation()}>
+        <Space size="small" style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
           <a
             onClick={() =>
               publish.mutate(r.id, {
@@ -324,9 +324,9 @@ export default function FactMindPage() {
       </div>
 
       <Row gutter={16}>
-        <Col span={8}><StatCard title="공개중" value={count((r) => r.status === 'published')} /></Col>
-        <Col span={8}><StatCard title="검증 통과" value={count((r) => r.verification_ok === true)} /></Col>
-        <Col span={8}><StatCard title="철회" value={count((r) => r.status === 'withdrawn')} /></Col>
+        <Col span={8}><StatCard title="공개중" value={counts?.published ?? '-'} /></Col>
+        <Col span={8}><StatCard title="검증 통과" value={counts?.verified ?? '-'} /></Col>
+        <Col span={8}><StatCard title="철회" value={counts?.withdrawn ?? '-'} /></Col>
       </Row>
 
       <Card>
@@ -336,7 +336,11 @@ export default function FactMindPage() {
             loading={sync.isPending}
             onClick={() =>
               sync.mutate(undefined, {
-                onSuccess: (r) => message.success(`동기화 완료 — 생성 ${r.created} / 갱신 ${r.updated} / 발행 ${r.published} / 플랫폼 ${r.platform}`),
+                onSuccess: (r) => {
+                  const summary = `동기화 완료 — 생성 ${r.created}·갱신 ${r.updated}·발행 ${r.published}·자동철회 ${r.auto_withdrawn}·복귀 ${r.republished}`
+                  if (r.errors > 0) message.warning(`${summary}·오류 ${r.errors}(서버 로그 확인)`)
+                  else message.success(summary)
+                },
                 onError: (e) => message.error(errMsg(e)),
               })
             }
@@ -362,13 +366,14 @@ export default function FactMindPage() {
           dataSource={items}
           columns={columns}
           pagination={false}
+          scroll={{ x: 1100 }}
           expandable={{ expandRowByClick: true, expandedRowRender: (r) => <SubjectDetail id={r.id} /> }}
         />
         {data && <div style={{ marginTop: 8, color: '#64748b' }}>전체 {data.total}건 중 {items.length}건 표시</div>}
       </Card>
 
       <PlatformFactsCard />
-      <DiagnoseCard />
+      <DiagnoseCard key={diagnoseDefault} defaultUrl={diagnoseDefault} />
     </Space>
   )
 }

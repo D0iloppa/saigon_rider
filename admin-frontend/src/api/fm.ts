@@ -12,6 +12,7 @@ export interface FmSubjectRow {
   kind: 'platform' | 'business'
   name: string
   slug: string | null
+  url: string | null
   status: FmSubjectStatus
   ward_id: number | null
   ward_name: string | null
@@ -21,6 +22,12 @@ export interface FmSubjectRow {
   verified_at: string | null
   verification_ok: boolean | null
   updated_at: string
+}
+
+export interface FmSubjectCounts {
+  published: number
+  verified: number
+  withdrawn: number
 }
 
 export interface FmProblem {
@@ -121,7 +128,7 @@ export function useFmSubjects(params: FmSubjectParams) {
   return useQuery({
     queryKey: ['fm', 'subjects', params],
     queryFn: () =>
-      fmApi<{ items: FmSubjectRow[]; total: number }>(
+      fmApi<{ items: FmSubjectRow[]; total: number; counts?: FmSubjectCounts }>(
         `/subjects${buildQuery({ ...params, limit: params.limit ?? 50, offset: params.offset ?? 0 })}`,
       ),
   })
@@ -144,9 +151,15 @@ export function useFmSync() {
   const invalidate = useInvalidateFm()
   return useMutation({
     mutationFn: () =>
-      post<{ created: number; updated: number; published: number; platform: 'created' | 'republished' | 'unchanged' }>(
-        '/subjects/sync',
-      ),
+      post<{
+        created: number
+        updated: number
+        published: number
+        auto_withdrawn: number
+        republished: number
+        errors: number
+        platform: 'created' | 'republished' | 'unchanged'
+      }>('/subjects/sync'),
     onSuccess: invalidate,
   })
 }

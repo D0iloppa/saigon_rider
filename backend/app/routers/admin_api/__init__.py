@@ -20,6 +20,7 @@ from . import (
     dashboard,
     dev_context,
     feed,
+    fm,
     fuel,
     funnel,
     gacha,
@@ -82,3 +83,4 @@ router.include_router(action_events.router)
 router.include_router(action_queue.router)
 router.include_router(retention.router)
 router.include_router(channel_board.router)
+router.include_router(fm.router)

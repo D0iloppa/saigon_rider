@@ -27,7 +27,7 @@ async def notify(db: AsyncSession, subject_id, urls: list) -> dict:
     known = dict(INDEXNOW_ENGINES)
     names = [n.strip().lower() for n in (os.getenv("FM_INDEXNOW_ENGINES") or "bing").split(",") if n.strip()]
     origin = public_origin()
-    body = {"host": urlsplit(origin).netloc, "key": key, "keyLocation": origin + "/b/" + key + ".txt", "urlList": urls}
+    body = {"host": urlsplit(origin).hostname, "key": key, "keyLocation": origin + "/" + key + ".txt", "urlList": urls}
     results = []
     for name in names:
         if name not in known:

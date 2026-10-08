@@ -7,16 +7,17 @@ from urllib.parse import urlsplit
 
 from app.admin_auth import AdminSession, verify_admin_api
 from app.database import get_db
-from app.models import BusinessProfile, Ward
+from app.models import BusinessProfile, Ward, utcnow
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from factmind_saigon.core.fetch import fetch_public
 from factmind_saigon.core.site_report import diagnose_site
 
 from . import publishing
+from .indexnow import notify
 from .constants import BOTS_VN, USER_AGENT, public_origin
 from .storage import FmEvent, FmPublication, FmSnapshot, FmSubject
 from .subjects import LOCALES, editable_platform_facts, platform_snapshot
@@ -171,6 +172,18 @@ async def get_subject(
     return out
 
 
+async def _notify_after_commit(db: AsyncSession, subject_id, urls: list, mark_published: bool = False) -> None:
+    """IndexNow runs after the request's transaction is committed (no row lock held over the network), then a short write of its outcome."""
+    sent = (await notify(db, subject_id, urls))["sent"]
+    if sent and mark_published:
+        await db.execute(
+            update(FmPublication)
+            .where(FmPublication.subject_id == subject_id, FmPublication.status == "published", FmPublication.index_notified_at.is_(None))
+            .values(index_notified_at=utcnow())
+        )
+    await db.commit()
+
+
 @router.post("/subjects/sync")
 async def sync_subjects(
     request: Request,
@@ -178,8 +191,11 @@ async def sync_subjects(
     db: AsyncSession = Depends(get_db),
 ):
     result = await publishing.sync(db)
+    pending = result.pop("indexnow")
     await _audit(db, session, request, "FM_SYNC", None, result)
     await db.commit()
+    for sid, urls in pending:
+        await _notify_after_commit(db, sid, urls)
     return result
 
 
@@ -212,8 +228,11 @@ async def verify_subject(
         result = await publishing.verify(db, subject_id)
     except publishing.FmError as e:
         raise _http(e)
+    urls = result.pop("indexnow_urls")
     await _audit(db, session, request, "FM_VERIFY", str(subject_id), {"ok": result["ok"]})
     await db.commit()
+    if urls:
+        await _notify_after_commit(db, subject_id, urls, mark_published=True)
     return result
 
 
@@ -230,8 +249,10 @@ async def withdraw_subject(
             await publishing.refresh_hub(db)
     except publishing.FmError as e:
         raise _http(e)
+    urls = result.pop("indexnow_urls")
     await _audit(db, session, request, "FM_WITHDRAW", str(subject_id))
     await db.commit()
+    await _notify_after_commit(db, subject_id, urls)
     return result
 
 

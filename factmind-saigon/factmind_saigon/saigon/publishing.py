@@ -29,7 +29,6 @@ from factmind_saigon.core.bundle import PAGE_STYLE, publication_bundle
 from factmind_saigon.core.fetch import MAX_BYTES, fetch_public, html_facts
 from factmind_saigon.core.verify import verify_publication
 
-from . import indexnow
 from .constants import USER_AGENT, public_origin
 from .lists import BRAND, LOCALES, PREFIX, alternate_links, hub_regions
 from .storage import (
@@ -205,10 +204,10 @@ def _render_hub_page(snap: FmSnapshot, origin: str, entries: list, regions: list
     return html
 
 
-async def _hub_entries(db: AsyncSession, origin: str) -> list:
+def _hub_entries(rows: list, origin: str) -> list:
     return [
         {"name": snap.facts["name"], "url": origin + "/b/" + s.slug + "/", "category": snap.facts["facts"].get("category") or ""}
-        for s, _p, snap in await list_published_business(db)
+        for s, _p, snap in rows
     ]
 
 
@@ -244,7 +243,8 @@ async def publish(db: AsyncSession, subject_id, snapshot_id=None) -> dict:
             if latest is None:
                 raise FmError("not_publishable", "no_facts")
             snap = view = await store_snapshot(db, subject, await platform_snapshot(db, editable_platform_facts(latest.facts)))
-        files = _render_hub(view, origin, await _hub_entries(db, origin), await hub_regions(db))
+        rows = await list_published_business(db)
+        files = _render_hub(view, origin, _hub_entries(rows, origin), await hub_regions(db, rows))
         url = origin + "/l/"
 
     artifact_digest = digest_of(files)
@@ -321,8 +321,21 @@ def make_reader(origin: str):
     return read
 
 
+def _checks(origin: str, subject: FmSubject, files: dict) -> list:
+    """[(url, body, kind)] of a publication's live pages and facts.json; the one source of the URLs verify reads and IndexNow submits."""
+    base_url = origin + ("/b/" + subject.slug + "/" if subject.kind == "business" else "/l/")
+    checks = [(base_url, files["index.html"], "profile"), (base_url + "facts.json", files["facts.json"], "facts")]
+    if subject.kind == "platform":
+        for loc in LOCALES[1:]:
+            if "index." + loc + ".html" in files:
+                checks.append((origin + PREFIX[loc] + "/l/", files["index." + loc + ".html"], "profile_" + loc))
+    return checks
+
+
 async def verify(db: AsyncSession, subject_id) -> dict:
-    """No row lock is held across the network read; the result is written only if the publication is still live."""
+    """No row lock is held across the network read; the result is written only if the publication is still live.
+
+    Sends nothing: `indexnow_urls` in the result are for the caller to submit after commit (routes_admin)."""
     subject = (await db.execute(select(FmSubject).where(FmSubject.id == subject_id))).scalar_one_or_none()
     if subject is None:
         raise FmError("not_found")
@@ -335,12 +348,8 @@ async def verify(db: AsyncSession, subject_id) -> dict:
         raise FmError("not_publishable", "not_published")
     pub_id = pub.id
     origin = public_origin()
-    base_url = origin + ("/b/" + subject.slug + "/" if subject.kind == "business" else "/l/")
-    checks = [(base_url, pub.files["index.html"], "profile"), (base_url + "facts.json", pub.files["facts.json"], "facts")]
-    if subject.kind == "platform":
-        for loc in LOCALES[1:]:
-            if "index." + loc + ".html" in pub.files:
-                checks.append((origin + PREFIX[loc] + "/l/", pub.files["index." + loc + ".html"], "profile_" + loc))
+    checks = _checks(origin, subject, pub.files)
+    base_url = checks[0][0]
     snap = await db.get(FmSnapshot, pub.snapshot_id)
     result = await asyncio.to_thread(
         verify_publication, checks, make_reader(origin), base_url, snap.facts["name"], subject.locale_source
@@ -360,11 +369,8 @@ async def verify(db: AsyncSession, subject_id) -> dict:
     pub.verification = {"ok": ok, "problems": result["problems"], "checked": result["records"], "at": now.isoformat()}
     pub.verified_at = now if ok else None
     await record_event(db, "verify", {"publication_id": str(pub.id), "ok": ok, "problems": result["problems"]}, subject.id)
-    if ok and pub.index_notified_at is None:
-        urls = [u for u, _b, kind in checks if kind != "facts"]
-        if (await indexnow.notify(db, subject.id, urls))["sent"]:
-            pub.index_notified_at = now
-    return {"ok": ok, "verified_at": pub.verified_at, "problems": result["problems"], "checked": result["records"]}
+    urls = [u for u, _b, kind in checks if kind != "facts"] if ok and pub.index_notified_at is None else []
+    return {"ok": ok, "verified_at": pub.verified_at, "problems": result["problems"], "checked": result["records"], "indexnow_urls": urls}
 
 
 async def withdraw(db: AsyncSession, subject_id, reason: Optional[str] = None) -> dict:
@@ -372,6 +378,10 @@ async def withdraw(db: AsyncSession, subject_id, reason: Optional[str] = None) -
     if subject.status != "published":
         raise FmError("not_publishable", "not_published")
     now = utcnow()
+    live = (
+        await db.execute(select(FmPublication.files).where(FmPublication.subject_id == subject.id, FmPublication.status == "published"))
+    ).scalar_one()
+    urls = [u for u, _b, kind in _checks(public_origin(), subject, live) if kind != "facts"]
     await db.execute(
         update(FmPublication)
         .where(FmPublication.subject_id == subject.id, FmPublication.status == "published")
@@ -383,8 +393,7 @@ async def withdraw(db: AsyncSession, subject_id, reason: Optional[str] = None) -
     if reason:
         body["reason"] = reason
     await record_event(db, "withdraw", body, subject.id)
-    await indexnow.notify(db, subject.id, [public_origin() + ("/b/" + subject.slug + "/" if subject.kind == "business" else "/l/")])
-    return {"status": "withdrawn", "withdrawn_at": now}
+    return {"status": "withdrawn", "withdrawn_at": now, "indexnow_urls": urls}
 
 
 async def refresh_hub(db: AsyncSession) -> bool:
@@ -436,9 +445,10 @@ async def sync(db: AsyncSession) -> dict:
     }
     approved = {p.id for p in profiles}
     created = updated = published = republished = auto_withdrawn = errors = 0
+    to_notify = []  # (subject_id, urls) of auto-withdrawn pages; the caller submits them after commit
     for ref, subject in existing.items():
         if subject.status == "published" and ref not in approved:
-            await withdraw(db, subject.id, "profile_not_approved")
+            to_notify.append((subject.id, (await withdraw(db, subject.id, "profile_not_approved"))["indexnow_urls"]))
             auto_withdrawn += 1
     for profile in profiles:
         subject = existing.get(profile.id)
@@ -472,5 +482,5 @@ async def sync(db: AsyncSession) -> dict:
         platform_state = "republished"
     return {
         "created": created, "updated": updated, "published": published, "republished": republished,
-        "auto_withdrawn": auto_withdrawn, "errors": errors, "platform": platform_state,
+        "auto_withdrawn": auto_withdrawn, "errors": errors, "platform": platform_state, "indexnow": to_notify,
     }

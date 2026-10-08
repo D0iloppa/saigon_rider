@@ -47,10 +47,6 @@ def cat_label(cat: BusinessCategory, locale: str) -> str:
     return getattr(cat, "label_" + locale)
 
 
-def locale_of_path(path: str) -> str:
-    return "ko" if path.startswith("/ko/") else "en" if path.startswith("/en/") else "vi"
-
-
 def alternate_links(origin: str, tail: str) -> str:
     """hreflang x3 + x-default for a /l/... tail such as '/l/' or '/l/<ward>/'."""
     href = {loc: origin + PREFIX[loc] + tail for loc in LOCALES}
@@ -64,16 +60,22 @@ def ld_script(data: dict) -> str:
     return '<script type="application/ld+json">' + json.dumps(data, ensure_ascii=False).replace("<", "\\u003c") + "</script>"
 
 
+async def active_wards(db: AsyncSession) -> dict:
+    return {w.id: w for w in (await db.execute(select(Ward).where(Ward.is_active.is_(True)))).scalars()}
+
+
+async def active_categories(db: AsyncSession) -> dict:
+    return {c.code: c for c in (await db.execute(select(BusinessCategory).where(BusinessCategory.is_active.is_(True)))).scalars()}
+
+
 async def live_businesses(db: AsyncSession):
     """(active wards by id, active categories by code, all live business rows -- callers filter by ward_id in wards)."""
-    wards = {w.id: w for w in (await db.execute(select(Ward).where(Ward.is_active.is_(True)))).scalars()}
-    cats = {c.code: c for c in (await db.execute(select(BusinessCategory).where(BusinessCategory.is_active.is_(True)))).scalars()}
-    return wards, cats, await list_published_business(db)
+    return await active_wards(db), await active_categories(db), await list_published_business(db)
 
 
-async def hub_regions(db: AsyncSession) -> list:
-    """Wards with at least one live business, for the hub's region links: [{'slug', 'names': {locale: name}}]."""
-    wards, _cats, rows = await live_businesses(db)
+async def hub_regions(db: AsyncSession, rows: list) -> list:
+    """Wards with at least one live business among `rows` (list_published_business), for the hub's region links: [{'slug', 'names': {locale: name}}]."""
+    wards = await active_wards(db)
     used = sorted({wards[s.ward_id] for s, _p, _n in rows if s.ward_id in wards}, key=lambda w: (w.sort_order, w.name_vi))
     return [{"slug": ward_slug(w.code), "names": {loc: ward_name(w, loc) for loc in LOCALES}} for w in used]
 
@@ -86,7 +88,7 @@ async def render_list_for(db: AsyncSession, origin: str, locale: str, slug: str,
     if ward is None or ward_slug(ward.code) != slug:
         return None
     rows = await list_published_business(db, ward.id)
-    cats = {c.code: c for c in (await db.execute(select(BusinessCategory).where(BusinessCategory.is_active.is_(True)))).scalars()}
+    cats = await active_categories(db)
     cat = None
     if category is not None:
         cat = cats.get(category)

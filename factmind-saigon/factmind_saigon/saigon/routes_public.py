@@ -1,6 +1,6 @@
 """Public FactMind routes — published bundles at /b/<slug>/ and /l/ (P3); ward/category lists, sitemap-fm, RSS (P4).
 
-nginx sends /b /l /ko/l /en/l /sitemap*.xml /rss.xml here.
+nginx sends /b /l /ko/l /en/l /sitemap*.xml /rss.xml and the root /<indexnow-key>.txt here.
 """
 from __future__ import annotations
 
@@ -14,10 +14,18 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from factmind_saigon.core.indexnow import INDEXNOW_KEY
+
 from .constants import public_origin
 from .indexnow import configured_key
-from .lists import LOCALES, PREFIX, live_businesses, locale_of_path, render_list_for, ward_slug
-from .storage import get_platform_publication, get_published_by_slug, is_platform_withdrawn, is_withdrawn_slug
+from .lists import LOCALES, PREFIX, live_businesses, render_list_for, ward_slug
+from .storage import (
+    get_platform_publication,
+    get_published_by_slug,
+    is_platform_withdrawn,
+    is_withdrawn_slug,
+    list_published_business,
+)
 
 router = APIRouter(tags=["fm-public"], include_in_schema=False)
 
@@ -73,10 +81,11 @@ async def business_facts(slug: str, request: Request, db: AsyncSession = Depends
     return await _business(db, slug, "facts.json", request)
 
 
-@router.get("/b/{key}.txt")
+@router.get("/{key}.txt")
 def indexnow_key_file(key: str) -> Response:
+    """Root key file (IndexNow only accepts URLs at or below the key file's directory). Any other root *.txt stays a 404 here."""
     configured = configured_key()
-    return PlainTextResponse(configured) if configured and key == configured else _not_found()
+    return PlainTextResponse(configured) if INDEXNOW_KEY.fullmatch(key) and configured and key == configured else _not_found()
 
 
 @router.get("/b/{slug}")
@@ -84,43 +93,36 @@ async def business_slash(slug: str) -> RedirectResponse:
     return RedirectResponse(f"/b/{slug}/", status_code=301)
 
 
-@router.get("/l/")
-async def platform_index(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
-    return await _platform(db, "index.html", request)
-
-
 @router.get("/l/facts.json")
 async def platform_facts(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
     return await _platform(db, "facts.json", request)
 
 
-@router.get("/ko/l/")
-async def platform_index_ko(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
-    return await _platform(db, "index.ko.html", request)
+def _register_locale(locale: str) -> None:
+    """Hub, ward list and category list of one locale; the locale is fixed per route, never inferred from the URL."""
+    prefix = PREFIX[locale]
+    hub_file = "index.html" if locale == "vi" else "index." + locale + ".html"
+
+    async def hub(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
+        return await _platform(db, hub_file, request)
+
+    async def _list(db: AsyncSession, request: Request, ward: str, category: Optional[str]) -> Response:
+        html = await render_list_for(db, public_origin(), locale, ward, category)
+        return _not_found() if html is None else _respond(html, _HTML, request)
+
+    async def ward_list(ward: str, request: Request, db: AsyncSession = Depends(get_db)) -> Response:
+        return await _list(db, request, ward, None)
+
+    async def category_list(ward: str, category: str, request: Request, db: AsyncSession = Depends(get_db)) -> Response:
+        return await _list(db, request, ward, category)
+
+    router.add_api_route(prefix + "/l/", hub, methods=["GET"])
+    router.add_api_route(prefix + "/l/{ward}/", ward_list, methods=["GET"])
+    router.add_api_route(prefix + "/l/{ward}/{category}/", category_list, methods=["GET"])
 
 
-@router.get("/en/l/")
-async def platform_index_en(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
-    return await _platform(db, "index.en.html", request)
-
-
-async def _list(db: AsyncSession, request: Request, ward: str, category: Optional[str]) -> Response:
-    html = await render_list_for(db, public_origin(), locale_of_path(request.url.path), ward, category)
-    return _not_found() if html is None else _respond(html, _HTML, request)
-
-
-@router.get("/l/{ward}/")
-@router.get("/ko/l/{ward}/")
-@router.get("/en/l/{ward}/")
-async def ward_list(ward: str, request: Request, db: AsyncSession = Depends(get_db)) -> Response:
-    return await _list(db, request, ward, None)
-
-
-@router.get("/l/{ward}/{category}/")
-@router.get("/ko/l/{ward}/{category}/")
-@router.get("/en/l/{ward}/{category}/")
-async def category_list(ward: str, category: str, request: Request, db: AsyncSession = Depends(get_db)) -> Response:
-    return await _list(db, request, ward, category)
+for _locale in LOCALES:
+    _register_locale(_locale)
 
 
 @router.get("/sitemap.xml")
@@ -142,7 +144,7 @@ async def sitemap_fm(db: AsyncSession = Depends(get_db)) -> Response:
     urls = [(origin + "/b/" + s.slug + "/", p.published_at) for s, p, _n in rows]
     hub = await get_platform_publication(db)
     if hub is not None:
-        urls += [(origin + PREFIX[loc] + "/l/", None) for loc in LOCALES if ("index.html" if loc == "vi" else "index." + loc + ".html") in hub.files]
+        urls += [(origin + PREFIX[loc] + "/l/", hub.published_at) for loc in LOCALES if ("index.html" if loc == "vi" else "index." + loc + ".html") in hub.files]
     latest: dict = {}  # list tail -> newest published_at inside it
     for s, p, _n in rows:
         if s.ward_id not in wards:
@@ -162,7 +164,7 @@ async def sitemap_fm(db: AsyncSession = Depends(get_db)) -> Response:
 @router.get("/rss.xml")
 async def rss(db: AsyncSession = Depends(get_db)) -> Response:
     origin = public_origin()
-    _wards, _cats, rows = await live_businesses(db)
+    rows = await list_published_business(db)
     items = "".join(
         "<item><title>" + escape(n.facts["name"]) + "</title><link>" + escape(origin + "/b/" + s.slug + "/") + "</link>"
         + '<guid isPermaLink="true">' + escape(origin + "/b/" + s.slug + "/") + "</guid>"
@@ -175,7 +177,7 @@ async def rss(db: AsyncSession = Depends(get_db)) -> Response:
         f"<link>{origin}/</link><description>{_RSS_DESC}</description>"
         f"<language>vi</language>{items}</channel></rss>"
     )
-    return Response(body, media_type="application/rss+xml")
+    return Response(body, media_type="application/rss+xml", headers={"Cache-Control": "public, max-age=300"})
 
 
 # 구체 경로 뒤에 선언 — 나머지 하위 경로(P4 범위)는 404

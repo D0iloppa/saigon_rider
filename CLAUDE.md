@@ -187,3 +187,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **기본 effort**: `medium`. RP·보상·결제·인증 등 고위험 영역 변경이 포함됐을 때만 `high` 이상.
 - **diff 가 크면**(파일 10개+ 또는 500줄+) 영역별(BFF/Engine/Frontend) PR 로 쪼개고 각각 리뷰. 한 번에 1000줄+ 리뷰는 품질·비용 모두 손해.
 - 발견된 지적은 push 전에 처리한다. 무시할 거면 *이유를* 커밋 메시지나 PR 본문에 남긴다.
+
+## FactMind 코어 동기화 규칙 (`factmind-saigon/`)
+
+`factmind-saigon/factmind_saigon/core/`는 원본 FactMind(`/DEVELOP/Blueurban/factmind` `site/*.py`)에서 이식한 코어다. **동기화 대상은 core뿐**이다(`saigon/` 어댑터·서비스 층은 역이식하지 않는다). 상세·근거: [`ai-docs/spec/261008_fm_engine_port_plan.md`](ai-docs/spec/261008_fm_engine_port_plan.md) §3.9. **폴더·스크립트·원장이 아직 없으면(P2 전)** 이 절을 건너뛰지 말고 계획서 §4 P2 항목대로 가드레일을 코어 이식과 같은 작업에서 만든다.
+
+- **시작**: fm 관련 작업(`factmind-saigon/` 또는 공개 페이지·진단·측정)을 시작할 때 `python factmind-saigon/tools/fm_upstream.py --upstream /DEVELOP/Blueurban/factmind`를 돌려 `UPSTREAM.json` 상태(`upstream-ahead`/`both`)를 먼저 확인하고 보고에 적는다. 체크아웃이 없으면 `unknown-upstream`으로 적고 진행한다.
+- **core 변경마다** `factmind-saigon/BACKPORT.md`에 항목 1개(`Kind: code|learning|no-backport`, `Why` 증거, `How-to-apply-upstream`, `Forwarded: pending`). pre-commit(`tools/check_fm_core.py`)이 원장 없는 core 커밋과 `core/`의 `app`/`sqlalchemy`/`fastapi` import를 막는다.
+- **측정에서 배운 것**(정책 값·휴리스틱·채널 실측)은 코드가 안 바뀌어도 `Kind: learning` 항목으로 남긴다. 증거 링크(`fm_event` id 또는 보고서 경로) 없는 learning은 쓰지 않는다.
+- **역이식 검증**은 `tools/fm_parity.py`만 쓴다(`--target saigon` vs `--target upstream --path <fm>/site` 다이제스트 동일 = `Verified: yes <run id>`). 그 외 단위테스트는 레포 규칙대로 쓰지 않는다.
+- **끝**: fm 작업 보고의 마지막 줄에 원장의 `Forwarded: pending` 건수를 쓴다(0건이어도).

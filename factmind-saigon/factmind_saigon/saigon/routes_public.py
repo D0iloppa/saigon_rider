@@ -35,7 +35,8 @@ def _serve(files: dict, name: str, request: Request) -> Response:
         return _not_found()
     headers = {"Cache-Control": "public, max-age=300"}
     # app./business. 호스트로 열린 사본은 중복 색인 방지
-    if request.headers.get("host") != urlsplit(public_origin()).netloc:
+    # nginx forwards Host as $host (no port), so compare hostnames only.
+    if request.headers.get("host", "").split(":")[0] != (urlsplit(public_origin()).hostname or ""):
         headers["X-Robots-Tag"] = "noindex"
     return Response(body, media_type=_TYPES[name], headers=headers)
 

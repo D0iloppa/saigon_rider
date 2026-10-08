@@ -25,6 +25,7 @@ from .routers import (
     dm,
     dm_channels,
     feed,
+    fm_public,
     follows,
     gacha,  # noqa: F401 -- [게이미피케이션 잠정보류 — 재개 시 주석 해제] 라우터 include 주석처리로 미사용
     info_flood,
@@ -350,6 +351,8 @@ app.include_router(dev_context.admin_router)
 app.include_router(wallet.router)
 app.include_router(admin_legacy.router)
 app.include_router(admin_api.router)
+# fm 공개 경로 골격(prefix 없음) — ai-docs/spec/261008_fm_engine_port_plan.md §4 P1
+app.include_router(fm_public.router)
 app.include_router(support.router, prefix="/api")
 app.include_router(internal.router, prefix="/api")
 app.include_router(info_flood.router, prefix="/api")

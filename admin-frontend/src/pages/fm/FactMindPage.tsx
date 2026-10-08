@@ -246,7 +246,7 @@ const VISIT_DAY_OPTIONS = [7, 14, 30].map((d) => ({ value: d, label: `${d}일` }
 const AI_CHANNELS = ['Google AI Overviews', 'ChatGPT', 'Gemini', 'Perplexity', 'Cốc Cốc', 'Zalo AI']
 const OTHER_CHANNEL = '__other'
 
-type LogItem<B> = { id: string; body: B }
+type LogItem<B> = { id: number; body: B }
 
 function BotVisitsCard() {
   const [days, setDays] = useState(14)
@@ -254,7 +254,7 @@ function BotVisitsCard() {
   const runJob = useFmRunJob()
   const run = (name: 'reverify' | 'refresh_bot_feeds') =>
     runJob.mutate(name, {
-      onSuccess: (r) => (r.ok ? message.success(`실행 완료: ${r.job}`) : message.warning(`실행 결과 이상: ${r.job}`)),
+      onSuccess: (r) => (r.started === true || r.ok === true ? message.success(`실행 시작 — 결과는 잠시 후 표에 반영됩니다: ${r.job}`) : message.warning(`실행 결과 이상: ${r.job}`)),
       onError: (e) => message.error(errMsg(e)),
     })
   return (
@@ -266,10 +266,10 @@ function BotVisitsCard() {
         <Space wrap>
           <Select style={{ width: 100 }} value={days} onChange={setDays} options={VISIT_DAY_OPTIONS} />
           <Popconfirm title="published 전건을 재검증할까요?" onConfirm={() => run('reverify')}>
-            <Button loading={runJob.isPending}>지금 재검증(published 전건)</Button>
+            <Button loading={runJob.isPending && runJob.variables === 'reverify'}>지금 재검증(published 전건)</Button>
           </Popconfirm>
           <Popconfirm title="봇 IP 피드를 갱신할까요?" onConfirm={() => run('refresh_bot_feeds')}>
-            <Button loading={runJob.isPending}>봇 IP 피드 갱신</Button>
+            <Button loading={runJob.isPending && runJob.variables === 'refresh_bot_feeds'}>봇 IP 피드 갱신</Button>
           </Popconfirm>
         </Space>
         {isError && <Alert type="error" showIcon message="방문 기록을 불러오지 못했습니다." description={errMsg(error)} />}

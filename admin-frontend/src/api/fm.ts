@@ -254,7 +254,9 @@ export interface FmAiProbeInput {
 }
 
 export interface FmLogItem<B> {
-  id: string
+  id: number
+  subject_id?: string | null
+  kind?: string
   created_at: string
   body: B
 }
@@ -301,7 +303,10 @@ export function useFmAddAiProbe() {
 export function useFmRunJob() {
   const invalidate = useInvalidateFm()
   return useMutation({
-    mutationFn: (name: FmJobName) => post<{ ok: boolean; job: string }>(`/jobs/${name}/run`),
-    onSuccess: invalidate,
+    mutationFn: (name: FmJobName) => post<{ ok?: boolean; job: string; started?: boolean }>(`/jobs/${name}/run`),
+    onSuccess: () => {
+      invalidate()
+      setTimeout(invalidate, 10_000)
+    },
   })
 }

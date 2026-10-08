@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { Suspense, lazy, useEffect } from "react";
 import AuthPage from "./pages/auth/Index";
 import NotFound from "./pages/not-found/Index";
+import { resolveLocale } from "@/lib/locale";
 
 declare const __ROUTE_MESSAGING_ENABLED__: boolean;
 
@@ -54,6 +55,20 @@ function RouteMessenger() {
   return null;
 }
 
+// Keep canonical/og:url/lang in step with the current route (static head is the vi home).
+function HeadSync() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const origin = window.location.hostname.startsWith("business.") ? "https://business.saigon-rider.com" : "https://saigon-rider.com";
+    const url = origin + (pathname === "/" ? "/" : pathname.replace(/\/+$/, ""));
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", url);
+    document.querySelector('meta[property="og:url"]')?.setAttribute("content", url);
+    document.documentElement.lang = resolveLocale(pathname);
+  }, [pathname]);
+  return null;
+}
+
 const isBusinessHost = typeof window !== "undefined" && window.location.hostname.startsWith("business.");
 
 const App = () => (
@@ -62,6 +77,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <RouteMessenger />
+        <HeadSync />
         <Suspense fallback={<div className="min-h-screen bg-background" aria-label="페이지를 불러오는 중" />}>
           {isBusinessHost ? (
             <Routes>

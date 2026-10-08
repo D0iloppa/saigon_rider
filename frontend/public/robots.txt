@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /app_privacy/
+Allow: /app_support/
+Allow: /app_qr/
+Disallow: /

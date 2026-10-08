@@ -3,6 +3,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from factmind_saigon.saigon.routes_public import router as fm_public_router
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
@@ -25,7 +26,6 @@ from .routers import (
     dm,
     dm_channels,
     feed,
-    fm_public,
     follows,
     gacha,  # noqa: F401 -- [게이미피케이션 잠정보류 — 재개 시 주석 해제] 라우터 include 주석처리로 미사용
     info_flood,
@@ -351,8 +351,8 @@ app.include_router(dev_context.admin_router)
 app.include_router(wallet.router)
 app.include_router(admin_legacy.router)
 app.include_router(admin_api.router)
-# fm 공개 경로 골격(prefix 없음) — ai-docs/spec/261008_fm_engine_port_plan.md §4 P1
-app.include_router(fm_public.router)
+# fm 공개 경로 — factmind_saigon.saigon.routes_public (계획서 §4 P3)
+app.include_router(fm_public_router)
 app.include_router(support.router, prefix="/api")
 app.include_router(internal.router, prefix="/api")
 app.include_router(info_flood.router, prefix="/api")

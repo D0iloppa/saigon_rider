@@ -2,8 +2,8 @@ import { spawnSync } from "node:child_process";
 
 const steps = [
   ["sitemap-routes", ["node", "scripts/generate-sitemap-routes.mjs"]],
-  ["sitemap-site", ["node", "scripts/generate-sitemap-site.mjs"]],
   ["prerender", ["node", "scripts/prerender.mjs"]],
+  ["sitemap-site", ["node", "scripts/generate-sitemap-site.mjs"]],
 ];
 
 for (const [name, command] of steps) {

@@ -55,15 +55,20 @@ function RouteMessenger() {
   return null;
 }
 
-// Keep canonical/og:url/lang in step with the current route (static head is the vi home).
+// Keep canonical/lang in step with the current route (static head is the vi home).
 function HeadSync() {
   const { pathname } = useLocation();
   useEffect(() => {
     if (typeof document === "undefined") return;
     const origin = window.location.hostname.startsWith("business.") ? "https://business.saigon-rider.com" : "https://saigon-rider.com";
     const url = origin + (pathname === "/" ? "/" : pathname.replace(/\/+$/, ""));
-    document.querySelector('link[rel="canonical"]')?.setAttribute("href", url);
-    document.querySelector('meta[property="og:url"]')?.setAttribute("content", url);
+    let link = document.querySelector('link[rel="canonical"]');
+    if (!link) {
+      link = document.createElement("link");
+      link.setAttribute("rel", "canonical");
+      document.head.appendChild(link);
+    }
+    link.setAttribute("href", url);
     document.documentElement.lang = resolveLocale(pathname);
   }, [pathname]);
   return null;

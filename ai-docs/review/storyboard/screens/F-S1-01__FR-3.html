@@ -946,14 +946,14 @@ body {
 
 /* ── 화면 전용 ── */
 
-.emptyWrap { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 84px 20px 0; text-align: center; }
-.stateIcon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-2); color: var(--text-3); }
-.stateTitle { font-size: 14px; font-weight: 700; color: var(--text); }
-.stateDesc { max-width: 260px; font-size: 12.5px; line-height: 1.5; color: var(--text-3); }
+.emptyWrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 84px 20px 0; text-align: center; }
+.stateIcon { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--surface-2); color: var(--text-3); }
+.stateTitle { font-size: 17px; font-weight: 700; color: var(--text); }
+.stateDesc { max-width: 280px; font-size: 14.5px; line-height: 1.5; color: var(--text-3); }
 .stateBtn {
-  display: inline-flex; align-items: center; margin-top: 4px; height: 38px; padding: 0 20px;
+  display: inline-flex; align-items: center; margin-top: 4px; height: 44px; padding: 0 22px;
   border: 1px solid var(--brand-200); border-radius: var(--r-pill);
-  background: var(--brand-50); color: var(--brand-700); font-size: 13px; font-weight: 700;
+  background: var(--brand-50); color: var(--brand-700); font-size: 15px; font-weight: 700;
 }
 .stateBtnGhost {
   display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px;
@@ -993,7 +993,7 @@ body {
     </header>
       <div class="scroll">
         <div class="emptyWrap">
-          <span class="stateIcon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/></svg></span>
+          <span class="stateIcon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/></svg></span>
           <span class="stateTitle">이 카테고리엔 매물이 없어요</span>
           <span class="stateDesc">다른 카테고리를 확인해보세요</span>
           <button class="stateBtn" type="button">전체 지역에서 찾아보기</button>

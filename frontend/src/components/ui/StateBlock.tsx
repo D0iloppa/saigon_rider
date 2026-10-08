@@ -29,7 +29,7 @@ export default function StateBlock({
   return (
     <div className={`${styles.stateWrap} ${large ? styles.stateWrapLg : ''}`}>
       <div className={`${styles.stateIcon} ${toneClass}`}>
-        <Icon size={20} strokeWidth={2} />
+        <Icon size={large ? 30 : 20} strokeWidth={2} />
       </div>
       <div className={styles.stateTitle}>{title}</div>
       {desc && <div className={styles.stateDesc}>{desc}</div>}

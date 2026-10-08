@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "factmind-saigon"
+version = "0.1.0"
+description = "FactMind 코어(공개 페이지 번들·진단·검증) 벤더링 + 사이공라이더 어댑터"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.optional-dependencies]
+# core 는 의존 0. 어댑터(saigon/)만 호스트 스택을 쓴다.
+saigon = ["fastapi>=0.110", "sqlalchemy>=2.0"]
+
+[tool.setuptools.packages.find]
+include = ["factmind_saigon*"]
+
+[tool.setuptools.package-data]
+"factmind_saigon.core" = ["*.json"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes
+  "I",    # isort
+  "UP",   # pyupgrade
+  "B",    # flake8-bugbear
+  "SIM",  # flake8-simplify
+  "RUF",  # ruff-specific
+]
+ignore = [
+  "E501",    # line-length (handled by formatter)
+  "B008",    # function-call-in-default-argument (FastAPI Depends pattern)
+  "E712",    # == True comparisons (SQLAlchemy filter pattern)
+  "RUF001",  # ambiguous unicode (intentional HTML entities like ×)
+  "UP046",   # Generic[T] style (Pydantic BaseModel convention)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["factmind_saigon"]
+
+[tool.ruff.format]
+quote-style = "double"

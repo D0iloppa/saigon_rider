@@ -7,11 +7,15 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 # 유가 자동수집(A): Playwright Chromium 헤드리스 + 시스템 의존성
 RUN playwright install --with-deps chromium
 
-COPY . .
+# FactMind 코어: 같은 레포라 레포 루트 빌드 컨텍스트에서 복사해 설치한다.
+COPY factmind-saigon/ /opt/factmind_saigon/
+RUN pip install --no-cache-dir --no-deps /opt/factmind_saigon
+
+COPY backend/ .
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]

@@ -1,0 +1,49 @@
+{
+  "version": "factmind.observation.20260912.1",
+  "note": "Observation subscription evidence policy (FACTMIND_OBSERVATION_SUBSCRIPTION_V1_0 §4). Evidence URLs were read on 2026-09-12. A bot is VERIFIED only by its provider's own IP feed or by reverse DNS with a forward re-check; a user agent alone is a candidate. Feed URLs are final addresses because feeds are fetched without following redirects.",
+  "cache": {"max_seconds": 86400},
+  "feeds": {
+    "openai_searchbot": {"url": "https://openai.com/searchbot.json", "evidence": "https://developers.openai.com/api/docs/bots"},
+    "openai_chatgpt_user": {"url": "https://openai.com/chatgpt-user.json", "evidence": "https://developers.openai.com/api/docs/bots"},
+    "openai_gptbot": {"url": "https://openai.com/gptbot.json", "evidence": "https://developers.openai.com/api/docs/bots"},
+    "perplexity_bot": {"url": "https://www.perplexity.ai/perplexitybot.json", "evidence": "https://docs.perplexity.ai/docs/resources/perplexity-crawlers"},
+    "perplexity_user": {"url": "https://www.perplexity.ai/perplexity-user.json", "evidence": "https://docs.perplexity.ai/docs/resources/perplexity-crawlers"},
+    "anthropic_bots": {"url": "https://claude.com/crawling/bots.json", "evidence": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler"},
+    "google_common": {"url": "https://developers.google.com/static/crawling/ipranges/common-crawlers.json", "evidence": "https://developers.google.com/crawling/docs/crawlers-fetchers/verify-google-requests"},
+    "bing_bingbot": {"url": "https://www.bing.com/toolbox/bingbot.json", "evidence": "https://www.bing.com/webmasters/help/how-to-verify-bingbot-3905dc26"},
+    "commoncrawl_ccbot": {"url": "https://index.commoncrawl.org/ccbot.json", "evidence": "https://commoncrawl.org/ccbot"}
+  },
+  "bots": [
+    {"id": "oai_searchbot", "name": "OAI-SearchBot", "ua": "OAI-SearchBot/", "class": "search_answer", "feeds": ["openai_searchbot"], "rdns": [], "enabled": true},
+    {"id": "chatgpt_user", "name": "ChatGPT-User", "ua": "ChatGPT-User/", "class": "search_answer", "feeds": ["openai_chatgpt_user"], "rdns": [], "enabled": true},
+    {"id": "perplexitybot", "name": "PerplexityBot", "ua": "PerplexityBot/", "class": "search_answer", "feeds": ["perplexity_bot"], "rdns": [], "enabled": true},
+    {"id": "perplexity_user", "name": "Perplexity-User", "ua": "Perplexity-User/", "class": "search_answer", "feeds": ["perplexity_user"], "rdns": [], "enabled": true},
+    {"id": "claude_searchbot", "name": "Claude-SearchBot", "ua": "Claude-SearchBot/", "class": "search_answer", "feeds": ["anthropic_bots"], "rdns": [], "enabled": true},
+    {"id": "claude_user", "name": "Claude-User", "ua": "Claude-User/", "class": "search_answer", "feeds": ["anthropic_bots"], "rdns": [], "enabled": true},
+    {"id": "googlebot", "name": "Googlebot", "ua": "Googlebot", "class": "search_answer", "feeds": ["google_common"], "rdns": ["googlebot.com", "google.com"], "enabled": true},
+    {"id": "bingbot", "name": "Bingbot", "ua": "bingbot/", "class": "search_answer", "feeds": ["bing_bingbot"], "rdns": ["search.msn.com"], "enabled": true},
+    {"id": "gptbot", "name": "GPTBot", "ua": "GPTBot/", "class": "training", "feeds": ["openai_gptbot"], "rdns": [], "enabled": true},
+    {"id": "claudebot", "name": "ClaudeBot", "ua": "ClaudeBot/", "class": "training", "feeds": ["anthropic_bots"], "rdns": [], "enabled": true},
+    {"id": "ccbot", "name": "CCBot", "ua": "CCBot/", "class": "training", "feeds": ["commoncrawl_ccbot"], "rdns": ["crawl.commoncrawl.org"], "enabled": true}
+  ],
+  "excluded_tokens": [
+    {"token": "Google-Extended", "reason": "robots control token with no HTTP user agent; never a visiting bot", "evidence": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers"}
+  ],
+  "referrers": [
+    {"domain": "chatgpt.com", "service": "ChatGPT", "evidence": "https://help.openai.com/en/articles/12627856-publishers-and-developers-faq"},
+    {"domain": "chat.openai.com", "service": "ChatGPT", "evidence": "https://help.openai.com/en/articles/12627856-publishers-and-developers-faq"},
+    {"domain": "perplexity.ai", "service": "Perplexity", "evidence": "https://www.perplexity.ai"},
+    {"domain": "claude.ai", "service": "Claude", "evidence": "https://claude.ai"},
+    {"domain": "gemini.google.com", "service": "Gemini", "evidence": "https://gemini.google.com"},
+    {"domain": "copilot.microsoft.com", "service": "Microsoft Copilot", "evidence": "https://copilot.microsoft.com"}
+  ],
+  "providers": [
+    {"id": "google_search_console", "report": "Generative AI performance report (Search)", "state": "not_connected", "reasons": ["api_not_documented", "account_access_unverified"],
+     "facts": "impressions only (AI Overviews, AI Mode), grouped by final linked URL, newest data preliminary, rolling out to properties", "evidence": "https://support.google.com/webmasters/answer/16984139?hl=en"},
+    {"id": "bing_webmaster", "report": "AI Performance (public preview)", "state": "not_connected", "reasons": ["api_not_documented", "account_access_unverified"],
+     "facts": "total citations, average cited pages, grounding queries, page-level citations in the dashboard", "evidence": "https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview"}
+  ],
+  "retention": {"raw_days": 30, "daily_days": 365, "applied_in_production": false},
+  "change_rules": {"version": "factmind.observation.change.20260912.1", "baseline_positives": 2, "disappear_negatives": 2, "source_failures": 2, "source_min_gap_minutes": 15},
+  "detection_rule_version": "factmind.observation.detect.20260912.1"
+}

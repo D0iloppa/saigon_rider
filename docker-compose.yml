@@ -668,8 +668,8 @@ services:
 
   bff:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: saigon_bff
     profiles: [backend]
     # uvicorn --reload 를 .env(UVICORN_RELOAD)로 끌 수 있게 한다. 기본값 1 = 기존 동작(핫리로드) 유지.
@@ -690,6 +690,9 @@ services:
       # git 버전을 가린다(shadow). 모듈을 고치면 uvicorn --reload 가 바로 집어간다.
       # 배포 이미지는 requirements.txt 의 git 의존성이 SoT 이므로, 모듈 변경은 반드시 push 할 것.
       - ./d_modules/WalkieTalkie/packages/server:/opt/walkie_talkie:ro
+      # FactMind 코어(factmind-saigon/) 개발 마운트 — 같은 레포라 이미지에 pip 설치된 사본을 가린다(shadow).
+      # 배포 이미지는 Dockerfile 의 COPY + pip install 이 SoT.
+      - ./factmind-saigon:/opt/factmind_saigon:ro
     networks:
       - dev-net
     depends_on:
@@ -700,7 +703,7 @@ services:
       engine:
         condition: service_healthy
     environment:
-      - PYTHONPATH=/opt/walkie_talkie
+      - PYTHONPATH=/opt/factmind_saigon:/opt/walkie_talkie
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
       # 게이트9 B-5 정기백업 잡(app/jobs/backup_db.py) 이 pg_dump 로 직접 접속 (bff_migrate 와 동일 관례)
       - PGHOST=database
@@ -913,8 +916,8 @@ services:
   # backend(bff) 이미지 재사용 + command 오버라이드. 자동 reload 없음 — 코드 수정 시 재시작 필수.
   noti_worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: saigon_noti_worker
     profiles: [backend]
     command: ["python", "-m", "app.noti_worker"]

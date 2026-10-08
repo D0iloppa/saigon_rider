@@ -1,7 +1,7 @@
 """fm_* tables (database/init/253_fm_tables.sql) — ORM on the host's shared declarative Base + small query helpers.
 
 Public-route helpers (used as-is by routes_public): get_published_by_slug, list_published_business,
-get_platform_publication, is_withdrawn_slug, record_event.
+get_platform_publication, is_withdrawn_slug, is_platform_withdrawn, record_event.
 """
 from __future__ import annotations
 
@@ -84,6 +84,12 @@ async def is_withdrawn_slug(db: AsyncSession, slug: str) -> bool:
     """True when the slug belongs to a withdrawn subject (public route answers 410 instead of 404)."""
     return (
         await db.execute(select(FmSubject.id).where(FmSubject.slug == slug, FmSubject.status == "withdrawn"))
+    ).first() is not None
+
+
+async def is_platform_withdrawn(db: AsyncSession) -> bool:
+    return (
+        await db.execute(select(FmSubject.id).where(FmSubject.kind == "platform", FmSubject.status == "withdrawn"))
     ).first() is not None
 
 

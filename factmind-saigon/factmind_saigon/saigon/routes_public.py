@@ -12,7 +12,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .constants import public_origin
-from .storage import get_platform_publication, get_published_by_slug, is_withdrawn_slug
+from .storage import get_platform_publication, get_published_by_slug, is_platform_withdrawn, is_withdrawn_slug
 
 router = APIRouter(tags=["fm-public"], include_in_schema=False)
 
@@ -49,6 +49,8 @@ async def _business(db: AsyncSession, slug: str, name: str, request: Request) ->
 
 
 async def _platform(db: AsyncSession, name: str, request: Request) -> Response:
+    if await is_platform_withdrawn(db):
+        return PlainTextResponse("Gone", status_code=410)
     pub = await get_platform_publication(db)
     return _serve(pub.files, name, request) if pub else _not_found()
 

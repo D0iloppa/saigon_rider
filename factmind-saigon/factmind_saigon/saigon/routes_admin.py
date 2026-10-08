@@ -17,7 +17,7 @@ from factmind_saigon.core.fetch import fetch_public
 from factmind_saigon.core.site_report import diagnose_site
 
 from . import publishing
-from .constants import BOTS_VN, USER_AGENT
+from .constants import BOTS_VN, USER_AGENT, public_origin
 from .storage import FmEvent, FmPublication, FmSnapshot, FmSubject
 from .subjects import LOCALES, editable_platform_facts, platform_snapshot
 
@@ -74,12 +74,16 @@ def _event_row(e: FmEvent) -> dict:
 
 def _subject_row(subject: FmSubject, name, ward_name, pub: Optional[FmPublication]) -> dict:
     verification = pub.verification if pub is not None else None
+    url = None
+    if subject.status != "draft":
+        url = public_origin() + ("/l/" if subject.kind == "platform" else "/b/" + subject.slug + "/" if subject.slug else "")
     return {
         "id": subject.id, "kind": subject.kind, "name": name or subject.slug or subject.kind, "slug": subject.slug,
         "status": subject.status, "ward_id": subject.ward_id, "ward_name": ward_name, "category_code": subject.category_code,
         "locale_source": subject.locale_source, "published_at": pub.published_at if pub is not None else None,
         "verified_at": pub.verified_at if pub is not None else None,
         "verification_ok": verification.get("ok") if verification else None, "updated_at": subject.updated_at,
+        "url": url or None,
     }
 
 
@@ -124,7 +128,21 @@ async def list_subjects(
             .limit(limit).offset(offset)
         )
     ).all()
-    return {"items": [_subject_row(s, n, w, p) for s, n, w, p in rows], "total": total}
+    published, withdrawn, verified = (
+        await db.execute(
+            select(
+                func.count().filter(FmSubject.status == "published"),
+                func.count().filter(FmSubject.status == "withdrawn"),
+                func.count().filter(and_(FmSubject.status == "published", FmPublication.verification["ok"].astext == "true")),
+            )
+            .select_from(FmSubject)
+            .outerjoin(FmPublication, and_(FmPublication.subject_id == FmSubject.id, FmPublication.status == "published"))
+        )
+    ).one()
+    return {
+        "items": [_subject_row(s, n, w, p) for s, n, w, p in rows], "total": total,
+        "counts": {"published": published, "verified": verified, "withdrawn": withdrawn},
+    }
 
 
 @router.get("/subjects/{subject_id}")
@@ -173,7 +191,7 @@ async def publish_subject(
 ):
     try:
         result = await publishing.publish(db, subject_id)
-        if result["changed"]:
+        if result["changed"] and (await db.get(FmSubject, subject_id)).kind != "platform":
             await publishing.refresh_hub(db)  # hub lists live businesses; no-op when the hub is not live
     except publishing.FmError as e:
         raise _http(e)
@@ -207,7 +225,8 @@ async def withdraw_subject(
 ):
     try:
         result = await publishing.withdraw(db, subject_id)
-        await publishing.refresh_hub(db)
+        if (await db.get(FmSubject, subject_id)).kind != "platform":
+            await publishing.refresh_hub(db)
     except publishing.FmError as e:
         raise _http(e)
     await _audit(db, session, request, "FM_WITHDRAW", str(subject_id))

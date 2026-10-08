@@ -14,10 +14,12 @@ import os
 import urllib.error
 import urllib.request
 from html import escape
+from types import SimpleNamespace
 from typing import Optional
 from urllib.parse import urljoin, urlsplit
 
 from app.models import BusinessProfile, utcnow
+from app.utils import find_nearest_ward_id
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +30,7 @@ from factmind_saigon.core.verify import verify_publication
 
 from .constants import USER_AGENT, public_origin
 from .storage import (
+    FmEvent,
     FmPublication,
     FmSnapshot,
     FmSubject,
@@ -188,13 +191,12 @@ async def _hub_entries(db: AsyncSession, origin: str) -> list:
     ]
 
 
-def _ward_for(profile: BusinessProfile, wards: dict):
-    ward = wards.get(profile.id)
-    return ward.id if ward is not None else None
+async def publish(db: AsyncSession, subject_id, snapshot_id=None) -> dict:
+    """Lock subject -> snapshot -> files -> supersede old -> new published row. `changed` False when bytes are identical.
 
-
-async def publish(db: AsyncSession, subject_id) -> dict:
-    """Lock subject -> snapshot -> files -> supersede old -> new published row. `changed` False when bytes are identical."""
+    snapshot_id (platform only): re-render from that existing snapshot (live counts refreshed in memory, no new snapshot)
+    instead of the operator's latest draft facts -- used by refresh_hub so unpublished drafts never leak.
+    """
     subject = await _lock_subject(db, subject_id)
     origin = public_origin()
     if subject.kind == "business":
@@ -203,22 +205,25 @@ async def publish(db: AsyncSession, subject_id) -> dict:
             raise FmError("not_publishable", "profile_not_approved")
         if not subject.slug:  # fixed at first publish, never recomputed
             subject.slug = make_slug(profile.name, profile.id)
-        wards = {}
-        if profile.latitude is not None and profile.longitude is not None:
-            from app.routers.biz import _ward_map  # lazy: avoids a circular import with the router package
-
-            wards = await _ward_map(db, [profile])
-        subject.ward_id = _ward_for(profile, wards)
+        subject.ward_id = (
+            await find_nearest_ward_id(db, float(profile.latitude), float(profile.longitude))
+            if profile.latitude is not None and profile.longitude is not None else None
+        )
         subject.category_code = profile.category
         snap = await store_snapshot(db, subject, await business_snapshot(db, profile, subject.locale_source))
         files = _render_business(subject, snap, origin)
         url = origin + "/b/" + subject.slug + "/"
     else:
-        latest = await _latest_snapshot(db, subject.id)
-        if latest is None:
-            raise FmError("not_publishable", "no_facts")
-        snap = await store_snapshot(db, subject, await platform_snapshot(db, editable_platform_facts(latest.facts)))
-        files = _render_hub(subject, snap, origin, await _hub_entries(db, origin))
+        if snapshot_id is not None:
+            snap = await db.get(FmSnapshot, snapshot_id)
+            fresh = await platform_snapshot(db, editable_platform_facts(snap.facts))
+            view = SimpleNamespace(facts=fresh["facts"], jsonld=fresh["jsonld"])
+        else:
+            latest = await _latest_snapshot(db, subject.id)
+            if latest is None:
+                raise FmError("not_publishable", "no_facts")
+            snap = view = await store_snapshot(db, subject, await platform_snapshot(db, editable_platform_facts(latest.facts)))
+        files = _render_hub(subject, view, origin, await _hub_entries(db, origin))
         url = origin + "/l/"
 
     artifact_digest = digest_of(files)
@@ -296,7 +301,10 @@ def make_reader(origin: str):
 
 
 async def verify(db: AsyncSession, subject_id) -> dict:
-    subject = await _lock_subject(db, subject_id)
+    """No row lock is held across the network read; the result is written only if the publication is still live."""
+    subject = (await db.execute(select(FmSubject).where(FmSubject.id == subject_id))).scalar_one_or_none()
+    if subject is None:
+        raise FmError("not_found")
     pub = (
         await db.execute(
             select(FmPublication).where(FmPublication.subject_id == subject.id, FmPublication.status == "published")
@@ -304,6 +312,7 @@ async def verify(db: AsyncSession, subject_id) -> dict:
     ).scalar_one_or_none()
     if pub is None:
         raise FmError("not_publishable", "not_published")
+    pub_id = pub.id
     origin = public_origin()
     base_url = origin + ("/b/" + subject.slug + "/" if subject.kind == "business" else "/l/")
     checks = [(base_url, pub.files["index.html"], "profile"), (base_url + "facts.json", pub.files["facts.json"], "facts")]
@@ -311,16 +320,25 @@ async def verify(db: AsyncSession, subject_id) -> dict:
     result = await asyncio.to_thread(
         verify_publication, checks, make_reader(origin), base_url, snap.facts["name"], subject.locale_source
     )
+    pub = (
+        await db.execute(
+            select(FmPublication)
+            .where(FmPublication.id == pub_id, FmPublication.status == "published")
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if pub is None:
+        return {"ok": False, "problems": [{"reason_code": "publication_changed"}]}
     now = utcnow()
     ok = not result["problems"] and bool(result["records"])
     pub.verification = {"ok": ok, "problems": result["problems"], "checked": result["records"], "at": now.isoformat()}
-    if ok:
-        pub.verified_at = now
+    pub.verified_at = now if ok else None
     await record_event(db, "verify", {"publication_id": str(pub.id), "ok": ok, "problems": result["problems"]}, subject.id)
     return {"ok": ok, "verified_at": pub.verified_at, "problems": result["problems"], "checked": result["records"]}
 
 
-async def withdraw(db: AsyncSession, subject_id) -> dict:
+async def withdraw(db: AsyncSession, subject_id, reason: Optional[str] = None) -> dict:
     subject = await _lock_subject(db, subject_id)
     if subject.status != "published":
         raise FmError("not_publishable", "not_published")
@@ -332,7 +350,10 @@ async def withdraw(db: AsyncSession, subject_id) -> dict:
     )
     subject.status = "withdrawn"
     subject.updated_at = now
-    await record_event(db, "withdraw", {"slug": subject.slug}, subject.id)
+    body = {"slug": subject.slug}
+    if reason:
+        body["reason"] = reason
+    await record_event(db, "withdraw", body, subject.id)
     return {"status": "withdrawn", "withdrawn_at": now}
 
 
@@ -341,7 +362,14 @@ async def refresh_hub(db: AsyncSession) -> bool:
     platform = (
         await db.execute(select(FmSubject).where(FmSubject.kind == "platform", FmSubject.status == "published"))
     ).scalar_one_or_none()
-    return bool(platform is not None and (await publish(db, platform.id))["changed"])
+    if platform is None:
+        return False
+    live = (
+        await db.execute(
+            select(FmPublication.snapshot_id).where(FmPublication.subject_id == platform.id, FmPublication.status == "published")
+        )
+    ).scalar_one()
+    return bool((await publish(db, platform.id, live))["changed"])
 
 
 async def ensure_platform_subject(db: AsyncSession) -> tuple:
@@ -356,22 +384,44 @@ async def ensure_platform_subject(db: AsyncSession) -> tuple:
     return subject, True
 
 
+async def _auto_withdrawn(db: AsyncSession, subject_id) -> bool:
+    """True when the latest withdraw event of this subject was made by sync (profile left APPROVED), not by an operator."""
+    body = (
+        await db.execute(
+            select(FmEvent.body).where(FmEvent.subject_id == subject_id, FmEvent.kind == "withdraw").order_by(FmEvent.id.desc()).limit(1)
+        )
+    ).scalar_one_or_none()
+    return bool(body) and body.get("reason") == "profile_not_approved"
+
+
 async def sync(db: AsyncSession) -> dict:
-    """Mirror APPROVED business_profile rows into fm_subject and auto-publish new/changed ones (withdrawn stay withdrawn)."""
+    """Mirror APPROVED business_profile rows into fm_subject and auto-publish new/changed ones.
+
+    Published subjects whose profile is no longer APPROVED are withdrawn (reason profile_not_approved); on re-approval only
+    those auto-withdrawn ones are republished -- an operator's own withdraw (no reason) stays withdrawn.
+    """
     profiles = (await db.execute(select(BusinessProfile).where(BusinessProfile.status == "APPROVED"))).scalars().all()
     existing = {
         s.source_ref: s for s in (await db.execute(select(FmSubject).where(FmSubject.kind == "business"))).scalars().all()
     }
-    created = updated = published = errors = 0
+    approved = {p.id for p in profiles}
+    created = updated = published = republished = auto_withdrawn = errors = 0
+    for ref, subject in existing.items():
+        if subject.status == "published" and ref not in approved:
+            await withdraw(db, subject.id, "profile_not_approved")
+            auto_withdrawn += 1
     for profile in profiles:
         subject = existing.get(profile.id)
+        resumed = False
         if subject is None:
             subject = FmSubject(kind="business", source_ref=profile.id, status="draft", locale_source="vi")
             db.add(subject)
             await db.flush()
             created += 1
         elif subject.status == "withdrawn":
-            continue
+            if not await _auto_withdrawn(db, subject.id):
+                continue
+            resumed = True
         try:
             async with db.begin_nested():  # one bad profile must not poison the batch
                 result = await publish(db, subject.id)
@@ -380,17 +430,17 @@ async def sync(db: AsyncSession) -> dict:
             errors += 1
             continue
         if result["changed"]:
-            published += 1
-            updated += 1 if result["replaced"] else 0
-    approved = {p.id for p in profiles}
-    unapproved_published = sum(1 for s in existing.values() if s.status == "published" and s.source_ref not in approved)
+            if resumed:
+                republished += 1
+            else:
+                published += 1
+                updated += 1 if result["replaced"] else 0
 
     platform, platform_created = await ensure_platform_subject(db)
     platform_state = "created" if platform_created else platform.status
-    if published and platform.status == "published" and await refresh_hub(db):
+    if (published or republished or auto_withdrawn) and platform.status == "published" and await refresh_hub(db):
         platform_state = "republished"
     return {
-        "created": created, "updated": updated, "published": published, "errors": errors,
-        "unapproved_published": unapproved_published, "platform": platform_state,
+        "created": created, "updated": updated, "published": published, "republished": republished,
+        "auto_withdrawn": auto_withdrawn, "errors": errors, "platform": platform_state,
     }
-

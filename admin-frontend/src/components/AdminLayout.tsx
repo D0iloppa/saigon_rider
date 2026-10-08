@@ -71,6 +71,7 @@ const MENU_ITEMS = [
     { key: '/biz/ads', icon: <NotificationOutlined />, label: '광고 심사' },
     { key: '/biz/contracts', icon: <CreditCardOutlined />, label: '광고 결제 계약' },
     { key: '/biz/ad-tiers', icon: <DollarOutlined />, label: '광고 티어 정책' },
+    { key: '/fm', icon: <GlobalOutlined />, label: 'FactMind' },
   ] },
   { key: 'group-community', label: 'COMMUNITY', children: [{ key: '/community/feed', icon: <PictureOutlined />, label: '피드 관리' }] },
   { key: 'group-map', label: 'NEIGHBORHOOD MAP', children: [
@@ -129,6 +130,7 @@ const PAGE_META = [
   { path: '/biz/ads', title: '인앱 광고 심사', description: '비즈니스 파트너가 등록한 광고 소재를 심사합니다.' },
   { path: '/biz/contracts', title: '광고 결제 계약', description: '광고 결제 계약의 입금·대조·승인·카드 재동기화/환불을 관리합니다.' },
   { path: '/biz/ad-tiers', title: '광고 티어 정책', description: '월 가격과 노출 빈도 가중치를 관리합니다.' },
+  { path: '/fm', title: 'FactMind', description: '공개 디렉터리(/b, /l) 발행·검증·철회와 사이트 진단을 관리합니다.' },
   { path: '/system/settings', title: '설정', description: '관리자 프로필, 닉네임 단어사전, 앱 버전, 서비스 설정을 관리합니다.' },
   { path: '/', title: '운영 현황', description: '오늘 확인해야 할 운영 지표와 처리 대기 항목입니다.' },
 ]

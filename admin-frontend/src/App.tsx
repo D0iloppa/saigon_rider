@@ -53,7 +53,8 @@ import BizAdDetailPage from './pages/biz/BizAdDetailPage'
 import BizAdTierPage from './pages/biz/BizAdTierPage'
 import BizContractListPage from './pages/biz/BizContractListPage'
 import BizContractDetailPage from './pages/biz/BizContractDetailPage'
-import AdminAccountListPage from './pages/system/AdminAccountListPage'
+import FactMindPage from './pages/fm/FactMindPage'
+import AdminAccountListPagefrom './pages/system/AdminAccountListPage'
 import SettingsPage from './pages/system/SettingsPage'
 import EngineSettingsPage from './pages/system/EngineSettingsPage'
 import { adminDarkTheme, adminTheme } from './theme/tokens'
@@ -188,6 +189,7 @@ export default function App() {
               <Route path="/biz/contracts" element={<BizContractListPage />} />
               <Route path="/biz/contracts/:id" element={<BizContractDetailPage />} />
               <Route path="/biz/ad-tiers" element={<BizAdTierPage />} />
+              <Route path="/fm" element={<FactMindPage />} />
               <Route path="/system/accounts" element={<PrivilegedRoute><AdminAccountListPage /></PrivilegedRoute>} />
               <Route path="/system/settings" element={<SettingsPage />} />
               <Route path="/system/dev-context" element={<Navigate to="/system/engine-settings?tab=dev-context" replace />} />

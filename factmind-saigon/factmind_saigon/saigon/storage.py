@@ -103,17 +103,18 @@ async def get_platform_publication(db: AsyncSession) -> Optional[FmPublication]:
     ).scalar_one_or_none()
 
 
-async def list_published_business(db: AsyncSession) -> list[tuple[FmSubject, FmPublication, FmSnapshot]]:
-    """Live business subjects as (subject, publication, snapshot), ordered by published_at then id."""
-    rows = (
-        await db.execute(
-            select(FmSubject, FmPublication, FmSnapshot)
-            .join(FmPublication, FmPublication.subject_id == FmSubject.id)
-            .join(FmSnapshot, FmSnapshot.id == FmPublication.snapshot_id)
-            .where(FmSubject.kind == "business", FmSubject.status == "published", FmPublication.status == "published")
-            .order_by(FmPublication.published_at, FmSubject.id)
-        )
-    ).all()
+async def list_published_business(db: AsyncSession, ward_id: Optional[int] = None) -> list[tuple[FmSubject, FmPublication, FmSnapshot]]:
+    """Live business subjects as (subject, publication, snapshot), ordered by published_at then id (optionally one ward)."""
+    query = (
+        select(FmSubject, FmPublication, FmSnapshot)
+        .join(FmPublication, FmPublication.subject_id == FmSubject.id)
+        .join(FmSnapshot, FmSnapshot.id == FmPublication.snapshot_id)
+        .where(FmSubject.kind == "business", FmSubject.status == "published", FmPublication.status == "published")
+        .order_by(FmPublication.published_at, FmSubject.id)
+    )
+    if ward_id is not None:
+        query = query.where(FmSubject.ward_id == ward_id)
+    rows = (await db.execute(query)).all()
     return [(s, p, n) for s, p, n in rows]
 
 

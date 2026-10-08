@@ -160,6 +160,7 @@ async def get_subject(
         {
             "id": pub.id, "artifact_digest": pub.artifact_digest, "files": sorted(pub.files),
             "published_at": pub.published_at, "verified_at": pub.verified_at, "verification": pub.verification,
+            "index_notified_at": pub.index_notified_at,
         }
         if pub is not None else None
     )

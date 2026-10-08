@@ -12,6 +12,8 @@ interface Props {
   /** 보조 액션(선택) — 주 액션 아래에 한 줄로. 위치 게이트의 '설정 열기'·'Google 지도' 용. */
   secondaryLabel?: React.ReactNode;
   onSecondary?: () => void;
+  /** 화면 전체가 비는 목록용 큰 변형(아이콘·문구·버튼 확대). */
+  large?: boolean;
 }
 
 /**
@@ -21,11 +23,11 @@ interface Props {
  * - 아이콘은 lucide 만 — 이모지 금지.
  */
 export default function StateBlock({
-  icon: Icon, tone = 'neutral', title, desc, actionLabel, onAction, secondaryLabel, onSecondary,
+  icon: Icon, tone = 'neutral', title, desc, actionLabel, onAction, secondaryLabel, onSecondary, large,
 }: Props) {
   const toneClass = tone === 'safe' ? styles.stateIconSafe : tone === 'error' ? styles.stateIconError : '';
   return (
-    <div className={styles.stateWrap}>
+    <div className={`${styles.stateWrap} ${large ? styles.stateWrapLg : ''}`}>
       <div className={`${styles.stateIcon} ${toneClass}`}>
         <Icon size={20} strokeWidth={2} />
       </div>

@@ -682,6 +682,7 @@ export default function MarketMain() {
                     시트/키워드 알림 시트로 회복 경로를 준다. */}
                 {categoryId != null ? (
                   <StateBlock
+                    large
                     icon={PackageOpen}
                     title={t('market.emptyTitleFiltered', { defaultValue: '이 카테고리엔 매물이 없어요' })}
                     desc={t('market.emptySubFiltered', { defaultValue: '다른 카테고리를 확인해보세요' })}
@@ -689,7 +690,7 @@ export default function MarketMain() {
                     onAction={() => setCategoryId(null)}
                   />
                 ) : (
-                  <div className={sys.stateWrap}>
+                  <div className={`${sys.stateWrap} ${sys.stateWrapLg}`}>
                     <div className={sys.stateIcon}>
                       <PackageOpen size={20} strokeWidth={2} />
                     </div>

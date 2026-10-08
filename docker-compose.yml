@@ -543,6 +543,10 @@ services:
       - "/migrations/252_community_group_member_ban_meta.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (252) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/253_fm_tables.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (253) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -653,6 +657,7 @@ services:
       - ./database/init/250_community_group_topics_table.sql:/migrations/250_community_group_topics_table.sql:ro
       - ./database/init/251_community_group_member_rejoin_flag.sql:/migrations/251_community_group_member_rejoin_flag.sql:ro
       - ./database/init/252_community_group_member_ban_meta.sql:/migrations/252_community_group_member_ban_meta.sql:ro
+      - ./database/init/253_fm_tables.sql:/migrations/253_fm_tables.sql:ro
     networks:
       - dev-net
     depends_on:
@@ -788,6 +793,7 @@ services:
       - BIZ_PORTAL_BASE_URL=${BIZ_PORTAL_BASE_URL:-https://business.saigon-rider.com}
       # fm 공개 페이지·sitemap 절대 URL 기준 — .env 만으로는 컨테이너에 전달되지 않아 여기 필요.
       - FM_PUBLIC_ORIGIN=${FM_PUBLIC_ORIGIN:-}
+      - FM_VERIFY_BASE_URL=${FM_VERIFY_BASE_URL:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/api/ready').status==200 else 1)"]
       interval: 10s

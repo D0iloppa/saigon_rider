@@ -1,0 +1,56 @@
+{
+  "name": {
+    "vi": "Saigon Rider",
+    "ko": "사이공라이더",
+    "en": "Saigon Rider"
+  },
+  "description": {
+    "vi": "Saigon Rider — Ứng dụng duy nhất kết nối bạn với mọi tiện ích khu phố: Mua bán với hàng xóm, khám phá quán xá xung quanh và cập nhật thông tin lộ trình thiết yếu.",
+    "ko": "오토바이가 일상인 도시, 사이공. 사이공라이더는 이웃과의 중고거래, 우리 동네 가게와 소식, 그리고 라이더에게 꼭 필요한 생활 정보를 하나의 앱에 담았습니다.",
+    "en": "Saigon runs on motorbikes. Saigon Rider brings secondhand trading with neighbors, local shop news, and the everyday info riders need into a single app."
+  },
+  "same_as": [],
+  "service_area": {
+    "vi": "Toàn TP.HCM",
+    "ko": "호치민시 전역",
+    "en": "Citywide (Ho Chi Minh City)"
+  },
+  "faq": [
+    {
+      "q": {
+        "vi": "Saigon Rider là gì?",
+        "ko": "사이공라이더는 무엇인가요?",
+        "en": "What is Saigon Rider?"
+      },
+      "a": {
+        "vi": "Ứng dụng đời sống khu phố cho tài xế Sài Gòn: mua bán với hàng xóm, khám phá quán xá xung quanh và cập nhật thông tin lộ trình thiết yếu.",
+        "ko": "호치민 라이더의 동네 생활 앱입니다. 이웃과의 중고거래, 우리 동네 가게와 소식, 라이더에게 꼭 필요한 생활 정보를 하나의 앱에 담았습니다.",
+        "en": "The neighborhood app for Ho Chi Minh City riders: secondhand trading with neighbors, local shop news, and the everyday info riders need."
+      }
+    },
+    {
+      "q": {
+        "vi": "Chợ khu phố hoạt động như thế nào?",
+        "ko": "동네마켓은 어떻게 거래하나요?",
+        "en": "How does the Local Market work?"
+      },
+      "a": {
+        "vi": "Gặp các món đồ đăng theo khu phố, đề xuất giá qua chat, hẹn gặp và giao dịch trực tiếp. Từ nón bảo hiểm, phụ tùng xe đến đồ gia dụng — không phí vận chuyển, không giao dịch với người lạ qua bưu điện.",
+        "ko": "동네 기준으로 등록된 매물을 만나고, 채팅으로 가격을 제안하고, 약속을 잡아 직접 만나 거래하세요. 헬멧부터 오토바이 용품, 생활용품까지 — 배송비도, 낯선 택배 거래도 없습니다.",
+        "en": "Browse listings from your own neighborhood, negotiate price over chat, and meet up to trade in person. From helmets and bike gear to household items — no shipping fees, no trading with strangers through delivery."
+      }
+    },
+    {
+      "q": {
+        "vi": "Quảng cáo trên Saigon Rider có được kiểm duyệt không?",
+        "ko": "광고는 심사를 거치나요?",
+        "en": "Are ads on Saigon Rider reviewed?"
+      },
+      "a": {
+        "vi": "Mọi quảng cáo doanh nghiệp đều được đội ngũ vận hành kiểm duyệt trước khi hiển thị.",
+        "ko": "모든 비즈니스 광고는 운영진 심사를 거쳐 게재됩니다.",
+        "en": "Every business ad goes through review by our team before it's posted."
+      }
+    }
+  ]
+}

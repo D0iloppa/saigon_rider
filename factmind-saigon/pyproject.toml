@@ -18,6 +18,7 @@ include = ["factmind_saigon*"]
 
 [tool.setuptools.package-data]
 "factmind_saigon.core" = ["*.json"]
+"factmind_saigon.saigon" = ["*.json"]
 
 [tool.ruff]
 target-version = "py38"

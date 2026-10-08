@@ -5,12 +5,14 @@ import asyncio
 import os
 from urllib.parse import urlsplit
 
+from app.models import utcnow
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from factmind_saigon.core.indexnow import INDEXNOW_ENGINES, INDEXNOW_KEY, indexnow_send
 
 from .constants import USER_AGENT, public_origin
-from .storage import record_event
+from .storage import FmPublication, record_event
 
 
 def configured_key() -> str:
@@ -41,3 +43,15 @@ async def notify(db: AsyncSession, subject_id, urls: list) -> dict:
             results.append({"engine": name, "status": status})
     await record_event(db, "index_notified", {"urls": urls, "results": results}, subject_id)
     return {"sent": any(200 <= (r.get("status") or 0) < 300 for r in results)}
+
+
+async def notify_after_commit(db: AsyncSession, subject_id, urls: list, mark_published: bool = False) -> None:
+    """IndexNow runs after the caller's transaction is committed (no row lock held over the network), then a short write of its outcome."""
+    sent = (await notify(db, subject_id, urls))["sent"]
+    if sent and mark_published:
+        await db.execute(
+            update(FmPublication)
+            .where(FmPublication.subject_id == subject_id, FmPublication.status == "published", FmPublication.index_notified_at.is_(None))
+            .values(index_notified_at=utcnow())
+        )
+    await db.commit()

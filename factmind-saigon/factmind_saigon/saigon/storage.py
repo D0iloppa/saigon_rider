@@ -6,12 +6,12 @@ get_platform_publication, is_withdrawn_slug, is_platform_withdrawn, record_event
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from app.models import Base, utcnow
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, SmallInteger, String, Text, UniqueConstraint, select
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, SmallInteger, String, Text, UniqueConstraint, func, select
+from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -69,6 +69,30 @@ class FmEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
 
 
+class FmBotVisit(Base):
+    __tablename__ = "fm_bot_visit"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    verdict: Mapped[str] = mapped_column(Text, nullable=False)
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    path_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    method: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ip: Mapped[Optional[str]] = mapped_column(INET, nullable=True)  # VERIFIED visits only
+    ua: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # VERIFIED visits only
+    evidence: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+
+
+class FmBotFeed(Base):
+    __tablename__ = "fm_bot_feed"
+
+    feed_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    networks: Mapped[list] = mapped_column(JSONB, nullable=False)
+    sha: Mapped[str] = mapped_column(Text, nullable=False)
+    refreshed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 async def get_published_by_slug(db: AsyncSession, slug: str) -> Optional[FmPublication]:
     """The live publication of a business subject (subject and publication both 'published'), else None."""
     return (
@@ -123,3 +147,37 @@ async def record_event(db: AsyncSession, kind: str, body: dict, subject_id: Opti
     db.add(event)
     await db.flush()
     return event
+
+
+async def visits_summary(db: AsyncSession, days: int) -> dict:
+    """Bot visits of the last `days` days (ICT day boundaries): daily x verdict, per bot x verdict, per path_kind."""
+    since = utcnow() - timedelta(days=days)
+    day = func.date_trunc("day", func.timezone("Asia/Ho_Chi_Minh", FmBotVisit.observed_at))
+    recent = FmBotVisit.observed_at >= since
+    daily_rows = (
+        await db.execute(select(day, FmBotVisit.verdict, func.count()).where(recent).group_by(day, FmBotVisit.verdict).order_by(day))
+    ).all()
+    bot_rows = (
+        await db.execute(
+            select(FmBotVisit.bot_id, FmBotVisit.verdict, func.count()).where(recent)
+            .group_by(FmBotVisit.bot_id, FmBotVisit.verdict).order_by(func.count().desc(), FmBotVisit.bot_id)
+        )
+    ).all()
+    kind_rows = (
+        await db.execute(
+            select(FmBotVisit.path_kind, func.count()).where(recent).group_by(FmBotVisit.path_kind).order_by(func.count().desc())
+        )
+    ).all()
+    verdicts = ("VERIFIED", "UNVERIFIED", "UNKNOWN")
+    totals = dict.fromkeys(verdicts, 0)
+    daily: dict = {}
+    for d, verdict, n in daily_rows:
+        key = d.date().isoformat()
+        row = daily.setdefault(key, {"date": key, **dict.fromkeys(verdicts, 0)})
+        row[verdict] = n
+        totals[verdict] += n
+    return {
+        "days": days, "since": since, "totals": totals, "daily": list(daily.values()),
+        "by_bot": [{"bot_id": b, "verdict": v, "count": n} for b, v, n in bot_rows],
+        "by_path_kind": [{"path_kind": k, "count": n} for k, n in kind_rows],
+    }

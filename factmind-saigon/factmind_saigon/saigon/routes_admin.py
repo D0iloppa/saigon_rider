@@ -2,24 +2,25 @@
 import asyncio
 import functools
 import uuid
+from datetime import date
 from typing import Literal, Optional
 from urllib.parse import urlsplit
 
 from app.admin_auth import AdminSession, verify_admin_api
 from app.database import get_db
-from app.models import BusinessProfile, Ward, utcnow
+from app.models import BusinessProfile, Ward
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from factmind_saigon.core.fetch import fetch_public
 from factmind_saigon.core.site_report import diagnose_site
 
-from . import publishing
-from .indexnow import notify
+from . import jobs, publishing
+from .indexnow import notify_after_commit
 from .constants import BOTS_VN, USER_AGENT, public_origin
-from .storage import FmEvent, FmPublication, FmSnapshot, FmSubject
+from .storage import FmEvent, FmPublication, FmSnapshot, FmSubject, record_event, visits_summary
 from .subjects import LOCALES, editable_platform_facts, platform_snapshot
 
 router = APIRouter(prefix="/fm")
@@ -172,18 +173,6 @@ async def get_subject(
     return out
 
 
-async def _notify_after_commit(db: AsyncSession, subject_id, urls: list, mark_published: bool = False) -> None:
-    """IndexNow runs after the request's transaction is committed (no row lock held over the network), then a short write of its outcome."""
-    sent = (await notify(db, subject_id, urls))["sent"]
-    if sent and mark_published:
-        await db.execute(
-            update(FmPublication)
-            .where(FmPublication.subject_id == subject_id, FmPublication.status == "published", FmPublication.index_notified_at.is_(None))
-            .values(index_notified_at=utcnow())
-        )
-    await db.commit()
-
-
 @router.post("/subjects/sync")
 async def sync_subjects(
     request: Request,
@@ -195,7 +184,7 @@ async def sync_subjects(
     await _audit(db, session, request, "FM_SYNC", None, result)
     await db.commit()
     for sid, urls in pending:
-        await _notify_after_commit(db, sid, urls)
+        await notify_after_commit(db, sid, urls)
     return result
 
 
@@ -232,7 +221,7 @@ async def verify_subject(
     await _audit(db, session, request, "FM_VERIFY", str(subject_id), {"ok": result["ok"]})
     await db.commit()
     if urls:
-        await _notify_after_commit(db, subject_id, urls, mark_published=True)
+        await notify_after_commit(db, subject_id, urls, mark_published=True)
     return result
 
 
@@ -252,7 +241,7 @@ async def withdraw_subject(
     urls = result.pop("indexnow_urls")
     await _audit(db, session, request, "FM_WITHDRAW", str(subject_id))
     await db.commit()
-    await _notify_after_commit(db, subject_id, urls)
+    await notify_after_commit(db, subject_id, urls)
     return result
 
 
@@ -351,3 +340,105 @@ async def list_events(
     if kind:
         stmt = stmt.where(FmEvent.kind == kind)
     return {"items": [_event_row(e) for e in (await db.execute(stmt)).scalars().all()]}
+
+
+# ── measurement (plan P5) ───────────────────────────────────────────────────
+
+
+@router.get("/visits")
+async def bot_visits(
+    days: int = Query(14, ge=1, le=90),
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    return await visits_summary(db, days)
+
+
+class ConsoleCoverageBody(BaseModel):
+    source: Literal["google", "bing"]
+    observed_on: date
+    indexed: Optional[int] = None
+    discovered: Optional[int] = None
+    note: Optional[str] = None
+
+
+class AiProbeBody(BaseModel):
+    channel: str
+    question: str
+    mentioned: bool
+    cited: bool
+    observed_on: date
+    note: Optional[str] = None
+
+
+async def _manual_event(db, session, request, kind: str, body: BaseModel, action: str) -> dict:
+    event = await record_event(db, kind, body.model_dump(mode="json"))
+    await _audit(db, session, request, action, None, {"event_id": event.id})
+    await db.commit()
+    return {"event_id": event.id}
+
+
+async def _manual_events(db, kind: str, limit: int) -> dict:
+    rows = (await db.execute(select(FmEvent).where(FmEvent.kind == kind).order_by(FmEvent.id.desc()).limit(limit))).scalars().all()
+    return {"items": [{"id": e.id, "created_at": e.created_at, "body": e.body} for e in rows]}
+
+
+@router.post("/console-coverage")
+async def add_console_coverage(
+    body: ConsoleCoverageBody,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _manual_event(db, session, request, "console_coverage", body, "FM_CONSOLE_COVERAGE")
+
+
+@router.get("/console-coverage")
+async def list_console_coverage(
+    limit: int = Query(50, ge=1, le=200),
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _manual_events(db, "console_coverage", limit)
+
+
+@router.post("/ai-probe")
+async def add_ai_probe(
+    body: AiProbeBody,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _manual_event(db, session, request, "ai_probe", body, "FM_AI_PROBE")
+
+
+@router.get("/ai-probe")
+async def list_ai_probe(
+    limit: int = Query(50, ge=1, le=200),
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _manual_events(db, "ai_probe", limit)
+
+
+_JOBS = {
+    "refresh_bot_feeds": jobs.fm_refresh_bot_feeds,
+    "reverify": jobs.fm_reverify,
+    "purge_bot_visits": jobs.fm_purge_bot_visits,
+}
+
+
+@router.post("/jobs/{name}/run")
+async def run_job(
+    name: str,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    job = _JOBS.get(name)
+    if job is None:
+        raise HTTPException(status_code=404, detail={"code": "not_found"})
+    ok = await job()
+    await _audit(db, session, request, "FM_JOB_RUN", None, {"job": name, "ok": ok})
+    await db.commit()
+    return {"ok": ok, "job": name}

@@ -547,6 +547,10 @@ services:
       - "/migrations/253_fm_tables.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (253) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/254_fm_measurement.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (254) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -658,6 +662,7 @@ services:
       - ./database/init/251_community_group_member_rejoin_flag.sql:/migrations/251_community_group_member_rejoin_flag.sql:ro
       - ./database/init/252_community_group_member_ban_meta.sql:/migrations/252_community_group_member_ban_meta.sql:ro
       - ./database/init/253_fm_tables.sql:/migrations/253_fm_tables.sql:ro
+      - ./database/init/254_fm_measurement.sql:/migrations/254_fm_measurement.sql:ro
     networks:
       - dev-net
     depends_on:
@@ -796,6 +801,7 @@ services:
       - FM_VERIFY_BASE_URL=${FM_VERIFY_BASE_URL:-}
       - FM_INDEXNOW_KEY=${FM_INDEXNOW_KEY:-}
       - FM_INDEXNOW_ENGINES=${FM_INDEXNOW_ENGINES:-bing}
+      - FM_TRUSTED_PROXIES=${FM_TRUSTED_PROXIES:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/api/ready').status==200 else 1)"]
       interval: 10s

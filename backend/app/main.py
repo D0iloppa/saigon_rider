@@ -3,6 +3,8 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from factmind_saigon.saigon.jobs import register_fm_jobs
+from factmind_saigon.saigon.middleware import FmBotVisitMiddleware
 from factmind_saigon.saigon.routes_public import router as fm_public_router
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -93,6 +95,7 @@ async def lifespan(app: FastAPI):
     from .jobs.title_transfer_reminders import send_title_transfer_reminders
 
     scheduler = AsyncIOScheduler(timezone="Asia/Ho_Chi_Minh")
+    register_fm_jobs(scheduler)
     for hour, minute in [(4, 0), (15, 30), (22, 30), (23, 30)]:
         scheduler.add_job(
             run_fetch_cycle,
@@ -306,6 +309,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(FmBotVisitMiddleware)  # fm 공개 경로의 봇 후보 방문만 기록(C7)
 
 # ── 워키토키 모듈 (d_modules/WalkieTalkie) ────────────────────────────────
 # 이 앱은 어댑터(app/services/walkie_module.py)만 제공하고, 참석·권한 판정은 전부 그쪽에 있다.

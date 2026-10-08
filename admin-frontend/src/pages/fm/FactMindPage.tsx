@@ -1,17 +1,26 @@
 import { useEffect, useState } from 'react'
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons'
-import { Alert, Button, Card, Col, Descriptions, Form, Input, Popconfirm, Row, Select, Space, Table, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Form, Input, InputNumber, Popconfirm, Row, Select, Space, Switch, Table, Tag, Typography, message } from 'antd'
+import dayjs, { type Dayjs } from 'dayjs'
 import StatCard from '../../components/StatCard'
 import {
+  useFmAddAiProbe,
+  useFmAddConsoleCoverage,
+  useFmAiProbes,
+  useFmConsoleCoverage,
   useFmDiagnose,
   useFmPlatformFacts,
   useFmPublish,
   useFmSavePlatformFacts,
   useFmSubject,
+  useFmRunJob,
   useFmSubjects,
   useFmSync,
   useFmVerify,
+  useFmVisits,
   useFmWithdraw,
+  type FmAiProbeInput,
+  type FmConsoleCoverageInput,
   type FmDiagnoseItem,
   type FmLocale,
   type FmLocalized,
@@ -233,6 +242,218 @@ function DiagnoseCard({ defaultUrl }: { defaultUrl: string }) {
   )
 }
 
+const VISIT_DAY_OPTIONS = [7, 14, 30].map((d) => ({ value: d, label: `${d}일` }))
+const AI_CHANNELS = ['Google AI Overviews', 'ChatGPT', 'Gemini', 'Perplexity', 'Cốc Cốc', 'Zalo AI']
+const OTHER_CHANNEL = '__other'
+
+type LogItem<B> = { id: string; body: B }
+
+function BotVisitsCard() {
+  const [days, setDays] = useState(14)
+  const { data, isLoading, isError, error } = useFmVisits(days)
+  const runJob = useFmRunJob()
+  const run = (name: 'reverify' | 'refresh_bot_feeds') =>
+    runJob.mutate(name, {
+      onSuccess: (r) => (r.ok ? message.success(`실행 완료: ${r.job}`) : message.warning(`실행 결과 이상: ${r.job}`)),
+      onError: (e) => message.error(errMsg(e)),
+    })
+  return (
+    <Card title="봇 방문">
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <Typography.Text type="secondary">
+          VERIFIED만 IP·UA를 저장합니다(FactMind 원칙). 수집→색인→언급→인용→유입은 섞지 않고 따로 기록합니다.
+        </Typography.Text>
+        <Space wrap>
+          <Select style={{ width: 100 }} value={days} onChange={setDays} options={VISIT_DAY_OPTIONS} />
+          <Popconfirm title="published 전건을 재검증할까요?" onConfirm={() => run('reverify')}>
+            <Button loading={runJob.isPending}>지금 재검증(published 전건)</Button>
+          </Popconfirm>
+          <Popconfirm title="봇 IP 피드를 갱신할까요?" onConfirm={() => run('refresh_bot_feeds')}>
+            <Button loading={runJob.isPending}>봇 IP 피드 갱신</Button>
+          </Popconfirm>
+        </Space>
+        {isError && <Alert type="error" showIcon message="방문 기록을 불러오지 못했습니다." description={errMsg(error)} />}
+        <Row gutter={16}>
+          <Col span={8}><StatCard title="VERIFIED" value={data?.totals.VERIFIED ?? '-'} /></Col>
+          <Col span={8}><StatCard title="UNVERIFIED" value={data?.totals.UNVERIFIED ?? '-'} /></Col>
+          <Col span={8}><StatCard title="UNKNOWN" value={data?.totals.UNKNOWN ?? '-'} /></Col>
+        </Row>
+        <Table
+          size="small"
+          rowKey="date"
+          loading={isLoading}
+          pagination={false}
+          dataSource={data?.daily ?? []}
+          locale={{ emptyText: '아직 봇 방문 기록이 없습니다' }}
+          columns={[
+            { title: '날짜', dataIndex: 'date' },
+            { title: 'VERIFIED', dataIndex: 'VERIFIED' },
+            { title: 'UNVERIFIED', dataIndex: 'UNVERIFIED' },
+            { title: 'UNKNOWN', dataIndex: 'UNKNOWN' },
+          ]}
+        />
+        <Row gutter={16}>
+          <Col span={12}>
+            <Table
+              size="small"
+              rowKey={(r) => `${r.bot_id}:${r.verdict}`}
+              pagination={false}
+              dataSource={data?.by_bot ?? []}
+              locale={{ emptyText: '-' }}
+              columns={[
+                { title: 'bot_id', dataIndex: 'bot_id' },
+                { title: 'verdict', dataIndex: 'verdict' },
+                { title: 'count', dataIndex: 'count' },
+              ]}
+            />
+          </Col>
+          <Col span={12}>
+            <Table
+              size="small"
+              rowKey="path_kind"
+              pagination={false}
+              dataSource={data?.by_path_kind ?? []}
+              locale={{ emptyText: '-' }}
+              columns={[
+                { title: '경로 종류', dataIndex: 'path_kind' },
+                { title: 'count', dataIndex: 'count' },
+              ]}
+            />
+          </Col>
+        </Row>
+      </Space>
+    </Card>
+  )
+}
+
+function ConsoleCoverageCard() {
+  const { data, isLoading } = useFmConsoleCoverage()
+  const add = useFmAddConsoleCoverage()
+  const [form] = Form.useForm()
+  const submit = (v: { source: FmConsoleCoverageInput['source']; observed_on: Dayjs; indexed?: number | null; discovered?: number | null; note?: string }) =>
+    add.mutate(
+      { source: v.source, observed_on: v.observed_on.format('YYYY-MM-DD'), indexed: v.indexed ?? null, discovered: v.discovered ?? null, note: v.note || null },
+      {
+        onSuccess: () => {
+          message.success('저장되었습니다.')
+          form.resetFields(['indexed', 'discovered', 'note'])
+        },
+        onError: (e) => message.error(errMsg(e)),
+      },
+    )
+  const items = (data?.items ?? []) as Array<LogItem<FmConsoleCoverageInput>>
+  return (
+    <Card title="검색 콘솔 색인 수(수기)">
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <Typography.Text type="secondary">Search Console·Bing Webmaster 값을 주 1회 옮겨 적습니다.</Typography.Text>
+        <Form form={form} layout="inline" onFinish={submit} initialValues={{ source: 'google', observed_on: dayjs() }} style={{ rowGap: 8 }}>
+          <Form.Item name="source" rules={[{ required: true }]}>
+            <Select style={{ width: 110 }} options={[{ value: 'google', label: 'google' }, { value: 'bing', label: 'bing' }]} />
+          </Form.Item>
+          <Form.Item name="observed_on" rules={[{ required: true }]}><DatePicker allowClear={false} /></Form.Item>
+          <Form.Item name="indexed"><InputNumber min={0} placeholder="색인" /></Form.Item>
+          <Form.Item name="discovered"><InputNumber min={0} placeholder="발견" /></Form.Item>
+          <Form.Item name="note"><Input placeholder="메모" style={{ width: 200 }} /></Form.Item>
+          <Form.Item><Button type="primary" htmlType="submit" loading={add.isPending}>저장</Button></Form.Item>
+        </Form>
+        <Table<LogItem<FmConsoleCoverageInput>>
+          size="small"
+          rowKey="id"
+          loading={isLoading}
+          pagination={false}
+          dataSource={items}
+          locale={{ emptyText: '기록이 없습니다' }}
+          columns={[
+            { title: '날짜', render: (_, r) => r.body.observed_on },
+            { title: '소스', render: (_, r) => r.body.source },
+            { title: '색인', render: (_, r) => r.body.indexed ?? '-' },
+            { title: '발견', render: (_, r) => r.body.discovered ?? '-' },
+            { title: '메모', render: (_, r) => r.body.note ?? '-' },
+          ]}
+        />
+      </Space>
+    </Card>
+  )
+}
+
+function AiProbeCard() {
+  const { data, isLoading } = useFmAiProbes()
+  const add = useFmAddAiProbe()
+  const [form] = Form.useForm()
+  const channelPick = Form.useWatch('channel', form)
+  const submit = (v: { channel: string; channel_other?: string; question: string; mentioned: boolean; cited: boolean; observed_on: Dayjs; note?: string }) =>
+    add.mutate(
+      {
+        channel: v.channel === OTHER_CHANNEL ? (v.channel_other ?? '').trim() : v.channel,
+        question: v.question,
+        mentioned: !!v.mentioned,
+        cited: !!v.cited,
+        observed_on: v.observed_on.format('YYYY-MM-DD'),
+        note: v.note || null,
+      },
+      {
+        onSuccess: () => {
+          message.success('저장되었습니다.')
+          form.resetFields(['question', 'mentioned', 'cited', 'note'])
+        },
+        onError: (e) => message.error(errMsg(e)),
+      },
+    )
+  const items = (data?.items ?? []) as Array<LogItem<FmAiProbeInput>>
+  return (
+    <Card title="AI 채널 수동 프로브">
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <Typography.Text type="secondary">로그아웃 브라우저에서 질문 세트를 1회 조회한 결과를 기록합니다(계획서 §5-5 결정 자료).</Typography.Text>
+        <Form form={form} layout="inline" onFinish={submit} initialValues={{ observed_on: dayjs(), mentioned: false, cited: false }} style={{ rowGap: 8 }}>
+          <Form.Item name="channel" rules={[{ required: true, message: '채널 선택' }]}>
+            <Select
+              placeholder="채널"
+              style={{ width: 180 }}
+              options={[...AI_CHANNELS.map((c) => ({ value: c, label: c })), { value: OTHER_CHANNEL, label: '기타(직접 입력)' }]}
+            />
+          </Form.Item>
+          {channelPick === OTHER_CHANNEL && (
+            <Form.Item name="channel_other" rules={[{ required: true, whitespace: true, message: '채널명 입력' }]}><Input placeholder="채널명" style={{ width: 140 }} /></Form.Item>
+          )}
+          <Form.Item name="question" rules={[{ required: true, message: '질문 입력' }]}><Input placeholder="질문" style={{ width: 260 }} /></Form.Item>
+          <Form.Item name="mentioned" label="언급" valuePropName="checked"><Switch /></Form.Item>
+          <Form.Item name="cited" label="인용" valuePropName="checked"><Switch /></Form.Item>
+          <Form.Item name="observed_on" rules={[{ required: true }]}><DatePicker allowClear={false} /></Form.Item>
+          <Form.Item name="note"><Input placeholder="메모" style={{ width: 200 }} /></Form.Item>
+          <Form.Item><Button type="primary" htmlType="submit" loading={add.isPending}>저장</Button></Form.Item>
+        </Form>
+        <Table<LogItem<FmAiProbeInput>>
+          size="small"
+          rowKey="id"
+          loading={isLoading}
+          pagination={false}
+          dataSource={items}
+          locale={{ emptyText: '기록이 없습니다' }}
+          columns={[
+            { title: '날짜', render: (_, r) => r.body.observed_on },
+            { title: '채널', render: (_, r) => r.body.channel },
+            { title: '질문', render: (_, r) => r.body.question },
+            { title: '언급', render: (_, r) => (r.body.mentioned ? 'O' : 'X') },
+            { title: '인용', render: (_, r) => (r.body.cited ? 'O' : 'X') },
+            { title: '메모', render: (_, r) => r.body.note ?? '-' },
+          ]}
+        />
+      </Space>
+    </Card>
+  )
+}
+
+function MeasurementSection() {
+  return (
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Typography.Title level={4} style={{ marginBottom: 0 }}>측정</Typography.Title>
+      <BotVisitsCard />
+      <ConsoleCoverageCard />
+      <AiProbeCard />
+    </Space>
+  )
+}
+
 export default function FactMindPage() {
   const [kind, setKind] = useState<string>()
   const [status, setStatus] = useState<string>()
@@ -378,6 +599,7 @@ export default function FactMindPage() {
 
       <PlatformFactsCard />
       <DiagnoseCard defaultUrl={diagnoseDefault} />
+      <MeasurementSection />
     </Space>
   )
 }

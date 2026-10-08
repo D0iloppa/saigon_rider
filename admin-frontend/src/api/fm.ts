@@ -222,3 +222,86 @@ export function useFmDiagnose() {
       post<FmDiagnoseResult>('/diagnose', input),
   })
 }
+
+// ── 측정 (방문·색인 수·AI 프로브·잡) ─────────────────────────────
+
+export type FmVerdictCounts = { VERIFIED: number; UNVERIFIED: number; UNKNOWN: number }
+
+export interface FmVisits {
+  days: number
+  since: string
+  totals: FmVerdictCounts
+  daily: Array<{ date: string } & FmVerdictCounts>
+  by_bot: Array<{ bot_id: string; verdict: string; count: number }>
+  by_path_kind: Array<{ path_kind: string; count: number }>
+}
+
+export interface FmConsoleCoverageInput {
+  source: 'google' | 'bing'
+  observed_on: string
+  indexed: number | null
+  discovered: number | null
+  note?: string | null
+}
+
+export interface FmAiProbeInput {
+  channel: string
+  question: string
+  mentioned: boolean
+  cited: boolean
+  observed_on: string
+  note?: string | null
+}
+
+export interface FmLogItem<B> {
+  id: string
+  created_at: string
+  body: B
+}
+
+export type FmJobName = 'refresh_bot_feeds' | 'reverify' | 'purge_bot_visits'
+
+export function useFmVisits(days: number) {
+  return useQuery({
+    queryKey: ['fm', 'visits', days],
+    queryFn: () => fmApi<FmVisits>(`/visits${buildQuery({ days })}`),
+  })
+}
+
+export function useFmConsoleCoverage() {
+  return useQuery({
+    queryKey: ['fm', 'console-coverage'],
+    queryFn: () => fmApi<{ items: Array<FmLogItem<FmConsoleCoverageInput>> }>(`/console-coverage${buildQuery({ limit: 50 })}`),
+  })
+}
+
+export function useFmAddConsoleCoverage() {
+  const invalidate = useInvalidateFm()
+  return useMutation({
+    mutationFn: (input: FmConsoleCoverageInput) => post<{ event_id: string }>('/console-coverage', input),
+    onSuccess: invalidate,
+  })
+}
+
+export function useFmAiProbes() {
+  return useQuery({
+    queryKey: ['fm', 'ai-probe'],
+    queryFn: () => fmApi<{ items: Array<FmLogItem<FmAiProbeInput>> }>(`/ai-probe${buildQuery({ limit: 50 })}`),
+  })
+}
+
+export function useFmAddAiProbe() {
+  const invalidate = useInvalidateFm()
+  return useMutation({
+    mutationFn: (input: FmAiProbeInput) => post<{ event_id: string }>('/ai-probe', input),
+    onSuccess: invalidate,
+  })
+}
+
+export function useFmRunJob() {
+  const invalidate = useInvalidateFm()
+  return useMutation({
+    mutationFn: (name: FmJobName) => post<{ ok: boolean; job: string }>(`/jobs/${name}/run`),
+    onSuccess: invalidate,
+  })
+}

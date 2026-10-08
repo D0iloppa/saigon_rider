@@ -179,6 +179,10 @@ function PlatformFactsCard() {
 
 function DiagnoseCard({ defaultUrl }: { defaultUrl: string }) {
   const [url, setUrl] = useState(defaultUrl)
+  useEffect(() => {
+    if (!url && defaultUrl) setUrl(defaultUrl)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultUrl])
   const [locale, setLocale] = useState<'ko-KR' | 'vi' | 'en'>('ko-KR')
   const diagnose = useFmDiagnose()
   const result = diagnose.data
@@ -373,7 +377,7 @@ export default function FactMindPage() {
       </Card>
 
       <PlatformFactsCard />
-      <DiagnoseCard key={diagnoseDefault} defaultUrl={diagnoseDefault} />
+      <DiagnoseCard defaultUrl={diagnoseDefault} />
     </Space>
   )
 }

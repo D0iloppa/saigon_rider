@@ -280,15 +280,18 @@ database/init/253_fm_tables.sql           (번호는 구현 시 재확인)
 **Recommendation:** `owner_user_id`는 제외(공개 가치 0인 내부 식별자). `phone`은 **현상 유지**(앱 공개 API가 이미 내보내는 값이므로 `LocalBusiness.telephone`에 그대로 싣는다). 단, "API 응답"과 "검색엔진 색인 페이지"는 노출 범위가 다르므로 대표 확인 후 진행.
 **Why (brief):** 전화번호는 로컬 검색 결과의 핵심 필드이고, 새 동의 UI를 만들면 v1에 앱 변경이 들어온다.
 **Second look:** Gamma → "승인 사실 = 앱 공개 API가 이미 내보내는 것 − 내부 식별자"는 설명 가능하고 안정적인 규칙. Karpathy → 동의 UI 없음이 최소. **유지**. 거부 시 대안: 업체 소유자 opt-in 체크박스(앱 변경 S, P6 이전엔 어드민 플래그로 대체).
+**대표 판정(2026-10-08):** 권장안 채택 — `phone` 유지, `owner_user_id` 제외.
 
 **2. 업체 공개 게이트 — APPROVED 자동 공개 vs 소유자 opt-in**
 **Recommendation:** `status='APPROVED'`면 **자동 공개**(관리자 직접 등록 업체 `user_id null` 포함), 운영자 withdraw로 내린다.
 **Why (brief):** 디렉터리는 양이 있어야 목록 페이지가 생긴다. FactMind는 opt-in 구조로 공개 2건·고객 0명에서 멈췄다.
 **Second look:** Gamma → 철회 경로(410 + 사이트맵 제외 + IndexNow 재통지)가 있으니 자동 공개의 되돌림 비용은 낮다. Karpathy → 앱 변경 0. **유지**. 단, 업체 약관에 "공개 디렉터리 게재" 문구가 있는지 **[확인 필요]**(법무).
+**대표 판정(2026-10-08):** 권장안 채택 — APPROVED 자동 공개, 운영자 withdraw. 약관 게재 근거는 법무 확인 항목으로 유지(§7).
 
 **3. 매물·커뮤니티 공개 범위와 좌표 정밀도** — P6 전까지 결정 불필요. 쟁점: 30일 만료·SOLD 잦은 UGC의 색인 가치, ward 블러 규칙(`services/location_privacy.py`) 적용 여부, 작성자 닉네임 노출. 권장 없음(P5 데이터 본 뒤).
 
 **4. 서빙 호스트** — §3.3 권장(루트 도메인 경로 프록시). 엣지 conf 수동 반영(`sudo`) 1회 승인 필요.
+**대표 판정(2026-10-08):** 권장안 채택 — C' 루트 도메인 경로 프록시. 엣지 conf `sudo` 반영은 dev 검증 통과 후 별도 승인.
 
 **5. 측정 채널에 투자할지**
 **Recommendation:** v1은 봇 방문 + 콘솔 수기. AI 답변 조회는 **P5에서 사람이 1회 수동 프로브**(반나절)한 결과로 자동화 여부를 다시 결정. 조회기 VM·계정 구축은 지금 하지 않는다.
@@ -299,6 +302,7 @@ database/init/253_fm_tables.sql           (번호는 구현 시 재확인)
 **Recommendation:** 호스트 스키마는 건드리지 않고, publish 시점에 기존 `_nearest_ward`(`biz.py:1042`)로 파생한 값을 `fm_subject.ward_id`에 **고정 저장**(재공개 시 갱신).
 **Why (brief):** 목록 멤버십이 재공개 때만 바뀌어 안정적이고, 앱 마이그레이션이 없다.
 **Second look:** Gamma → 지역 진실은 업체 엔티티에 있어야 한다 — 맞지만 앱이 `ward_id`를 도입하면 adapter 한 줄만 바꾸면 되는 seam. **유지**.
+**대표 판정(2026-10-08):** 권장안 채택 — publish 시 파생 `ward_id`를 `fm_subject.ward_id`에 고정 저장.
 
 **7. 플랫폼 facts·FAQ 내용** — 어드민에서 입력할 사실(앱스토어 링크, 서비스 지역 표현, FAQ 3~5개 vi/ko/en)은 대표·마케팅이 제공. P3 착수 전 초안 필요.
 

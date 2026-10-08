@@ -118,7 +118,7 @@ class PageFacts(HTMLParser):
     def __init__(self):
         super().__init__(); self.canonical = []; self.robots = []; self.links = []
     def handle_starttag(self, tag, attrs):
-        d = dict(attrs)
+        d = {k: (v or '') for k, v in attrs}
         if tag == 'link' and 'canonical' in d.get('rel', '').lower().split(): self.canonical.append(d.get('href', ''))
         if tag == 'meta' and d.get('name', '').lower() in ('robots', 'googlebot'): self.robots.append(d.get('content', '').lower())
         if tag == 'a' and d.get('href'): self.links.append(d['href'])

@@ -16,3 +16,25 @@ Why: 초기 이식 — 시장·로캘 특이값(문구·BOTS·UA·국가·통화
 How-to-apply-upstream: 로캘 파라미터화는 업스트림에 적용할 가치가 있음(ko-KR 기본값이라 업스트림 동작 불변) — 패리티 픽스처 생성 후(P2-B) 적용 여부 결정.
 Forwarded: pending
 Verified: yes 20261008-14e5b934
+
+---
+
+Id: BP-0002
+Date: 2026-10-08
+Kind: code
+Files: core/fetch.py PageFacts.handle_starttag ← site/public_delivery.py:114
+Why: HTMLParser는 값 없는 속성(`<meta name>`, `<link rel>`)의 값을 None으로 준다. `d.get('rel', '').lower()`가 AttributeError를 내고 호출부(`except (OSError, ValueError)`)가 못 잡아 진단 API가 500이 된다. push 전 코드 리뷰에서 발견. 업스트림에도 같은 버그가 있다.
+How-to-apply-upstream: site/public_delivery.py의 같은 함수 첫 줄 `d = dict(attrs)`를 `d = {k: (v or '') for k, v in attrs}`로 치환.
+Forwarded: pending
+Verified: no
+
+---
+
+Id: BP-0003
+Date: 2026-10-08
+Kind: no-backport
+Files: core/bundle.py questions()
+Why: 이식 과정에서 `T = _locale.get(locale)['TEXTS']`가 docstring 앞에 끼어들어 docstring이 죽은 문자열식이 됐다. 위치 오류 교정(업스트림 순서로 복원)이며 업스트림엔 해당 없음.
+How-to-apply-upstream: 없음.
+Forwarded: not-needed port-only
+Verified: no

@@ -153,8 +153,8 @@ def public_schema(snapshot, url, locale='ko-KR'):
 
 
 def questions(name, plain, locale='ko-KR'):
-    T = _locale.get(locale)['TEXTS']
     """Fixed questions a customer would ask, answered only by the approved value (no particle guessing after names)."""
+    T = _locale.get(locale)['TEXTS']
     def won(price): return format(price, ',') + T['currency_suffix'] if type(price) in (int, float) else ''
     qa = []
     if isinstance(plain.get('category'), str): qa.append((T['q_category'] % name, T['a_category'] % escape(plain['category'])))

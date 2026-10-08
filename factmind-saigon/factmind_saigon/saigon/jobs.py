@@ -5,6 +5,7 @@ Same shape as backend/app/jobs/*: own session, True on success, exception -> log
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
 import logging
 import urllib.error
@@ -31,6 +32,24 @@ _FEED_MAX_BYTES = 5_000_000
 _VISIT_RETENTION = timedelta(days=30)
 
 
+_locks: dict = {}
+
+
+def _single_flight(fn):
+    """Per-job guard shared by the scheduler and manual runs: a run that overlaps a running one returns False at once."""
+    lock = _locks.setdefault(fn.__name__, asyncio.Lock())
+
+    @functools.wraps(fn)
+    async def wrapper():
+        if lock.locked():
+            log.warning("fm job %s already running; skipped", fn.__name__)
+            return False
+        async with lock:
+            return await fn()
+
+    return wrapper
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):  # feed URLs are final addresses (bot_policy.json note)
         return None
@@ -42,33 +61,37 @@ def _fetch(url: str) -> bytes:
         return resp.read(_FEED_MAX_BYTES)
 
 
+@_single_flight
 async def fm_refresh_bot_feeds() -> bool:
     try:
         feeds = load_policy(VN_POLICY)["feeds"]
+        raws = await asyncio.gather(*(asyncio.to_thread(_fetch, spec["url"]) for spec in feeds.values()), return_exceptions=True)
         failed = 0
-        for feed_id, spec in feeds.items():
-            try:
-                raw = await asyncio.to_thread(_fetch, spec["url"])
-                _created, cidrs = parse_feed(raw)
-            except (OSError, urllib.error.URLError, ValueError) as e:  # one bad feed must not block the rest
-                failed += 1
-                log.warning("fm bot feed %s refresh failed: %s", feed_id, e)
-                continue
-            stmt = insert(FmBotFeed).values(feed_id=feed_id, networks=cidrs, sha=hashlib.sha256(raw).hexdigest(), refreshed_at=utcnow())
-            async with AsyncSessionLocal() as db:
+        async with AsyncSessionLocal() as db:
+            for feed_id, raw in zip(feeds, raws):
+                try:
+                    if isinstance(raw, BaseException):
+                        raise raw
+                    _created, cidrs = parse_feed(raw)
+                except (OSError, urllib.error.URLError, ValueError) as e:  # one bad feed must not block the rest
+                    failed += 1
+                    log.warning("fm bot feed %s refresh failed: %s", feed_id, e)
+                    continue
+                stmt = insert(FmBotFeed).values(feed_id=feed_id, networks=cidrs, sha=hashlib.sha256(raw).hexdigest(), refreshed_at=utcnow())
                 await db.execute(
                     stmt.on_conflict_do_update(
                         index_elements=["feed_id"],
                         set_={"networks": stmt.excluded.networks, "sha": stmt.excluded.sha, "refreshed_at": stmt.excluded.refreshed_at},
                     )
                 )
-                await db.commit()
+            await db.commit()
         return failed == 0
     except Exception:
         log.exception("fm bot feed refresh failed")
         return False
 
 
+@_single_flight
 async def fm_reverify() -> bool:
     try:
         async with AsyncSessionLocal() as db:
@@ -79,8 +102,9 @@ async def fm_reverify() -> bool:
                 async with AsyncSessionLocal() as db:
                     result = await publishing.verify(db, subject_id)
                     await db.commit()
-                    if result["indexnow_urls"]:
-                        await notify_after_commit(db, subject_id, result["indexnow_urls"], mark_published=True)
+                    urls = result.get("indexnow_urls") or []
+                    if urls:
+                        await notify_after_commit(db, subject_id, urls, mark_published=True)
             except Exception:  # one subject failing must not stop the rest
                 ok = False
                 log.exception("fm reverify failed for subject %s", subject_id)
@@ -90,6 +114,7 @@ async def fm_reverify() -> bool:
         return False
 
 
+@_single_flight
 async def fm_purge_bot_visits() -> bool:
     try:
         async with AsyncSessionLocal() as db:

@@ -13,7 +13,7 @@ from app.database import AsyncSessionLocal
 from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from factmind_saigon.core.bots import VN_POLICY, Resolver, classify, client_ip, load_policy, verify
+from factmind_saigon.core.bots import VN_POLICY, Resolver, classify, load_policy, verify
 
 from .storage import FmBotFeed, FmBotVisit
 
@@ -42,6 +42,25 @@ def _trusted_proxies() -> list:
 TRUSTED = _trusted_proxies()
 
 
+def _client_ip(remote_addr, headers, trusted) -> Optional[str]:
+    """Client address behind trusted hops. X-Real-IP is ignored (the container nginx overwrites it with the gateway address);
+    X-Forwarded-For is walked right to left, skipping trusted hops, and the first untrusted address wins."""
+    try:
+        peer = ipaddress.ip_address(remote_addr or "")
+    except ValueError:
+        return None
+    if not any(peer in net for net in trusted):
+        return str(peer)  # no proxy in front of us
+    for token in reversed((headers.get("X-Forwarded-For") or "").split(",")):
+        try:
+            hop = ipaddress.ip_address(token.strip())
+        except ValueError:
+            continue
+        if not any(hop in net for net in trusted):
+            return str(hop)
+    return None
+
+
 def path_kind(path: str) -> Optional[str]:
     """fm path -> profile|facts|list|sitemap|rss|key, None when the path is not an fm public path."""
     if path in ("/sitemap.xml", "/sitemap-fm.xml"):
@@ -62,6 +81,7 @@ def path_kind(path: str) -> Optional[str]:
 
 
 _feeds_cache: dict = {"at": float("-inf"), "value": {}}
+_feeds_lock = asyncio.Lock()
 _verdicts: dict = {}
 
 
@@ -69,21 +89,24 @@ async def _feeds() -> dict:
     """{feed_id: ([networks], sha, 'ok')} in the shape core.verify expects, cached in memory."""
     if time.monotonic() - _feeds_cache["at"] < _FEEDS_TTL:
         return _feeds_cache["value"]
-    async with AsyncSessionLocal() as db:
-        rows = (await db.execute(select(FmBotFeed))).scalars().all()
-    value = {r.feed_id: ([ipaddress.ip_network(n) for n in r.networks], r.sha, "ok") for r in rows}
-    _feeds_cache.update(at=time.monotonic(), value=value)
-    return value
+    async with _feeds_lock:  # one coroutine reloads, the rest wait and reuse its result
+        if time.monotonic() - _feeds_cache["at"] < _FEEDS_TTL:
+            return _feeds_cache["value"]
+        async with AsyncSessionLocal() as db:
+            rows = (await db.execute(select(FmBotFeed))).scalars().all()
+        value = {r.feed_id: ([ipaddress.ip_network(n) for n in r.networks], r.sha, "ok") for r in rows}
+        _feeds_cache.update(at=time.monotonic(), value=value)
+        return value
 
 
 async def _verdict(bot: dict, ip: Optional[str]) -> tuple:
-    """-> (verdict, method) with method feed|rdns|none; cached per (bot, ip) for an hour."""
+    """-> (verdict, {method feed|rdns|none, reason, evidence}); cached per (bot, ip) for an hour."""
     key = (bot["id"], ip)
     hit = _verdicts.get(key)
     if hit and time.monotonic() - hit[0] < _VERDICT_TTL:
         return hit[1]
-    verdict, _reason, how, _evidence = await asyncio.to_thread(verify, bot, ip, await _feeds(), RESOLVER)
-    result = (verdict, {"ip_feed": "feed", "reverse_dns": "rdns"}.get(how, "none"))
+    verdict, reason, how, evidence = await asyncio.to_thread(verify, bot, ip, await _feeds(), RESOLVER)
+    result = (verdict, {"method": {"ip_feed": "feed", "reverse_dns": "rdns"}.get(how, "none"), "reason": reason, "evidence": evidence})
     if len(_verdicts) >= _VERDICT_MAX:
         _verdicts.clear()
     _verdicts[key] = (time.monotonic(), result)
@@ -92,14 +115,14 @@ async def _verdict(bot: dict, ip: Optional[str]) -> tuple:
 
 async def _record(bot: dict, kind: str, path: str, method: str, ua: str, remote_addr, headers, status_code: int) -> None:
     try:
-        ip = client_ip(remote_addr, headers, TRUSTED)
-        verdict, how = await _verdict(bot, ip)
+        ip = _client_ip(remote_addr, headers, TRUSTED)
+        verdict, why = await _verdict(bot, ip)
         verified = verdict == "VERIFIED"
         async with AsyncSessionLocal() as db:
             db.add(FmBotVisit(
                 bot_id=bot["id"], verdict=verdict, path=path[:500], path_kind=kind, method=method,
                 ip=ip if verified else None, ua=ua[:500] if verified else None,
-                evidence={"method": how, "bot_class": bot.get("class"), "status_code": status_code},
+                evidence={**why, "bot_class": bot.get("class"), "status_code": status_code},
             ))
             await db.commit()
     except Exception:

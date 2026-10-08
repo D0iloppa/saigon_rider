@@ -10,6 +10,7 @@ from app.admin_auth import AdminSession, verify_admin_api
 from app.database import get_db
 from app.models import BusinessProfile, Ward
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -217,7 +218,7 @@ async def verify_subject(
         result = await publishing.verify(db, subject_id)
     except publishing.FmError as e:
         raise _http(e)
-    urls = result.pop("indexnow_urls")
+    urls = result.pop("indexnow_urls", [])
     await _audit(db, session, request, "FM_VERIFY", str(subject_id), {"ok": result["ok"]})
     await db.commit()
     if urls:
@@ -378,11 +379,6 @@ async def _manual_event(db, session, request, kind: str, body: BaseModel, action
     return {"event_id": event.id}
 
 
-async def _manual_events(db, kind: str, limit: int) -> dict:
-    rows = (await db.execute(select(FmEvent).where(FmEvent.kind == kind).order_by(FmEvent.id.desc()).limit(limit))).scalars().all()
-    return {"items": [{"id": e.id, "created_at": e.created_at, "body": e.body} for e in rows]}
-
-
 @router.post("/console-coverage")
 async def add_console_coverage(
     body: ConsoleCoverageBody,
@@ -399,7 +395,7 @@ async def list_console_coverage(
     _session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _manual_events(db, "console_coverage", limit)
+    return await list_events(kind="console_coverage", limit=limit, _session=_session, db=db)
 
 
 @router.post("/ai-probe")
@@ -418,7 +414,7 @@ async def list_ai_probe(
     _session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _manual_events(db, "ai_probe", limit)
+    return await list_events(kind="ai_probe", limit=limit, _session=_session, db=db)
 
 
 _JOBS = {
@@ -426,6 +422,9 @@ _JOBS = {
     "reverify": jobs.fm_reverify,
     "purge_bot_visits": jobs.fm_purge_bot_visits,
 }
+
+
+_job_tasks: set = set()
 
 
 @router.post("/jobs/{name}/run")
@@ -438,7 +437,9 @@ async def run_job(
     job = _JOBS.get(name)
     if job is None:
         raise HTTPException(status_code=404, detail={"code": "not_found"})
-    ok = await job()
-    await _audit(db, session, request, "FM_JOB_RUN", None, {"job": name, "ok": ok})
+    task = asyncio.create_task(job())  # outlives this request; overlap is rejected by the job's own lock
+    _job_tasks.add(task)
+    task.add_done_callback(_job_tasks.discard)
+    await _audit(db, session, request, "FM_JOB_RUN", None, {"job": name, "started": True})
     await db.commit()
-    return {"ok": ok, "job": name}
+    return JSONResponse({"ok": True, "job": name, "started": True}, status_code=202)

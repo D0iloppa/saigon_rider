@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Optional
 
 from app.models import Base, utcnow
@@ -151,7 +152,8 @@ async def record_event(db: AsyncSession, kind: str, body: dict, subject_id: Opti
 
 async def visits_summary(db: AsyncSession, days: int) -> dict:
     """Bot visits of the last `days` days (ICT day boundaries): daily x verdict, per bot x verdict, per path_kind."""
-    since = utcnow() - timedelta(days=days)
+    ict = ZoneInfo("Asia/Ho_Chi_Minh")
+    since = datetime.now(ict).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days - 1)  # `days` ICT daily buckets
     day = func.date_trunc("day", func.timezone("Asia/Ho_Chi_Minh", FmBotVisit.observed_at))
     recent = FmBotVisit.observed_at >= since
     daily_rows = (

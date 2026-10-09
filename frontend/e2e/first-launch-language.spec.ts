@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import en from '../src/locales/en/translation.json';
-import vi from '../src/locales/vi/translation.json';
+import en from '../src/locales/en/translation.json' with { type: 'json' };
+import vi from '../src/locales/vi/translation.json' with { type: 'json' };
 
 /**
  * 첫 실행(저장된 sr-lang 없음) 언어 — 기기/브라우저 언어가 vi·ko·en 이면 그대로, 그 외는 en.

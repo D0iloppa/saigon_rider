@@ -7,6 +7,7 @@ import { apiRegisterDeviceMap, apiUnregisterDeviceMap } from '@/api/device';
 import i18n, { changeLang } from '@/lib/i18n';
 import { native } from '@/lib/native';
 import { clearSession, loadSession } from '@/lib/session';
+import { syncPreferredLang } from '@/lib/langSync';
 import { useLocationStore } from '@/store/useLocationStore';
 import { useWalkieTalkieBubbleStore } from '@/store/useWalkieTalkieBubbleStore';
 
@@ -72,6 +73,8 @@ export const useUserStore = create<UserState>()(
           user: dtoToUser(dto),
           isAuthenticated: true,
         });
+        // 첫 실행 언어는 기기 언어를 따르므로(서버 기본 vi) 로그인 직후 서버에 알린다. saveSession 이후 호출되는 흐름.
+        syncPreferredLang(i18n.language);
 
         native.getDeviceUUID()
           .then(async (uuid) => {

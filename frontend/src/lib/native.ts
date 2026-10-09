@@ -406,6 +406,16 @@ class NativeInterface {
 
   // ── Device ──────────────────────────────────────────────────────────────
 
+  /** 기기/브라우저 선호 언어 태그(우선순위 순). i18n 첫 실행 언어 판정용 — 동기. */
+  getDeviceLanguages(): readonly string[] {
+    // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+    if (typeof navigator === 'undefined') return [];
+    // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+    if (navigator.languages?.length) return navigator.languages;
+    // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+    return navigator.language ? [navigator.language] : [];
+  }
+
   async getDeviceUUID(): Promise<string> {
     if (!this.isNative) {
       console.warn('[device-uuid] not native — skip');

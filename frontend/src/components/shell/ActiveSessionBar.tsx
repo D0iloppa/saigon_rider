@@ -118,7 +118,13 @@ function useWalkieSessionCell() {
               if (!cancelled) pendingResultRef.current = result;
             })
             .catch(() => {
-              if (!cancelled) pendingResultRef.current = null;
+              // 앱이 백그라운드로 가면 네이티브가 녹음을 스스로 폐기하고 idle 을 보낸다 → stop 이 거절되어도
+              // autoStopped 에 갇히지 않게 idle 로 되돌린다. (resetToIdle 은 이 effect 아래에 선언돼 deps 에 못 쓰므로 같은 리셋을 인라인)
+              if (cancelled) return;
+              pendingResultRef.current = null;
+              manualStopRef.current = false;
+              setElapsedMs(0);
+              setPhase('idle');
             });
         }
       })

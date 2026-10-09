@@ -12,6 +12,7 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:18090',
+    locale: 'vi-VN', // 첫 실행 언어가 기기 언어를 따르므로 vi 문구를 단정하는 스펙의 기본값
     trace: 'retain-on-failure',
   },
   projects: [

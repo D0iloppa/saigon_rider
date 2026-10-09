@@ -859,6 +859,12 @@
     "walkieTalkieOptOutCaption": "끄면 워키토키 음성메시지 기능이 숨겨집니다"
   },
   "walkieTalkie": {
+    "leaveChannelConfirm": "무전기 채널에서 나갈까요?",
+    "pttButtonLabel": "누르는 동안 말하기",
+    "pttLabel": "말하기",
+    "recordingCountdownAria": "녹음 중, {{sec}}초 남음",
+    "recordingElapsedAria": "녹음 중 {{sec}}초",
+    "someone": "상대방",
     "consentTitle": "워키토키 기능 사용 안내",
     "consentBody": "워키토키(음성메시지) 기능은 마이크를 사용합니다. 녹음된 음성은 메시지로 상대방에게 전송됩니다.",
     "consentRetention": "전송한 음성메시지는 상대방이 재생을 완료하면 자동으로 삭제됩니다.",
@@ -915,6 +921,7 @@
     "inviteOpenBtn": "보기"
   },
   "liveLocation": {
+    "leaveChannelConfirm": "위치공유 채널에서 나갈까요?",
     "title": "실시간 위치공유",
     "bubbleLabel": "실시간 위치공유",
     "minimize": "최소화",
@@ -995,6 +1002,7 @@
     "loadErrorDesc": "네트워크 상태를 확인하고 다시 시도해 주세요."
   },
   "dm": {
+    "group": "그룹톡방",
     "read": "읽음",
     "title": "메시지",
     "detailTitle": "대화",

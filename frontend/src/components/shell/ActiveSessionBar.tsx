@@ -25,6 +25,13 @@ import { toast } from '@/components/ui/Toast';
 import { playSound } from '@/lib/sound';
 import styles from './ActiveSessionBar.module.css';
 
+/** 네이티브 reject 의 message 는 한국어 고정이라 사용자에게 보이면 안 된다 — 코드(영문)가 있으면 코드만 쓴다. */
+function nativeErrReason(err: unknown): string {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (typeof code === 'string' && code) return code;
+  return err instanceof Error ? err.message : String(err);
+}
+
 // 'playing' — 수신 음성메시지 자동재생 중. 재생 완료까지는 송신(PTT)을 잠근다(반이중 에티켓).
 type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'uploading' | 'playing';
 
@@ -349,7 +356,7 @@ function useWalkieSessionCell() {
         step = 'upload';
         await sendPendingVoice(pendingId, blob, durationMs);
       } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
+        const reason = nativeErrReason(err);
         console.error(`[walkieTalkie] send failed at ${step}`, err);
         updatePendingVoice(pendingId, { status: 'failed' });
         toast.error(`${t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' })} (${step}: ${reason.slice(0, 90)})`);
@@ -384,7 +391,7 @@ function useWalkieSessionCell() {
         mic = granted ? 'granted' : 'denied';
       }
     } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
+      const reason = nativeErrReason(err);
       toast.error(`${t('walkieTalkie.startError', { defaultValue: '녹음을 시작하지 못했어요' })} (perm: ${reason.slice(0, 90)})`);
       return;
     }
@@ -399,7 +406,12 @@ function useWalkieSessionCell() {
       if (native.platform !== 'ios') playSound('walkie_ptt_start');
       if (conversationId) walkieApi.setSpeaking(conversationId, true).catch(() => {});
     } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
+      const reason = nativeErrReason(err);
+      if (reason === 'PERMISSION_DENIED') {
+        setPhase('permissionDenied');
+        toast.error(t('walkieTalkie.permissionDenied', { defaultValue: '마이크 권한이 필요해요. 설정에서 허용해주세요.' }));
+        return;
+      }
       toast.error(`${t('walkieTalkie.startError', { defaultValue: '녹음을 시작하지 못했어요' })} (${reason.slice(0, 90)})`);
     }
   }, [capability, conversationId, t]);

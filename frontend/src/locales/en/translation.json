@@ -859,6 +859,12 @@
     "walkieTalkieOptOutCaption": "Turning this off hides the walkie-talkie voice message feature"
   },
   "walkieTalkie": {
+    "leaveChannelConfirm": "Leave the walkie-talkie channel?",
+    "pttButtonLabel": "Hold to talk",
+    "pttLabel": "Talk",
+    "recordingCountdownAria": "Recording, {{sec}} seconds left",
+    "recordingElapsedAria": "Recording, {{sec}} seconds",
+    "someone": "Someone",
     "consentTitle": "Using the walkie-talkie feature",
     "consentBody": "Walkie-talkie (voice messages) uses your microphone. The recorded voice is sent to the other person as a message.",
     "consentRetention": "Sent voice messages are automatically deleted once the recipient finishes playing them.",
@@ -915,6 +921,7 @@
     "inviteOpenBtn": "View"
   },
   "liveLocation": {
+    "leaveChannelConfirm": "Leave the live location channel?",
     "title": "Live location",
     "bubbleLabel": "Live location sharing",
     "minimize": "Minimize",
@@ -995,6 +1002,7 @@
     "loadErrorDesc": "Check your network connection and try again."
   },
   "dm": {
+    "group": "Group chat",
     "read": "Read",
     "title": "Messages",
     "detailTitle": "Chat",

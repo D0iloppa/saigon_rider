@@ -859,6 +859,12 @@
     "walkieTalkieOptOutCaption": "Tắt sẽ ẩn tính năng tin nhắn thoại bộ đàm"
   },
   "walkieTalkie": {
+    "leaveChannelConfirm": "Rời kênh bộ đàm?",
+    "pttButtonLabel": "Nhấn giữ để nói",
+    "pttLabel": "Nói",
+    "recordingCountdownAria": "Đang ghi âm, còn {{sec}} giây",
+    "recordingElapsedAria": "Đang ghi âm {{sec}} giây",
+    "someone": "Ai đó",
     "consentTitle": "Sử dụng tính năng bộ đàm",
     "consentBody": "Tính năng bộ đàm (tin nhắn thoại) sử dụng micro của bạn. Âm thanh đã ghi sẽ được gửi cho người kia dưới dạng tin nhắn.",
     "consentRetention": "Tin nhắn thoại đã gửi sẽ tự động bị xóa sau khi người nhận nghe xong.",
@@ -915,6 +921,7 @@
     "inviteOpenBtn": "Xem"
   },
   "liveLocation": {
+    "leaveChannelConfirm": "Rời kênh chia sẻ vị trí?",
     "title": "Vị trí trực tiếp",
     "bubbleLabel": "Chia sẻ vị trí trực tiếp",
     "minimize": "Thu nhỏ",
@@ -995,6 +1002,7 @@
     "loadErrorDesc": "Kiểm tra kết nối mạng và thử lại."
   },
   "dm": {
+    "group": "Phòng chat nhóm",
     "read": "Đã xem",
     "title": "Tin nhắn",
     "detailTitle": "Trò chuyện",

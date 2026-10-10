@@ -56,7 +56,7 @@ function parseFrontMatter(text, file) {
   let listKey = null;
   for (const line of m[1].split("\n")) {
     if (!line.trim() || line.trim().startsWith("#")) continue;
-    const item = line.match(/^\s+-\s+(.*)$/);
+    const item = line.match(/^\s*-\s+(.*)$/);
     if (item && listKey) {
       meta[listKey].push(stripQuotes(item[1].trim()));
       continue;

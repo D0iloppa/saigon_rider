@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 const steps = [
   ["sitemap-routes", ["node", "scripts/generate-sitemap-routes.mjs"]],
   ["prerender", ["node", "scripts/prerender.mjs"]],
+  ["blog", ["node", "scripts/generate-blog.mjs"]],
   ["sitemap-site", ["node", "scripts/generate-sitemap-site.mjs"]],
 ];
 
@@ -19,6 +20,7 @@ for (const [name, command] of steps) {
   if (result.status !== 0) {
     const exitCode = result.status ?? "unknown";
     console.warn(`[postbuild] ${name} skipped or failed with exit code ${exitCode}`);
+    if (name === "blog") process.exit(1); // invalid ready article must fail the build
     break;
   }
 }

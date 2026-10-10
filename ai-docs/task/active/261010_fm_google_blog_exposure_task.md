@@ -144,6 +144,13 @@ depends_on: 없음. caution: 랜딩 다른 파일 수정 금지, 워킹트리의
 
 ### P1 — 아티클 표면(fm 어댑터, `/blog/`) · `p1-article-surface`
 
+**경량 트랙 구현(D12, 2026-10-10)**: 아래 풀 트랙 대신 랜딩 빌드가 정적 HTML을 생성한다(BFF·마이그레이션·nginx 무변경).
+- 소스 `landing/apps/client/content/blog/<vi|ko>/<slug>.md`(front matter 스키마는 아래 P1-2와 동일 → 풀 트랙 전환 시 `git mv`). 생성기 `landing/apps/client/scripts/generate-blog.mjs`(postbuild의 `prerender` 다음, `sitemap-site` 앞; 의존성 추가 없음).
+- 산출: `dist/blog/<slug>/index.html`, `dist/ko/blog/<slug>/index.html`, 허브 `dist/blog/index.html`·`dist/ko/blog/index.html`(해당 언어 글이 1편 이상일 때만), `dist/blog-routes.json` → `generate-sitemap-site.mjs`가 lastmod와 함께 `sitemap-site.xml`에 추가. self canonical·`<html lang>`·Article/CollectionPage JSON-LD, hreflang은 같은 `topic_id`의 vi·ko가 모두 발행될 때만.
+- 정직성 게이트: `status: ready` + `reviewed_on` 있는 파일만 출력. ready 글이 규칙 위반(필수 필드·slug/lang 불일치·날짜·중복)이면 빌드 실패(postbuild exit 1). 발행 가능 글 0편이면 아무것도 쓰지 않고 sitemap-site는 3 loc 유지.
+- 푸터 "Blog" 링크는 이 변경에 없음(P2 첫 발행 커밋에서 추가 — T0 전 404 링크 방지). nginx 무변경(`/blog/`는 fm 정규식에 안 걸려 정적 서빙).
+- 알려진 한계: `fm_bot_visit` 크롤 로그 없음; 철회(파일 삭제/draft) 시 SPA fallback으로 soft-404; `/blog/<slug>`(슬래시 없음)도 서빙됨(canonical로 정리).
+
 **목표**: repo의 markdown 글이 어드민 동기화 → draft → 발행 → `/blog/<slug>/` 서버 HTML(Article JSON-LD·canonical·hreflang) → verify → sitemap-fm 포함 → 봇 방문 기록까지 기존 fm 흐름을 탄다. **core 무수정.**
 
 서브태스크
@@ -168,7 +175,7 @@ depends_on: 없음(P0와 병행 가능). caution: `core/` 수정 금지(pre-comm
 2. ko 초안 6편(사용자 직접 — 경험·사실 기반). AI는 구조 제안·교정만.
 3. vi 번역 초안(AI) → **네이티브 검수**(사람) → front matter `reviewed_on`/`reviewed_by` → `status: ready`. 검수 불가 편은 발행하지 않는다.
 4. 발행 일정(평일): 1주차 2편, 2주차 2편, 3주차 1편, 4주차 1편. 각 발행 = `git commit`(content) → 운영 `git pull` + bff 재빌드 → 어드민 '아티클 동기화' → publish → verify → (IndexNow Bing 자동) → 발행일·URL을 `baseline.md` 하단 "발행 대장"에 1줄.
-5. 발행 직전 P1-9 푸터 링크 배포(1회).
+5. 발행 직전 P1-9 푸터 링크 배포(1회). (경량 트랙: 푸터 링크 변경은 랜딩 `src/`의 `pages/home/content.ts` + `Index.tsx`.)
 
 검증(1회): 운영 `GET https://saigon-rider.com/blog/<첫 slug>/` 200 + canonical 자기 URL + `fm_publication.verified_at` not null + `/sitemap-fm.xml`에 포함(운영자 curl). 모델: **사람**(작성·검수). 번역 초안만 **Fable**(vi 품질 판단 — 검수 전 단계). depends_on: p1-article-surface, p0-baseline. caution: AI 본문 생성 금지, 외부 홍보 금지, "색인 요청" 버튼 금지.
 

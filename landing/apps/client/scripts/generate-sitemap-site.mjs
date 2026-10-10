@@ -8,7 +8,12 @@ const SITE_URL = "https://saigon-rider.com";
 const INPUT = "dist/sitemap-routes.json";
 const OUTPUT = "dist/sitemap-site.xml";
 // /vi redirects to /, /auth is a login page, /apply* is business-host only (and payment returns).
-const isExcluded = (route) => route === "/vi" || route === "/auth" || route.startsWith("/apply");
+// DUPLICATE_ROUTES render the same component as home (duplicate content).
+const DUPLICATE_ROUTES = new Set([
+  "/product", "/security", "/solutions", "/how-it-works", "/pricing", "/resources", "/contact",
+]);
+const isExcluded = (route) =>
+  route === "/vi" || route === "/auth" || route.startsWith("/apply") || DUPLICATE_ROUTES.has(route);
 
 if (!existsSync(INPUT)) {
   console.error(`[sitemap-site] ${INPUT} not found; run generate-sitemap-routes.mjs first`);

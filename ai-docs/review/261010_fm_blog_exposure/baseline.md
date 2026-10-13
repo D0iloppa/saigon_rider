@@ -141,6 +141,9 @@
 | 11 | fuel-cost | vi | gia-xang-chi-phi-chay-xe-may | https://saigon-rider.com/blog/gia-xang-chi-phi-chay-xe-may/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
 | 12 | fuel-cost | ko | fuel-cost | https://saigon-rider.com/ko/blog/fuel-cost/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
 
+- 배포: 2026-10-13 랜딩 빌드(`8e5ec733`) rsync → 운영 14 URL(글 12 + 허브 `/blog/`·`/ko/blog/`) 200, `sitemap-site.xml` loc=17(lastmod 포함), vi↔ko hreflang·self canonical 확인. 홈 푸터 Blog 링크(JS 렌더).
+- 발견 신호: 같은 날 **IndexNow(Bing) 14 URL 제출 → 200**(정적 블로그는 fm 엔진 자동 알림 대상 아님 — 운영 서버에서 1회 수동 POST). Search Console '색인 요청'은 사용 안 함.
+
 ## 예외 사건
 
 실험 기간 중 결과를 흔들 수 있는 사건(앱 스토어 출시, 장애, 랜딩·conf 변경 등)을 기록한다. 브랜드 질의 급증은 비브랜드 분리로 흡수.

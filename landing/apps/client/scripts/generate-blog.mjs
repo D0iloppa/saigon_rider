@@ -9,15 +9,18 @@
 // Files starting with "_" and non-.md files are ignored. A violation in an emitted file exits 1.
 // Nothing publishable => nothing is written (no dist/blog, no blog-routes.json).
 //
-// Front matter: `---` block, `key: value` lines; lists as `[a, b]` or `- item` lines under the key.
+// Front matter: `---` block, `key: value` lines; lists as `[a, b]` (items may be "…" or '…' quoted to contain commas)
+//   or `- item` lines under the key. An empty value is "" unless `- item` lines follow.
 //   required: topic_id, slug, lang, title, description, date_published, reviewed_on
 //   optional: date_modified (default date_published), tags, status, reviewed_by (never rendered), sources
 //   sources items: URL or "text | URL"
 //
 // Markdown subset (all text is HTML-escaped first; raw HTML is not supported):
 //   ## / ### headings (a body `#` h1 is an error), paragraphs, `-`/`*` unordered and `1.` ordered
-//   lists (single level), `> ` blockquote, `---` horizontal rule, **bold**, *em*, `code`,
-//   [text](url) links (http(s) or site-relative "/..." only).
+//   lists (single level; `<ol start>` follows the first item number), `> ` blockquote,
+//   `---` horizontal rule, **bold**, *em*, `code`,
+//   [text](url) links (http(s) or site-relative "/..." only; no backslash; one level of
+//   balanced parentheses allowed in the URL; emphasis markers inside a URL are not touched).
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 
@@ -34,7 +37,7 @@ const LABELS = {
   ko: { blog: "사이공라이더 블로그", hubDesc: "사이공라이더가 전하는 사이공 생활 이야기.", home: "홈", published: "발행", updated: "수정", sources: "참고 자료" },
   en: { blog: "Saigon Rider Blog", hubDesc: "Articles from Saigon Rider.", home: "Home", published: "Published", updated: "Updated", sources: "Sources" },
 };
-const LOCALE = { vi: "vi_VN", ko: "ko_KR" };
+const LOCALE = { vi: "vi_VN", ko: "ko_KR", en: "en_US" };
 const prefix = (lang) => (lang === "ko" ? "/ko" : "");
 const hubPath = (lang) => `${prefix(lang)}/blog/`;
 const articlePath = (lang, slug) => `${prefix(lang)}/blog/${slug}/`;
@@ -49,6 +52,27 @@ const fail = (msg) => {
 // ---------- front matter ----------
 const stripQuotes = (v) => v.replace(/^(["'])(.*)\1$/, "$2");
 
+// split on commas outside "…" / '…' quotes
+function splitList(str) {
+  const items = [];
+  let cur = "";
+  let q = null;
+  for (const ch of str) {
+    if (q) {
+      if (ch === q) q = null;
+      cur += ch;
+    } else if (ch === '"' || ch === "'") {
+      q = ch;
+      cur += ch;
+    } else if (ch === ",") {
+      items.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  items.push(cur);
+  return items.map((x) => stripQuotes(x.trim())).filter(Boolean);
+}
+
 function parseFrontMatter(text, file) {
   const m = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---[ \t]*(?:\n([\s\S]*))?$/);
   if (!m) return null;
@@ -58,6 +82,7 @@ function parseFrontMatter(text, file) {
     if (!line.trim() || line.trim().startsWith("#")) continue;
     const item = line.match(/^\s*-\s+(.*)$/);
     if (item && listKey) {
+      if (!Array.isArray(meta[listKey])) meta[listKey] = [];
       meta[listKey].push(stripQuotes(item[1].trim()));
       continue;
     }
@@ -66,10 +91,10 @@ function parseFrontMatter(text, file) {
     const [, key, raw] = kv;
     const val = raw.trim();
     if (val === "") {
-      meta[key] = [];
+      meta[key] = "";
       listKey = key;
     } else if (val.startsWith("[") && val.endsWith("]")) {
-      meta[key] = val.slice(1, -1).split(",").map((s) => stripQuotes(s.trim())).filter(Boolean);
+      meta[key] = splitList(val.slice(1, -1));
       listKey = null;
     } else {
       meta[key] = stripQuotes(val);
@@ -87,13 +112,15 @@ const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, 
 
 function inline(raw) {
   const codes = [];
+  const urls = [];
   let s = esc(raw).replace(/`([^`]+)`/g, (_, c) => `\u0000${codes.push(c) - 1}\u0000`);
-  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (all, text, url) => {
-    // url is already escaped; only http(s) and site-relative are allowed
-    if (/^https?:\/\//.test(url) || (url.startsWith("/") && !url.startsWith("//"))) return `<a href="${url}">${text}</a>`;
-    return all;
+  // links become placeholders so emphasis never touches the URL; url is already escaped
+  s = s.replace(/\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g, (all, text, url) => {
+    const ok = !/[\\\u0000]/.test(url) && (/^https?:\/\//.test(url) || (url.startsWith("/") && !url.startsWith("//")));
+    return ok ? `\u0001${urls.push(url) - 1}\u0001${text}\u0002` : all;
   });
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\*([^*\s][^*]*)\*/g, "<em>$1</em>");
+  s = s.replace(/\u0001(\d+)\u0001/g, (_, i) => `<a href="${urls[i]}">`).replace(/\u0002/g, "</a>");
   return s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[i]}</code>`);
 }
 
@@ -118,9 +145,10 @@ function markdownToHtml(body, file) {
     } else if (/^[-*]\s/.test(line) || /^\d+\.\s/.test(line)) {
       const ordered = /^\d+\.\s/.test(line);
       const re = ordered ? /^\d+\.\s+(.*)$/ : /^[-*]\s+(.*)$/;
+      const first = ordered ? Number(line.match(/^(\d+)\./)[1]) : 1;
       const items = [];
       while (i < lines.length && re.test(lines[i])) items.push(`<li>${inline(lines[i++].match(re)[1].trim())}</li>`);
-      out.push(`<${ordered ? "ol" : "ul"}>${items.join("")}</${ordered ? "ol" : "ul"}>`);
+      out.push(`<${ordered ? "ol" : "ul"}${ordered && first !== 1 ? ` start="${first}"` : ""}>${items.join("")}</${ordered ? "ol" : "ul"}>`);
     } else if (/^>\s?/.test(line)) {
       const q = [];
       while (i < lines.length && /^>\s?/.test(lines[i])) q.push(lines[i++].replace(/^>\s?/, "").trim());
@@ -148,6 +176,9 @@ function loadArticles() {
       const { meta, body } = parsed;
       if (meta.status !== "ready" || !String(meta.reviewed_on ?? "").trim()) continue;
 
+      for (const k of ["topic_id", "slug", "lang", "title", "description", "date_published", "date_modified", "status", "reviewed_on", "reviewed_by"]) {
+        if (meta[k] !== undefined && typeof meta[k] !== "string") fail(`${file}: "${k}" must be a single value, not a list`);
+      }
       for (const k of ["topic_id", "slug", "lang", "title", "description", "date_published", "reviewed_on"]) {
         if (!String(meta[k] ?? "").trim()) fail(`${file}: missing required field "${k}"`);
       }

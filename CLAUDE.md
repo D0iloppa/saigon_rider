@@ -145,7 +145,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `pnpm` 은 corepack shim(`~/.local/bin/pnpm`)으로 설치돼 있어 별도 PATH 설정 불필요.
   - `node_modules` 가 빌드머신의 pnpm 가상 store 경로(`/opt/pnpm-vstore/...`)를 참조해 깨져 있으면 (`Cannot find module .../vite/bin/vite.js` 등) `pnpm install` 먼저 실행.
   - esbuild 빌드 스크립트는 `landing/pnpm-workspace.yaml` 의 `onlyBuiltDependencies` 로 이미 승인돼 있음 — 재승인 불필요.
-- **블로그(실험)**: 글은 `landing/apps/client/content/blog/<lang>/<slug>.md`(lang=vi|ko). `status: ready` + `reviewed_on` 인 파일만 빌드에서 `/blog/…` 정적 HTML·sitemap-site 로 출력되고, 잘못된 ready 글은 빌드를 실패시킨다.
+- **블로그(실험)**: 글은 `landing/apps/client/content/blog/<lang>/<slug>.md`(lang=vi|ko). `status: ready` + `reviewed_on` 인 파일만 빌드에서 `/blog/…` 정적 HTML·sitemap-site 로 출력되고, 잘못된 ready 글은 빌드를 실패시킨다. 글 철회(ready→draft) 시 배포 서버에서 `/var/www/saigon-rider/blog/<slug>/`(ko는 `/ko/blog/<slug>/`)를 직접 삭제해야 한다 — cp 배포는 파일을 지우지 않는다.
 - **i18n**: 공통 로케일 유틸은 `landing/apps/client/src/lib/locale.ts` (vi 기본, `/ko` `/en` 경로). 페이지별 텍스트는 각 페이지 폴더의 `content.ts`.
 - **라우팅**: root+www+business → `/var/www/saigon-rider` 정적 서빙 (React가 도메인별 분기), `app.saigon-rider.com` → 컨테이너 앱(:18090). 설정: `deploy/saigon-rider.conf`. 인증서는 saigon-rider.com 하나에 SAN 으로 root/www/app/business 전부 포함.
 

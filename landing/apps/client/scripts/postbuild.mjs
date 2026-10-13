@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process";
 
 const steps = [
+  // first: an invalid ready article must fail the build even if later steps fail
+  ["blog", ["node", "scripts/generate-blog.mjs"]],
   ["sitemap-routes", ["node", "scripts/generate-sitemap-routes.mjs"]],
   ["prerender", ["node", "scripts/prerender.mjs"]],
-  ["blog", ["node", "scripts/generate-blog.mjs"]],
   ["sitemap-site", ["node", "scripts/generate-sitemap-site.mjs"]],
 ];
 

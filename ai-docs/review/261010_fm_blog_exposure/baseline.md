@@ -128,6 +128,18 @@
 
 | # | topic | lang | slug | URL | 발행일 | 검수자/검수일 | 첫 크롤(URL 검사) | 첫 색인일 | 메모 |
 |---|---|---|---|---|---|---|---|---|---|
+| 1 | used-bike-checklist | vi | kiem-tra-xe-may-cu-truoc-khi-mua | https://saigon-rider.com/blog/kiem-tra-xe-may-cu-truoc-khi-mua/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 2 | used-bike-checklist | ko | used-bike-checklist | https://saigon-rider.com/ko/blog/used-bike-checklist/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 3 | ownership-transfer | vi | thu-tuc-sang-ten-xe-may-tphcm | https://saigon-rider.com/blog/thu-tuc-sang-ten-xe-may-tphcm/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 4 | ownership-transfer | ko | ownership-transfer | https://saigon-rider.com/ko/blog/ownership-transfer/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 5 | rainy-season-riding | vi | di-xe-may-mua-mua-sai-gon | https://saigon-rider.com/blog/di-xe-may-mua-mua-sai-gon/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 6 | rainy-season-riding | ko | rainy-season-riding | https://saigon-rider.com/ko/blog/rainy-season-riding/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 7 | tsn-airport-parking | vi | gui-xe-may-san-bay-tan-son-nhat | https://saigon-rider.com/blog/gui-xe-may-san-bay-tan-son-nhat/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 8 | tsn-airport-parking | ko | tsn-airport-parking | https://saigon-rider.com/ko/blog/tsn-airport-parking/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 9 | safe-neighbor-trade | vi | mua-ban-do-cu-an-toan | https://saigon-rider.com/blog/mua-ban-do-cu-an-toan/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 10 | safe-neighbor-trade | ko | safe-neighbor-trade | https://saigon-rider.com/ko/blog/safe-neighbor-trade/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 11 | fuel-cost | vi | gia-xang-chi-phi-chay-xe-may | https://saigon-rider.com/blog/gia-xang-chi-phi-chay-xe-may/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
+| 12 | fuel-cost | ko | fuel-cost | https://saigon-rider.com/ko/blog/fuel-cost/ | 2026-10-13 | 내부 검토만(네이티브 검수 없음) / 2026-10-13 | | | |
 
 ## 예외 사건
 

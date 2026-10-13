@@ -35,7 +35,7 @@ interface HomeCopy {
   stats: StatCopy[];
   ctaBand: { heading: string; cta: string };
   bizBanner: { copy: string; cta: string };
-  footer: { tagline: string; nav: { services: string; business: string; privacy: string; contact: string }; bottomLine: string };
+  footer: { tagline: string; nav: { services: string; business: string; privacy: string; contact: string; blog: string }; bottomLine: string };
 }
 
 export const content: Record<Locale, HomeCopy> = {
@@ -117,7 +117,7 @@ export const content: Record<Locale, HomeCopy> = {
     bizBanner: { copy: "Bạn là chủ quán? Hãy giới thiệu quán của bạn đến tài xế khu phố.", cta: "Saigon Rider Doanh nghiệp" },
     footer: {
       tagline: "Ứng dụng đời sống khu phố cho tài xế Sài Gòn",
-      nav: { services: "Dịch vụ", business: "Doanh nghiệp", privacy: "Chính sách bảo mật", contact: "Liên hệ" },
+      nav: { services: "Dịch vụ", business: "Doanh nghiệp", privacy: "Chính sách bảo mật", contact: "Liên hệ", blog: "Blog" },
       bottomLine: "Tiếng Việt · 한국어 · English · © 2026 Saigon Rider",
     },
   },
@@ -199,7 +199,7 @@ export const content: Record<Locale, HomeCopy> = {
     bizBanner: { copy: "사장님이신가요? 동네 라이더에게 가게를 알려보세요.", cta: "사이공라이더 비즈니스" },
     footer: {
       tagline: "호치민 라이더의 동네 생활 앱",
-      nav: { services: "서비스", business: "비즈니스", privacy: "개인정보처리방침", contact: "문의하기" },
+      nav: { services: "서비스", business: "비즈니스", privacy: "개인정보처리방침", contact: "문의하기", blog: "블로그" },
       bottomLine: "Tiếng Việt · 한국어 · English · © 2026 Saigon Rider",
     },
   },
@@ -281,7 +281,7 @@ export const content: Record<Locale, HomeCopy> = {
     bizBanner: { copy: "Own a shop? Introduce it to neighborhood riders.", cta: "Saigon Rider Business" },
     footer: {
       tagline: "The neighborhood app for Ho Chi Minh City riders",
-      nav: { services: "Services", business: "Business", privacy: "Privacy Policy", contact: "Contact" },
+      nav: { services: "Services", business: "Business", privacy: "Privacy Policy", contact: "Contact", blog: "Blog" },
       bottomLine: "Tiếng Việt · 한국어 · English · © 2026 Saigon Rider",
     },
   },

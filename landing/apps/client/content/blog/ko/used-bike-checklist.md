@@ -4,12 +4,12 @@ slug: used-bike-checklist
 lang: ko
 title: 호치민에서 중고 오토바이 살 때 체크리스트
 description: 호치민에서 중고 오토바이(xe máy cũ)를 사기 전 등록증 대조, 차량 상태, 명의 이전 절차, 외국인 등록 조건을 공개 자료로 정리했습니다.
-date_published: 2026-10-20
+date_published: 2026-10-13
 date_modified:
 tags: [중고 오토바이, 호치민, 명의 이전, 체크리스트]
-status: draft
-reviewed_on:
-reviewed_by:
+status: ready
+reviewed_on: 2026-10-13
+reviewed_by: internal review only (AI-assisted draft, no native review — user decision 2026-10-13)
 sources:
 - Thông tư 79/2024/TT-BCA 양도·등록 절차 해설 (LSVN, 2025-07-31) | https://lsvn.vn/quy-dinh-ho-so-thu-tuc-sang-ten-xe-a161195.html
 - 오토바이 등록 서류와 외국인 거주 조건 (LuatVietnam) | https://luatvietnam.vn/tin-phap-luat/thu-tuc-dang-ky-xe-may-230-17657-article.html

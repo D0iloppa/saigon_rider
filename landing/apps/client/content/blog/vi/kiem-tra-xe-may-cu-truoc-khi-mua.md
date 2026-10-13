@@ -4,12 +4,12 @@ slug: kiem-tra-xe-may-cu-truoc-khi-mua
 lang: vi
 title: Checklist mua xe máy cũ ở TP.HCM: kiểm tra gì trước khi mua
 description: Cần kiểm tra gì khi mua xe máy cũ ở TP.HCM? Đối chiếu cà vẹt, tình trạng xe, thủ tục sang tên và điều kiện đăng ký của người nước ngoài (tài liệu công khai)
-date_published: 2026-10-20
+date_published: 2026-10-13
 date_modified:
 tags: [xe máy cũ, TP.HCM, sang tên, checklist mua xe]
-status: draft
-reviewed_on:
-reviewed_by:
+status: ready
+reviewed_on: 2026-10-13
+reviewed_by: internal review only (AI-assisted draft, no native review — user decision 2026-10-13)
 sources:
 - "Thông tư 79/2024/TT-BCA: giải thích hồ sơ, thủ tục sang tên (LSVN, 31/07/2025) | https://lsvn.vn/quy-dinh-ho-so-thu-tuc-sang-ten-xe-a161195.html"
 - "Thủ tục đăng ký xe máy và điều kiện với người nước ngoài (LuatVietnam) | https://luatvietnam.vn/tin-phap-luat/thu-tuc-dang-ky-xe-may-230-17657-article.html"

@@ -276,6 +276,7 @@ function SaigonRiderHome() {
           <a href="#services">{t.footer.nav.services}</a>
           <a href={BUSINESS_HREF}>{t.footer.nav.business}</a>
           <a href={PRIVACY_HREF}>{t.footer.nav.privacy}</a>
+          <a href={locale === "ko" ? "/ko/blog/" : "/blog/"}>{t.footer.nav.blog}</a>
           <a href={SUPPORT_MAIL}>{t.footer.nav.contact}</a>
         </nav>
         <small>{t.footer.bottomLine}</small>

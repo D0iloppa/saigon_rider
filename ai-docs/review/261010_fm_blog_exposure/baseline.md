@@ -10,12 +10,12 @@
 
 ## 운영자 체크리스트 (순서대로)
 
-- [ ] **(a) 랜딩 sitemap 변경 배포** (중복 7 라우트 제외 — SoT §6 D3)
+- [x] **(a) 랜딩 sitemap 변경 배포** (중복 7 라우트 제외 — SoT §6 D3) — 2026-10-13 완료: 로컬 빌드(527c2c39) rsync, 운영 sitemap-site loc=3, 백업 `/var/www/saigon-rider.bak-20261013T042949Z.tgz`
   1. `cd landing && nvm use 22 && pnpm run build`
   2. `grep -c "<loc>" apps/client/dist/sitemap-site.xml` → **3** (`/`, `/ko`, `/en`)
   3. dist 복사: `sudo cp -r apps/client/dist/* /var/www/saigon-rider/` (CLAUDE.md `랜딩배포`)
   4. `curl -s https://saigon-rider.com/sitemap-site.xml | grep -c "<loc>"` → **3**
-- [ ] **(b) Search Console 도메인 속성 추가** (미등록 → 신규, SoT §6 D4)
+- [x] **(b) Search Console 도메인 속성 추가** (미등록 → 신규, SoT §6 D4) — 2026-10-13 등록(사용자)
   1. Search Console → 속성 추가 → **도메인** → `saigon-rider.com` → 안내된 TXT 값 복사
   2. 도메인 등록업체의 DNS 관리에서 TXT 레코드 추가 (호스트 `@`, 값 = 복사한 TXT). 등록업체: ____
   3. 전파 후 확인: `dig TXT saigon-rider.com +short` 에 값 표시 → Search Console에서 '확인'

@@ -155,7 +155,8 @@ def _render_hub_page(snap: FmSnapshot, origin: str, entries: list, regions: list
             "<h2>" + H["businesses_h2"] + "</h2><ul>"
             + "".join(
                 '<li><a href="' + escape(e["url"], quote=True) + '">' + escape(e["name"]) + "</a>"
-                + ("<small>" + escape(e["category"]) + "</small>" if e["category"] else "") + "</li>"
+                + ("<small>" + escape(e["category"]) + "</small>" if e["category"] else "")
+                + ("<p>" + escape(e["intro"]) + "</p>" if e.get("intro") else "") + "</li>"
                 for e in entries
             )
             + "</ul>"
@@ -185,7 +186,8 @@ def _render_hub_page(snap: FmSnapshot, origin: str, entries: list, regions: list
                 "mainEntity": {
                     "@type": "ItemList",
                     "itemListElement": [
-                        {"@type": "ListItem", "position": i + 1, "url": e["url"], "name": e["name"]} for i, e in enumerate(entries)
+                        {"@type": "ListItem", "position": i + 1, "url": e["url"], "name": e["name"],
+                         **({"description": e["intro"]} if e.get("intro") else {})} for i, e in enumerate(entries)
                     ],
                 },
             },
@@ -206,7 +208,8 @@ def _render_hub_page(snap: FmSnapshot, origin: str, entries: list, regions: list
 
 def _hub_entries(rows: list, origin: str) -> list:
     return [
-        {"name": snap.facts["name"], "url": origin + "/b/" + s.slug + "/", "category": snap.facts["facts"].get("category") or ""}
+        {"name": snap.facts["name"], "url": origin + "/b/" + s.slug + "/", "category": snap.facts["facts"].get("category") or "",
+         "intro": snap.facts["facts"].get("intro") or ""}  # published snapshot, never a draft
         for s, _p, snap in rows
     ]
 
@@ -332,6 +335,14 @@ def _checks(origin: str, subject: FmSubject, files: dict) -> list:
     return checks
 
 
+def _notify_urls(origin: str, subject: FmSubject, checks: list) -> list:
+    """What IndexNow gets for a subject: its own pages, plus (business) the /l/ hub in every locale -- the hub lists it, so it changes too."""
+    urls = [u for u, _b, kind in checks if kind != "facts"]
+    if subject.kind == "business":
+        urls += [origin + PREFIX[loc] + "/l/" for loc in LOCALES]
+    return urls
+
+
 async def verify(db: AsyncSession, subject_id) -> dict:
     """No row lock is held across the network read; the result is written only if the publication is still live.
 
@@ -369,7 +380,7 @@ async def verify(db: AsyncSession, subject_id) -> dict:
     pub.verification = {"ok": ok, "problems": result["problems"], "checked": result["records"], "at": now.isoformat()}
     pub.verified_at = now if ok else None
     await record_event(db, "verify", {"publication_id": str(pub.id), "ok": ok, "problems": result["problems"]}, subject.id)
-    urls = [u for u, _b, kind in checks if kind != "facts"] if ok and pub.index_notified_at is None else []
+    urls = _notify_urls(origin, subject, checks) if ok and pub.index_notified_at is None else []
     return {"ok": ok, "verified_at": pub.verified_at, "problems": result["problems"], "checked": result["records"], "indexnow_urls": urls}
 
 
@@ -381,7 +392,7 @@ async def withdraw(db: AsyncSession, subject_id, reason: Optional[str] = None) -
     live = (
         await db.execute(select(FmPublication.files).where(FmPublication.subject_id == subject.id, FmPublication.status == "published"))
     ).scalar_one()
-    urls = [u for u, _b, kind in _checks(public_origin(), subject, live) if kind != "facts"]
+    urls = _notify_urls(public_origin(), subject, _checks(public_origin(), subject, live))
     await db.execute(
         update(FmPublication)
         .where(FmPublication.subject_id == subject.id, FmPublication.status == "published")

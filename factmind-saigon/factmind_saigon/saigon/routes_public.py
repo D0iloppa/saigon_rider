@@ -4,6 +4,7 @@ nginx sends /b /l /ko/l /en/l /sitemap*.xml /rss.xml and the root /<indexnow-key
 """
 from __future__ import annotations
 
+from datetime import timezone
 from email.utils import format_datetime
 from html import escape
 from typing import Optional
@@ -156,7 +157,7 @@ async def sitemap_fm(db: AsyncSession = Depends(get_db)) -> Response:
             latest[tail] = max(latest.get(tail, p.published_at), p.published_at)
     urls += [(origin + PREFIX[loc] + tail, at) for tail, at in sorted(latest.items()) for loc in LOCALES]
     rows_xml = "".join(
-        "<url><loc>" + escape(loc) + "</loc>" + ("<lastmod>" + at.date().isoformat() + "</lastmod>" if at else "") + "</url>" for loc, at in urls
+        "<url><loc>" + escape(loc) + "</loc>" + ("<lastmod>" + at.astimezone(timezone.utc).replace(microsecond=0).isoformat() + "</lastmod>" if at else "") + "</url>" for loc, at in urls
     )
     return Response(f'{_XML}<urlset xmlns="{_NS}">{rows_xml}</urlset>', media_type="application/xml")
 

@@ -25,13 +25,16 @@ PREFIX = {"vi": "", "ko": "/ko", "en": "/en"}
 LIST_TEXTS = {
     "vi": {"hub": "Danh sách cửa hàng", "categories": "Loại hình", "count": "{n} cửa hàng",
            "title_ward": "Cửa hàng tại {ward}", "title_cat": "{cat} tại {ward}",
-           "desc": "{title} — {n} cửa hàng đã đăng ký trên Saigon Rider, sắp xếp theo tên."},
+           "desc": "{title} — {n} cửa hàng đã đăng ký trên Saigon Rider, sắp xếp theo tên.",
+           "updated": "Thông tin cập nhật lần cuối vào {date}."},
     "ko": {"hub": "가게 목록", "categories": "업종", "count": "업체 {n}곳",
            "title_ward": "{ward} 가게", "title_cat": "{ward} {cat}",
-           "desc": "{title} — Saigon Rider에 등록된 {n}곳, 이름순."},
+           "desc": "{title} — Saigon Rider에 등록된 {n}곳, 이름순.",
+           "updated": "마지막 정보 수정일은 {date}입니다."},
     "en": {"hub": "Shop directory", "categories": "Categories", "count": "{n} shops",
            "title_ward": "Shops in {ward}", "title_cat": "{cat} in {ward}",
-           "desc": "{title} — {n} shops registered on Saigon Rider, listed by name."},
+           "desc": "{title} — {n} shops registered on Saigon Rider, listed by name.",
+           "updated": "Information last updated on {date}."},
 }
 
 
@@ -98,7 +101,8 @@ async def render_list_for(db: AsyncSession, origin: str, locale: str, slug: str,
     if not rows:
         return None
     entries = [
-        {"name": n.facts["name"], "url": origin + "/b/" + s.slug + "/", "address": n.facts["facts"].get("address") or ""}
+        {"name": n.facts["name"], "url": origin + "/b/" + s.slug + "/", "address": n.facts["facts"].get("address") or "",
+         "intro": n.facts["facts"].get("intro") or "", "updated": _p.published_at.date().isoformat()}  # published snapshot, never a draft
         for s, _p, n in rows
     ]
     sub = None
@@ -112,7 +116,7 @@ async def render_list_for(db: AsyncSession, origin: str, locale: str, slug: str,
 
 
 def render_list(origin: str, locale: str, slug: str, ward_label: str, cat: Optional[BusinessCategory], entries: list, sub: Optional[list]) -> str:
-    """entries: [{'name', 'url', 'address'}]; sub (ward page only): [(BusinessCategory, count)] for the category links."""
+    """entries: [{'name', 'url', 'address', 'intro', 'updated'}]; sub (ward page only): [(BusinessCategory, count)] for the category links."""
     L = _locale.get(locale)
     T, X = L["TEXTS"], LIST_TEXTS[locale]
     prefix = PREFIX[locale]
@@ -129,10 +133,11 @@ def render_list(origin: str, locale: str, slug: str, ward_label: str, cat: Optio
     crumb_html = " › ".join('<a href="' + escape(u, quote=True) + '">' + escape(t) + "</a>" for u, t in crumbs[:-1]) + " › " + escape(crumbs[-1][1])
     items = "".join(
         '<li><a href="' + escape(e["url"], quote=True) + '">' + escape(e["name"]) + "</a>"
+        + ("<p>" + escape(e["intro"]) + "</p>" if e.get("intro") else "")
         + ("<small>" + escape(e["address"]) + "</small>" if e["address"] else "") + "</li>"
         for e in entries
     )
-    body = '<p class="crumbs">' + crumb_html + "</p><p>" + X["count"].format(n=len(entries)) + "</p><ul>" + items + "</ul>"
+    body = '<p class="crumbs">' + crumb_html + "</p><p>" + X["count"].format(n=len(entries)) + ". " + X["updated"].format(date=max(e["updated"] for e in entries)) + "</p><ul>" + items + "</ul>"
     if sub:
         body += "<h2>" + X["categories"] + "</h2><ul>" + "".join(
             '<li><a href="' + escape(origin + prefix + ward_tail + c.code + "/", quote=True) + '">' + escape(cat_label(c, locale)) + "</a>"
@@ -147,7 +152,8 @@ def render_list(origin: str, locale: str, slug: str, ward_label: str, cat: Optio
                 "isPartOf": {"@type": "CollectionPage", "url": origin + "/l/"},
                 "mainEntity": {
                     "@type": "ItemList",
-                    "itemListElement": [{"@type": "ListItem", "position": i + 1, "url": e["url"], "name": e["name"]} for i, e in enumerate(entries)],
+                    "itemListElement": [{"@type": "ListItem", "position": i + 1, "url": e["url"], "name": e["name"],
+                                                         **({"description": e["intro"]} if e.get("intro") else {})} for i, e in enumerate(entries)],
                 },
             },
             {

@@ -38,3 +38,14 @@ Why: 이식 과정에서 `T = _locale.get(locale)['TEXTS']`가 docstring 앞에 
 How-to-apply-upstream: 없음.
 Forwarded: not-needed port-only
 Verified: yes 20261008-14e5b934
+
+---
+
+Id: BP-0004
+Date: 2026-10-13
+Kind: no-backport
+Files: core/bundle.py list_page directory_page, core/locale/{ko,en,vi}.py (list_summary, list_features_label, list_address_label, list_website_label, directory_section_count, directory_total, list_order_note, list_description_tail) ← site/public_delivery.py:293-345 (upstream d6c8a1e)
+Why: forward sync from upstream f6b1772..d6c8a1e (docs d9afca5/f7b446d: Google judged bare-name list pages Soft 404; accepted after owner-approved facts were added). Lists show intro/features/address/official site, a count + last-updated sentence, ItemList description; directory shows per-list counts and intros; "순서는 판매하지 않습니다" copy dropped. ko-KR output is byte-identical to upstream (checked with sample entries). fetch/access/verify/indexnow ranges did not change (file-level upstream-ahead only). self_service.py/build.py/release.py changes are upstream service layer — mirrored in saigon/ adapter, not core.
+How-to-apply-upstream: 없음 (업스트림 변경을 가져온 것).
+Forwarded: not-needed forward sync from upstream
+Verified: no

@@ -25,12 +25,22 @@ PAGE_STYLE = 'body{margin:0;background:#f6f7fa;color:#192335;font:16px/1.8 syste
 
 
 def list_page(origin, path, title, entries, population=None, locale='ko-KR'):
-    """FactMind public list (homepage/06 §2): registered shops by name; surveyed non-customers only with criteria and date."""
+    """FactMind public list (homepage/06 §2): registered shops by name; surveyed non-customers only with criteria and date.
+    T_ 2026-10-09: each entry also shows the facts its owner approved and published (intro, features, address, official site).
+    Names alone made a thin page that Naver and Bing read in the sitemap but never fetched. Every sentence is template or approved fact."""
     L = _locale.get(locale); T = L['TEXTS']
     origin = origin.rstrip('/'); address = origin + '/' + path
-    items = ''.join('<li><a href="' + escape(e['url'], quote=True) + '">' + escape(e['name']) + '</a><small>' + T['list_item_note'] + escape(e['updated'][:10]) + '</small></li>'
-                    for e in sorted(entries, key=lambda e: (e['name'], e['url'])))
-    body = '<h2>' + T['list_h2_registered'] + '</h2><ul>' + (items or '<li>' + T['list_empty'] + '</li>') + '</ul>'
+    entries = sorted(entries, key=lambda e: (e['name'], e['url']))
+    def item(e):
+        out = '<li><h3><a href="' + escape(e['url'], quote=True) + '">' + escape(e['name']) + '</a></h3>'
+        if e.get('intro'): out += '<p>' + escape(e['intro']) + '</p>'
+        if e.get('features'): out += '<p>' + T['list_features_label'] + escape(' · '.join(e['features'])) + '</p>'
+        if e.get('address'): out += '<p>' + T['list_address_label'] + escape(e['address']) + '</p>'
+        if str(e.get('website', '')).startswith(('https://', 'http://')):
+            out += '<p>' + T['list_website_label'] + '<a href="' + escape(e['website'], quote=True) + '" rel="noopener">' + escape(e['website']) + '</a></p>'
+        return out + '<small>' + T['list_item_note'] + escape(e['updated'][:10]) + '</small></li>'
+    body = ('<p>' + T['list_summary'].format(title=escape(title), n=len(entries), date=escape(max(e['updated'][:10] for e in entries))) + '</p>' if entries else '')
+    body += '<h2>' + T['list_h2_registered'] + '</h2><ul>' + (''.join(item(e) for e in entries) or '<li>' + T['list_empty'] + '</li>') + '</ul>'
     if population:
         members = ''.join('<li><a href="' + escape(m['source_url'], quote=True) + '">' + escape(m['name']) + '</a></li>' for m in population['members'])
         body += ('<h2>' + T['surveyed_h2'] + '</h2><p>' + T['criteria_label'] + escape(population['criteria']) + '</p><p>' + T['researched_label'] + escape(population['researched_at'])
@@ -39,8 +49,8 @@ def list_page(origin, path, title, entries, population=None, locale='ko-KR'):
         body += '<p>' + T['list_only_registered'] + '</p>'
     body += '<p>' + T['list_order_note'] + '<a href="' + escape(origin + '/#contact', quote=True) + '">' + T['correct_report'] + '</a>' + T['correct_post'] + '</p>'
     data = {'@context': 'https://schema.org', '@type': 'CollectionPage', 'url': address, 'name': title,
-            'mainEntity': {'@type': 'ItemList', 'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'url': e['url'], 'name': e['name']}
-                                                                   for i, e in enumerate(sorted(entries, key=lambda e: (e['name'], e['url'])))]}}
+            'mainEntity': {'@type': 'ItemList', 'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'url': e['url'], 'name': e['name'],
+                                                                    **({'description': e['intro']} if e.get('intro') else {})} for i, e in enumerate(entries)]}}
     return ('<!doctype html><html lang="' + L['LANG'] + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="canonical" href="'
             + escape(address, quote=True) + '"><title>' + escape(title) + ' | ' + T['brand'] + '</title><meta name="description" content="'
             + escape(title + T['list_description_tail'], quote=True) + '"><style>' + PAGE_STYLE + '</style></head><body><nav><a href="/">' + T['brand'] + '</a></nav><main><h1>'
@@ -49,14 +59,18 @@ def list_page(origin, path, title, entries, population=None, locale='ko-KR'):
 
 def directory_page(origin, lists, locale='ko-KR'):
     """T_ 2026-10-06 대표님 핵심(우리가 게시한 정보가 수집되게): the crawlable path from the homepage footer to every public list and
-    profile, which had no link from anywhere (sitemaps only). lists: [{'url', 'title', 'entries': [{'name', 'url'}]}]"""
+    profile, which had no link from anywhere (sitemaps only). lists: [{'url', 'title', 'entries': [{'name', 'url', 'intro'?}]}]"""
     L = _locale.get(locale); T = L['TEXTS']
     origin = origin.rstrip('/'); address = origin + '/lists/'; lists = sorted(lists, key=lambda l: l['title'])
     title = T['directory_title']
-    sections = ''.join('<section><h2><a href="' + escape(l['url'], quote=True) + '">' + escape(l['title']) + '</a></h2><ul>'
-                       + ''.join('<li><a href="' + escape(e['url'], quote=True) + '">' + escape(e['name']) + '</a></li>' for e in sorted(l['entries'], key=lambda e: (e['name'], e['url'])))
+    # T_ 2026-10-09: counts and each entry's approved introduction, so the one page every list hangs from is not a bare link list (199 characters).
+    sections = ''.join('<section><h2><a href="' + escape(l['url'], quote=True) + '">' + escape(l['title']) + '</a></h2><p>' + T['directory_section_count'].format(n=len(l['entries'])) + '</p><ul>'
+                       + ''.join('<li><a href="' + escape(e['url'], quote=True) + '">' + escape(e['name']) + '</a>' + (' — ' + escape(e['intro']) if e.get('intro') else '') + '</li>'
+                                 for e in sorted(l['entries'], key=lambda e: (e['name'], e['url'])))
                        + '</ul></section>' for l in lists)
+    total = sum(len(l['entries']) for l in lists)
     body = ('<p>' + T['directory_intro'] + '</p>'
+            + ('<p>' + T['directory_total'].format(lists=len(lists), n=total) + '</p>' if lists else '')
             + (sections or '<p>' + T['directory_empty'] + '</p>'))
     data = {'@context': 'https://schema.org', '@type': 'CollectionPage', 'url': address, 'name': title,
             'mainEntity': {'@type': 'ItemList', 'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'url': l['url'], 'name': l['title']} for i, l in enumerate(lists)]}}

@@ -34,9 +34,9 @@ LIST_TEXTS = {
            "title_ward": "{ward} 가게", "title_cat": "{ward} {cat}",
            "desc": "{title} — Saigon Rider에 등록된 {n}곳, 이름순.",
            "updated": "마지막 정보 수정일은 {date}입니다."},
-    "en": {"hub": "Shop directory", "categories": "Categories", "count": "{n} shops",
+    "en": {"hub": "Shop directory", "categories": "Categories", "count": "Shops: {n}",
            "title_ward": "Shops in {ward}", "title_cat": "{cat} in {ward}",
-           "desc": "{title} — {n} shops registered on Saigon Rider, listed by name.",
+           "desc": "{title} — shops registered on Saigon Rider ({n}), listed by name.",
            "updated": "Information last updated on {date}."},
 }
 

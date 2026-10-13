@@ -71,7 +71,7 @@
 
 질문 10개는 **고정**이다 — 이후 2·3회차(4주·8주)에 **문자열 그대로 재사용**한다. 변경 금지.
 
-**확정: 2026-10-13 (사용자) — 질문 10개 아래 문구 그대로, 채널 5개 그대로.** 실행: 로그아웃(시크릿) 브라우저, 1행 = 질문 1개 × 채널 1개로 어드민 'AI 채널 수동 프로브' 폼에 저장(언급 = 답변에 'Saigon Rider' 이름, 인용 = 출처에 saigon-rider.com URL, 메모 = 대신 인용된 출처 1~2개).
+**확정: 2026-10-13 (사용자) — 질문 10개 아래 문구 그대로. 채널은 같은 날 재결정으로 Google AI Overviews 1개(API 키·비용 없음 — ChatGPT·Gemini·Perplexity·Cốc Cốc 제외, 여유 생기면 Gemini 무료 키로 추가 검토).** 실행: 로그아웃(시크릿) 브라우저, 1행 = 질문 1개 × 채널 1개로 어드민 'AI 채널 수동 프로브' 폼에 저장(언급 = 답변에 'Saigon Rider' 이름, 인용 = 출처에 saigon-rider.com URL, 메모 = 대신 인용된 출처 1~2개).
 
 | # | 언어 | 질문 |
 |---|---|---|
@@ -102,6 +102,28 @@
 | Q10 | | | | | | |
 
 - 프로브 수행일: ____ / 수행자: ____
+
+### 1회차 결과 — 2026-10-13 (사용자 시크릿 창 google.com.vn 캡처 10장 → 감독 판독, 운영 `fm_event` ai_probe id 7~16)
+
+| Q | AI 개요 | 언급 | 인용 | 주요 출처(캡처 기준) |
+|---|---|---|---|---|
+| Q1 | 표시 | 없음 | 없음 | timthosuaxe.com, 3MP.VN, VnExpress, TikTok/Autonews, Tạp chí Xây dựng |
+| Q2 | 표시 | 없음 | 없음 | Dat Bike, dichvugiaytoxe.com, Báo Thanh Niên, dichvucong.bocongan.gov.vn |
+| Q3 | 표시 | 없음 | 없음 | HEAD Dũng Tiến Sài Gòn, x-light.vn, Phụ tùng xe máy, hondaotokimthanh |
+| Q4 | 표시 | 없음 | 없음 | VinWonders, noibai.vn, Facebook, Galaxy Office |
+| Q5 | 표시 | 없음 | 없음 | CafeF, Truyền hình CAND, Thanh Niên |
+| Q6 | 표시 | 없음 | 없음 | durivn.com, YouTube, **Naver Blog** |
+| Q7 | 표시 | 없음 | 없음 | **티스토리**, Instagram, YouTube, Thư Viện Pháp Luật, Cổng TT Bộ Công an |
+| Q8 | 표시 | 없음 | 없음 | AIO가 "한인 전용 플랫폼" 권장 · 상위 결과 **HANGO**(베트남 한인 중고거래 앱) Instagram/Facebook |
+| Q9 | 표시 | 없음 | 없음 | 언급 앱 OKXE·Chợ Tốt·iMotorbike·Vietbikes / Reddit, Google Play |
+| Q10 | 표시 | 없음 | 없음 | Vietcetera, Vietnam Chronicles, Jan Motorbike |
+
+관찰(판정 아님, 튜닝 참고):
+- 10/10 질문에 AI 개요가 뜬다 → 측정 가능한 채널. 기준선 언급·인용 0/10(예상대로).
+- 한국어 질문(Q6·Q7)에서 **Naver Blog·티스토리 등 블로그 플랫폼 글이 AI 개요 출처로 인용** — 후속 E2(외부 블로그 플랫폼) 가설의 근거 후보.
+- Q8: 경쟁 앱 HANGO가 같은 질문에서 노출 중.
+- Q10: AI 개요의 휘발유 가격이 20~23k/L로 낡음(2026-10-08 최고가 27,700) — 우리 글(`fuel-cost`)은 날짜 붙은 최신 값이라 인용 후보.
+- Q2: AI 개요가 "1단계 công chứng 계약"을 단정 — 우리 글에서 '확인 필요'로 둔 공증 여부와 대조할 튜닝 포인트.
 
 ## ⑤ 판정 기준 동결 (SoT §2.6)
 

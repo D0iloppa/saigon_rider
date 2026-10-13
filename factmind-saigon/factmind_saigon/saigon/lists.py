@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from html import escape
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from app.models import BusinessCategory, Ward
 from sqlalchemy import select
@@ -17,6 +18,8 @@ from factmind_saigon.core import locale as _locale
 from factmind_saigon.core.bundle import PAGE_STYLE
 
 from .storage import list_published_business
+
+ICT = ZoneInfo("Asia/Ho_Chi_Minh")
 
 BRAND = "Saigon Rider"  # core ko locale brand is upstream "FactMind"
 LOCALES = ("vi", "ko", "en")
@@ -102,8 +105,8 @@ async def render_list_for(db: AsyncSession, origin: str, locale: str, slug: str,
         return None
     entries = [
         {"name": n.facts["name"], "url": origin + "/b/" + s.slug + "/", "address": n.facts["facts"].get("address") or "",
-         "intro": n.facts["facts"].get("intro") or "", "updated": _p.published_at.date().isoformat()}  # published snapshot, never a draft
-        for s, _p, n in rows
+         "intro": n.facts["facts"].get("intro") or "", "updated": p.published_at.astimezone(ICT).date().isoformat()}  # published snapshot, never a draft
+        for s, p, n in rows
     ]
     sub = None
     if cat is None:

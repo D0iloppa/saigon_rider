@@ -97,12 +97,14 @@ async def fm_reverify() -> bool:
         async with AsyncSessionLocal() as db:
             ids = (await db.execute(select(FmSubject.id).where(FmSubject.status == "published"))).scalars().all()
         ok = True
+        hub_seen: set = set()  # the shared /l/ hub URLs go out once per run, not once per business
         for subject_id in ids:
             try:
                 async with AsyncSessionLocal() as db:
                     result = await publishing.verify(db, subject_id)
                     await db.commit()
-                    urls = result.get("indexnow_urls") or []
+                    urls = [u for u in (result.get("indexnow_urls") or []) if u not in hub_seen]
+                    hub_seen.update(urls)
                     if urls:
                         await notify_after_commit(db, subject_id, urls, mark_published=True)
             except Exception:  # one subject failing must not stop the rest

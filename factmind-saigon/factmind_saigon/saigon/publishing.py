@@ -335,11 +335,21 @@ def _checks(origin: str, subject: FmSubject, files: dict) -> list:
     return checks
 
 
-def _notify_urls(origin: str, subject: FmSubject, checks: list) -> list:
-    """What IndexNow gets for a subject: its own pages, plus (business) the /l/ hub in every locale -- the hub lists it, so it changes too."""
+async def _notify_urls(db: AsyncSession, origin: str, subject: FmSubject, checks: list) -> list:
+    """What IndexNow gets for a subject: its own pages, plus (business) the /l/ hub in every locale -- only when the hub is live
+    (published platform subject with a published publication, as refresh_hub), since it lists this subject and so changes too."""
     urls = [u for u, _b, kind in checks if kind != "facts"]
     if subject.kind == "business":
-        urls += [origin + PREFIX[loc] + "/l/" for loc in LOCALES]
+        hub_live = (
+            await db.execute(
+                select(FmPublication.id)
+                .join(FmSubject, FmSubject.id == FmPublication.subject_id)
+                .where(FmSubject.kind == "platform", FmSubject.status == "published", FmPublication.status == "published")
+                .limit(1)
+            )
+        ).first() is not None
+        if hub_live:
+            urls += [origin + PREFIX[loc] + "/l/" for loc in LOCALES]
     return urls
 
 
@@ -380,7 +390,7 @@ async def verify(db: AsyncSession, subject_id) -> dict:
     pub.verification = {"ok": ok, "problems": result["problems"], "checked": result["records"], "at": now.isoformat()}
     pub.verified_at = now if ok else None
     await record_event(db, "verify", {"publication_id": str(pub.id), "ok": ok, "problems": result["problems"]}, subject.id)
-    urls = _notify_urls(origin, subject, checks) if ok and pub.index_notified_at is None else []
+    urls = await _notify_urls(db, origin, subject, checks) if ok and pub.index_notified_at is None else []
     return {"ok": ok, "verified_at": pub.verified_at, "problems": result["problems"], "checked": result["records"], "indexnow_urls": urls}
 
 
@@ -392,7 +402,7 @@ async def withdraw(db: AsyncSession, subject_id, reason: Optional[str] = None) -
     live = (
         await db.execute(select(FmPublication.files).where(FmPublication.subject_id == subject.id, FmPublication.status == "published"))
     ).scalar_one()
-    urls = _notify_urls(public_origin(), subject, _checks(public_origin(), subject, live))
+    urls = await _notify_urls(db, public_origin(), subject, _checks(public_origin(), subject, live))
     await db.execute(
         update(FmPublication)
         .where(FmPublication.subject_id == subject.id, FmPublication.status == "published")

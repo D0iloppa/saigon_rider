@@ -184,8 +184,12 @@ async def sync_subjects(
     pending = result.pop("indexnow")
     await _audit(db, session, request, "FM_SYNC", None, result)
     await db.commit()
+    seen: set = set()  # shared hub URLs once per pass
     for sid, urls in pending:
-        await notify_after_commit(db, sid, urls)
+        urls = [u for u in urls if u not in seen]
+        seen.update(urls)
+        if urls:
+            await notify_after_commit(db, sid, urls)
     return result
 
 

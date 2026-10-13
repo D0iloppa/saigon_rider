@@ -48,4 +48,15 @@ Files: core/bundle.py list_page directory_page, core/locale/{ko,en,vi}.py (list_
 Why: forward sync from upstream f6b1772..d6c8a1e (docs d9afca5/f7b446d: Google judged bare-name list pages Soft 404; accepted after owner-approved facts were added). Lists show intro/features/address/official site, a count + last-updated sentence, ItemList description; directory shows per-list counts and intros; "순서는 판매하지 않습니다" copy dropped. ko-KR output is byte-identical to upstream (checked with sample entries). fetch/access/verify/indexnow ranges did not change (file-level upstream-ahead only). self_service.py/build.py/release.py changes are upstream service layer — mirrored in saigon/ adapter, not core.
 How-to-apply-upstream: 없음 (업스트림 변경을 가져온 것).
 Forwarded: not-needed forward sync from upstream
+Verified: yes 20261013-51e95515
+
+---
+
+Id: BP-0005
+Date: 2026-10-13
+Kind: no-backport
+Files: core/locale/en.py (list_summary, directory_section_count, directory_total)
+Why: BP-0004에서 들어온 영어 문구가 "1 places", "The 1 lists"처럼 단수에서 어색했다. 복수형 로직 없이 1·N 모두 읽히는 count-neutral 문구로 교체. en은 saigon 전용 로캘이라 업스트림(ko-KR 단일 로캘)에 대응물이 없다. ko.py·core/bundle.py 불변.
+How-to-apply-upstream: 없음.
+Forwarded: not-needed saigon-only locale
 Verified: no

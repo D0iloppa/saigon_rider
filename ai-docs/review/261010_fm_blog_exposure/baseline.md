@@ -20,8 +20,8 @@
   2. 도메인 등록업체의 DNS 관리에서 TXT 레코드 추가 (호스트 `@`, 값 = 복사한 TXT). 등록업체: ____
   3. 전파 후 확인: `dig TXT saigon-rider.com +short` 에 값 표시 → Search Console에서 '확인'
 - [ ] **(c) 사이트맵 제출** `https://saigon-rider.com/sitemap.xml` — **'색인 생성 요청' 버튼은 누르지 않는다**(§2.3-3, 자연 발견 측정. 8주차 판정 후에는 자유)
-- [ ] **(d) fm 플랫폼(허브 `/l/`) 발행** — `/admin/fm`에서 플랫폼 발행 → 발행일 기록, `curl -I https://saigon-rider.com/l/` → 200
-  - `/l/` 발행일: ____ (`/ko/l/`, `/en/l/` 발행 여부: ____)
+- [x] **(d) fm 플랫폼(허브 `/l/`) 발행** — `/admin/fm`에서 플랫폼 발행 → 발행일 기록, `curl -I https://saigon-rider.com/l/` → 200
+  - `/l/` 발행일: **2026-10-13 02:52:39 UTC (11:52 ICT)**, verify ok 02:53:33 UTC (`/ko/l/`, `/en/l/` 발행 여부: **발행 — 셋 다 200**). IndexNow(Bing) 202 — urls `/b/saigon-rider-official-…/`, `/l/`, `/ko/l/`, `/en/l/` (`fm_event` index_notified 2026-10-13 02:53:33 UTC). 허브 항목 1곳(Saigon Rider Official, intro 표시)
 - [ ] **(e) ①~④ 기록** (아래 섹션)
 - [ ] **(f) ⑤ 동결 확인 후 서명줄 기입**
 

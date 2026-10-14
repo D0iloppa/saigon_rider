@@ -225,16 +225,17 @@ export default function MarketMain() {
         ? fetchListings({
             sort,
             lat: coords?.lat, lng: coords?.lng,
-            radiusKm: effectiveLocationMode === 'gps' ? NEARBY_RADIUS_KM : null,
+            // 권역 밖/위치 꺼짐(폴백 좌표)이면 반경을 걸지 않는다 — 중심가 3km 가 비면 심사자·해외 사용자에게 빈 화면.
+            radiusKm: effectiveLocationMode === 'gps' && coordsSource !== 'fallback' ? NEARBY_RADIUS_KM : null,
             categoryId,
             viewerId: userId, page, size: 20,
           })
         : Promise.resolve({ items: [], total: 0, page, size: 20 }),
-    [listReady, sort, coords, effectiveLocationMode, categoryId, userId],
+    [listReady, sort, coords, coordsSource, effectiveLocationMode, categoryId, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, error: listError, sentinelRef, reset } =
-    useInfiniteScroll<Listing>(fetchPage, 20, [listReady, sort, coords, effectiveLocationMode, categoryId, userId]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [listReady, sort, coords, coordsSource, effectiveLocationMode, categoryId, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),
@@ -696,6 +697,9 @@ export default function MarketMain() {
                     </div>
                     <div className={sys.stateTitle}>{t('market.emptyTitle', { defaultValue: '근처에 매물이 없어요' })}</div>
                     <div className={sys.stateDesc}>{t('market.emptySub', { defaultValue: '첫 매물을 등록해보세요' })}</div>
+                    {coordsSource === 'fallback' && (
+                      <div className={sys.stateDesc}>{t('market.emptyOutOfArea', { defaultValue: 'Saigon Rider는 현재 호치민시에서 서비스 중이라 도시 전체 매물을 보여드려요' })}</div>
+                    )}
                     {/* 표시범위가 이미 '전체'면 더 넓힐 곳이 없어 무의미한 CTA — 숨긴다. */}
                     {effectiveLocationMode !== 'all' && (
                       <button type="button" className={sys.stateBtn} onClick={() => setLocMapOpen(true)}>

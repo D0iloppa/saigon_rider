@@ -177,6 +177,7 @@
     "statusError": "상태 변경 실패",
     "emptyTitle": "근처에 매물이 없어요",
     "emptySub": "첫 매물을 등록해보세요",
+    "emptyOutOfArea": "Saigon Rider는 현재 호치민시에서 서비스 중이라 도시 전체 매물을 보여드려요",
     "reviewCount": "거래 {{count}}건",
     "soldCount": "판매 {{count}}건",
     "responseVeryFast": "응답 빠름",

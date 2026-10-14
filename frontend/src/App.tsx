@@ -205,7 +205,7 @@ import styles from './App.module.css';
 // SMS_VERIFICATION 플래그가 꺼져 있으면 휴대폰 인증 화면은 존재하지 않는 것으로 취급 → 프로필로.
 function PhoneVerifyRoute() {
   const { enabled, loaded } = useSmsVerification();
-  if (!loaded) return null;
+  if (!loaded) return <RouteFallback />;
   return enabled ? <PhoneVerify /> : <Navigate to="/profile" replace />;
 }
 

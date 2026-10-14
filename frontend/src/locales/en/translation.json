@@ -184,7 +184,6 @@
     "responseVeryFast": "Fast reply",
     "responseNormal": "Normal reply",
     "phoneVerified": "Phone verified",
-    "verified": "Verified",
     "showPhone": "Show phone number",
     "hidePhone": "Hide phone number",
     "wishlist": "Wishlist",
@@ -525,7 +524,6 @@
       "d7": "District 7"
     },
     "v2": {
-      "verified": "Phone verified",
       "tradeCount": "{{count}} trades",
       "searchPlaceholder": "Search products, keywords, categories",
       "nearbyPopular": "Popular nearby",
@@ -714,7 +712,6 @@
   "profile": {
     "phoneVerifyNeeded": "Phone verification needed",
     "phoneVerifyNeededSub": "Verify your phone to boost trust as a seller",
-    "phoneVerifiedBadge": "Phone verified",
     "tradeHistory": "Trade history",
     "seeAll": "See all",
     "tradeSold": "Sold",

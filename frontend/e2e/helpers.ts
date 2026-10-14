@@ -54,7 +54,9 @@ export async function verifyPhoneBypass(request: APIRequestContext, session: Dev
     data: { phone },
   });
   if (reqRes.status() === 404) {
-    // SMS_VERIFICATION=false(기본) — OTP API 가 꺼져 있으면 인증 완료 상태만 DB 에 기록한다.
+    // 404 가 라우팅 회귀가 아니라 SMS_VERIFICATION=false 때문인지 app-config 로 확인한 뒤에만 DB 로 대체한다.
+    const cfg = await (await request.get(`${BASE_URL}/api/bff/app-config`)).json();
+    if (cfg.sms_verification !== false) throw new Error('otp/request 404 while sms_verification is enabled');
     execFileSync('docker', [
       'exec', 'saigon_db', 'psql', '-U', 'wellconn', '-d', 'saigon_rider',
       '-c', `UPDATE users SET phone_verified_at = now() WHERE id = '${session.userId}';`,

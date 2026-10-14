@@ -79,7 +79,7 @@ test.describe('휴대폰 인증 게이트 (심사 3차)', () => {
     while (sessions.length) cleanupUser(sessions.pop()!.userId);
   });
 
-  test('C. 미인증 유저 글·댓글 403 / 인증 유저 댓글 2xx / 미인증 /feed/new → phone-verify', async ({ page, request }) => {
+  test('C. 미인증 유저도 글·댓글 2xx / 인증 유저 댓글 2xx / 미인증 /feed/new 유지 (휴대폰 인증 게이트 없음)', async ({ page, request }) => {
     // 미인증: dev-login 직후 phone_verified_at NULL (verifyPhoneBypass 를 호출하지 않는다)
     const unverified = await devLogin(request, uniqueTag('u'));
     sessions.push(unverified);
@@ -98,20 +98,20 @@ test.describe('휴대폰 인증 게이트 (심사 3차)', () => {
     expect(postRes.status(), await postRes.text()).toBe(201);
     const postId = (await postRes.json()).id as string;
 
-    // 미인증: 글 작성 403
-    const badPost = await request.post(`${BASE_URL}/api/bff/feed`, {
+    // 미인증도 글 작성 가능 — 휴대폰 인증은 게이트하지 않는다(SMS_VERIFICATION 선택화, 2026-10-14)
+    const plainPost = await request.post(`${BASE_URL}/api/bff/feed`, {
       headers: authHeaders(unverified),
       data: { user_id: unverified.userId, content: 'e2e r3 unverified post' },
     });
-    expect(badPost.status()).toBe(403);
-    expect(await badPost.text()).toContain('Phone verification required');
+    expect(plainPost.status(), await plainPost.text()).toBe(201);
+    await request.delete(`${BASE_URL}/api/bff/feed/${(await plainPost.json()).id}`, { headers: authHeaders(unverified) });
 
-    // 미인증: 댓글 작성 403
-    const badComment = await request.post(`${BASE_URL}/api/bff/feed/${postId}/comments`, {
+    // 미인증도 댓글 작성 가능
+    const plainComment = await request.post(`${BASE_URL}/api/bff/feed/${postId}/comments`, {
       headers: authHeaders(unverified),
       data: { user_id: unverified.userId, content: 'e2e r3 unverified comment' },
     });
-    expect(badComment.status()).toBe(403);
+    expect(plainComment.status(), await plainComment.text()).toBe(201);
 
     // 인증: 댓글 2xx 후 삭제
     const okComment = await request.post(`${BASE_URL}/api/bff/feed/${postId}/comments`, {
@@ -123,9 +123,9 @@ test.describe('휴대폰 인증 게이트 (심사 3차)', () => {
     await request.delete(`${BASE_URL}/api/bff/feed/${postId}/comments/${commentId}`, { headers: authHeaders(verified) });
     await request.delete(`${BASE_URL}/api/bff/feed/${postId}`, { headers: authHeaders(verified) });
 
-    // UI: 미인증 유저가 /feed/new 를 열면 phone-verify 로 이동
+    // UI: 미인증 유저도 /feed/new 에 머문다(인증 화면으로 보내지 않음)
     await injectSession(page, unverified);
     await page.goto('/feed/new');
-    await expect(page).toHaveURL(/\/auth\/phone-verify/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/feed\/new$/, { timeout: 10_000 });
   });
 });

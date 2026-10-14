@@ -1047,11 +1047,12 @@ _DEV_MODE = os.getenv("APP_ENV", "").strip().lower() in _DEV_ENV_VALUES
 # OTP_DEV_BYPASS 가 명시적으로 truthy 일 때만 활성. 운영(APP_ENV=production)에서는 플래그를 켜도 항상 False.
 # 판정 로직은 이 함수 하나뿐 — verify_otp 는 이 함수만 호출한다(중복 분기 금지).
 _OTP_BYPASS_TRUTHY = {"1", "true", "yes", "on"}
+_FLAG_TRUTHY = {"1", "true", "yes", "on"}
 
 
 def sms_verification_enabled() -> bool:
     """휴대폰(SMS) 인증 기능 노출 여부 — env SMS_VERIFICATION (기본 false)."""
-    return os.getenv("SMS_VERIFICATION", "").strip().lower() in _OTP_BYPASS_TRUTHY
+    return os.getenv("SMS_VERIFICATION", "").strip().lower() in _FLAG_TRUTHY
 
 
 def _otp_bypass_enabled() -> bool:

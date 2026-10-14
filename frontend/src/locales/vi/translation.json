@@ -184,7 +184,6 @@
     "responseVeryFast": "Phản hồi nhanh",
     "responseNormal": "Phản hồi vừa",
     "phoneVerified": "Đã xác minh SĐT",
-    "verified": "Xác minh",
     "showPhone": "Xem số điện thoại",
     "hidePhone": "Ẩn số điện thoại",
     "wishlist": "Yêu thích",
@@ -525,7 +524,6 @@
       "d7": "Quận 7"
     },
     "v2": {
-      "verified": "Đã xác minh SĐT",
       "tradeCount": "{{count}} giao dịch",
       "searchPlaceholder": "Tìm sản phẩm, từ khóa, danh mục",
       "nearbyPopular": "Sản phẩm nổi bật gần bạn",
@@ -714,7 +712,6 @@
   "profile": {
     "phoneVerifyNeeded": "Cần xác minh SĐT",
     "phoneVerifyNeededSub": "Xác minh số điện thoại để tăng độ tin cậy",
-    "phoneVerifiedBadge": "Đã xác minh SĐT",
     "tradeHistory": "Lịch sử giao dịch",
     "seeAll": "Xem tất cả",
     "tradeSold": "Đã bán",

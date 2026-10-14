@@ -91,10 +91,14 @@ export default function ProfileSetup() {
   useEffect(() => () => clearTimeout(hintTimer.current), []);
 
   const showConsentHint = () => {
-    toast(t('profileSetup.consentHint'));
-    setHintRows(true);
+    toast(t('profileSetup.consentHint'), { id: 'consent-hint' });
+    // 반복 탭에도 흔들림이 다시 재생되도록 한 프레임 비웠다가 다시 켠다.
     clearTimeout(hintTimer.current);
-    hintTimer.current = setTimeout(() => setHintRows(false), 1500);
+    setHintRows(false);
+    requestAnimationFrame(() => {
+      setHintRows(true);
+      hintTimer.current = setTimeout(() => setHintRows(false), 1500);
+    });
     (!agreed ? agreeRowRef : ageRowRef).current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   };
 
@@ -104,7 +108,10 @@ export default function ProfileSetup() {
       showConsentHint();
       return;
     }
-    if (!user?.id) return;
+    if (!user?.id) {
+      toast.error(t('common.errorUnexpected'));
+      return;
+    }
     setSkipping(true);
     try {
       const consented = await apiSaveConsent(user.id, CONSENT_DOCUMENT_VERSION, CONSENT_DOCUMENT_VERSION, ageConfirmed);
@@ -136,12 +143,8 @@ export default function ProfileSetup() {
       toast.error(t('profileSetup.errorNoStyle'));
       return;
     }
-    if (!agreed) {
-      toast.error(t('profileSetup.errorConsentRequired'));
-      return;
-    }
-    if (!ageConfirmed) {
-      toast.error(t('profileSetup.errorAgeRequired'));
+    if (!agreed || !ageConfirmed) {
+      showConsentHint();
       return;
     }
 
@@ -174,7 +177,7 @@ export default function ProfileSetup() {
           <span className={`${styles.dot} ${styles.dotActive}`} />
           <span className={styles.dot} />
         </div>
-        <button className={styles.skipBtn} onClick={handleSkip} disabled={skipping}>
+        <button className={styles.skipBtn} onClick={handleSkip} disabled={skipping} aria-disabled={!agreed || !ageConfirmed || undefined}>
           {t('profileSetup.skip')}
         </button>
       </div>
@@ -258,15 +261,15 @@ export default function ProfileSetup() {
 
       {/* Bottom CTA — gradient fade */}
       <div className={styles.bottomCta}>
-        {/* disabled 버튼은 클릭을 받지 못하므로, 동의 미체크일 때만 투명 오버레이로 힌트를 띄운다(버튼 외관은 그대로). */}
-        <div className={styles.startWrap}>
-          <Button onClick={handleSubmit} disabled={!isValid || saving || !agreed || !ageConfirmed}>
-            {t('profileSetup.startBtn')}
-          </Button>
-          {(!agreed || !ageConfirmed) && (
-            <button type="button" className={styles.startHintOverlay} aria-hidden="true" tabIndex={-1} onClick={showConsentHint} />
-          )}
-        </div>
+        {/* 동의 미체크 시에도 클릭·포커스는 받아 힌트를 띄운다 — disabled 대신 aria-disabled + 흐림 처리. */}
+        <Button
+          onClick={handleSubmit}
+          disabled={!isValid || saving}
+          aria-disabled={!agreed || !ageConfirmed || undefined}
+          className={!agreed || !ageConfirmed ? styles.startDimmed : ''}
+        >
+          {t('profileSetup.startBtn')}
+        </Button>
       </div>
     </div>
   );

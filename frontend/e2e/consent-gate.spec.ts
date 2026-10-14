@@ -28,7 +28,9 @@ test.describe('동의 게이트', () => {
 
     // 온보딩 폼 완료 — 닉네임 중복확인 debounce(400ms) 통과를 기다린 뒤 제출 버튼이 활성화된다.
     await page.getByPlaceholder('Nhập biệt danh…').fill(`E2E ${tag}`);
-    await page.getByRole('checkbox').check();
+    const boxes = page.getByRole('checkbox');
+    await boxes.nth(0).check();
+    await boxes.nth(1).check();
     const submit = page.getByRole('button', { name: 'Bắt đầu →' });
     await submit.click();
 

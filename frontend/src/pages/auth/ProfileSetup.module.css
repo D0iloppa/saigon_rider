@@ -205,16 +205,8 @@
   75% { transform: translateX(4px); }
 }
 
-.startWrap { position: relative; }
-
-.startHintOverlay {
-  position: absolute;
-  inset: 0;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-}
+/* 동의 미체크 — disabled 와 같은 외관, 포커스·클릭은 유지 */
+.startDimmed { opacity: 0.4; }
 
 .consentLink {
   color: var(--brand-500);

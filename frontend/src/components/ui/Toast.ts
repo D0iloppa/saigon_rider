@@ -12,6 +12,8 @@ export interface NeutralToastOptions {
   anchorPlacement?: 'top' | 'bottom';
   /** 텍스트 버튼 1개 — 탭하면 onClick 실행 후 토스트를 닫는다. */
   action?: { label: string; onClick: () => void };
+  /** 고정 id — 같은 id 로 반복 호출하면 토스트가 쌓이지 않고 하나만 유지된다. */
+  id?: string;
 }
 
 const NEUTRAL_CONTENT_STYLE: CSSProperties = {
@@ -159,6 +161,7 @@ function showToast(message: string, opts?: NeutralToastOptions) {
   const id: string | number = sonnerToast(
     createElement(NeutralToastContent, { message, opts, onDismiss: () => sonnerToast.dismiss(id) }),
     {
+      ...(opts?.id ? { id: opts.id } : null),
       duration: opts?.action ? 5000 : 2400,
       position: edge === 'top' ? 'top-center' : 'bottom-center',
       // 기본 스타일을 걷어내고(li 는 투명 풀와이드 레인) 위 span 만 필로 보인다.

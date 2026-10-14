@@ -46,13 +46,21 @@ function sessionHeaders(session: DevSession): Record<string, string> {
   return { 'X-User-Id': session.userId, 'X-Session-Token': session.sessionToken };
 }
 
-/** OTP_DEV_BYPASS(dev 서버 한정) 경로로 판매자 휴대폰 인증을 완료한다 — DB를 직접 건드리지 않는다. */
+/** OTP_DEV_BYPASS(dev 서버 한정) 경로로 휴대폰 인증을 완료한다. SMS_VERIFICATION=false 로 OTP API 가 404 면 DB 에 인증 시각만 기록. */
 export async function verifyPhoneBypass(request: APIRequestContext, session: DevSession): Promise<void> {
   const phone = Date.now().toString().slice(-9); // OTP bypass 하에서는 숫자 4자리 이상이면 통과
   const reqRes = await request.post(`${BASE_URL}/api/bff/auth/otp/request`, {
     headers: sessionHeaders(session),
     data: { phone },
   });
+  if (reqRes.status() === 404) {
+    // SMS_VERIFICATION=false(기본) — OTP API 가 꺼져 있으면 인증 완료 상태만 DB 에 기록한다.
+    execFileSync('docker', [
+      'exec', 'saigon_db', 'psql', '-U', 'wellconn', '-d', 'saigon_rider',
+      '-c', `UPDATE users SET phone_verified_at = now() WHERE id = '${session.userId}';`,
+    ]);
+    return;
+  }
   if (!reqRes.ok()) throw new Error(`otp/request failed: ${reqRes.status()} ${await reqRes.text()}`);
   const { phone: normalizedPhone } = await reqRes.json();
   const verifyRes = await request.post(`${BASE_URL}/api/bff/auth/otp/verify`, {

@@ -57,6 +57,7 @@
     "myLocation": "My location"
   },
   "common": {
+    "verifiedUser": "Verified user",
     "expand": "Expand",
     "collapse": "Collapse",
     "myItemBadge": "Mine",

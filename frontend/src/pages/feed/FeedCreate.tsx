@@ -39,13 +39,6 @@ export default function FeedCreate() {
   const openConfirm = useConfirmStore((s) => s.open);
   const [groupName, setGroupName] = useState<string | null>(null);
 
-  // 글쓰기도 개인 매물 등록처럼 휴대폰 인증 후에만 — 서버도 403 으로 막는다. 초안은 sessionStorage 에 남는다.
-  useEffect(() => {
-    if (user && !user.phoneVerified) {
-      navigate('/auth/phone-verify', { replace: true, state: { from: { pathname: `/feed/new${groupId ? `?groupId=${groupId}` : ''}` } } });
-    }
-  }, [user, groupId, navigate]);
-
   useEffect(() => {
     if (!groupId) return;
     getGroup(groupId).then((g) => setGroupName(g.name)).catch(() => {});

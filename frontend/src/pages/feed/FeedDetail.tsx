@@ -188,11 +188,6 @@ export default function FeedDetail() {
     const text = input.trim();
     if (!text || !post || sendingRef.current) return;
     if (!requireAuth()) return;
-    // 댓글도 개인 매물 등록처럼 휴대폰 인증 후에만 — 서버도 403 으로 막는다.
-    if (user && !user.phoneVerified) {
-      navigate('/auth/phone-verify', { state: { from: { pathname: `/feed/post/${post.id}` } } });
-      return;
-    }
     const session = loadSession();
     if (!session) return;
     sendingRef.current = true;

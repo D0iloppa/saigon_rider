@@ -48,12 +48,6 @@ export default function FeedEdit() {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
-  // 수정도 글쓰기와 같이 휴대폰 인증 후에만 — 서버도 403 으로 막는다.
-  useEffect(() => {
-    if (user && !user.phoneVerified && postId) {
-      navigate('/auth/phone-verify', { replace: true, state: { from: { pathname: `/feed/edit/${postId}` } } });
-    }
-  }, [user, postId, navigate]);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const kb = useKeyboard();
   const [originalContent, setOriginalContent] = useState('');

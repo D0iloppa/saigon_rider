@@ -367,7 +367,7 @@ export default function HomePage() {
             {/* Row 2: 휴대폰 인증 */}
             {user?.phoneVerified && (
               <div className={styles.profileVerified}>
-                <IcoVerified /><span>{t('home.v2.verified')}</span>
+                <IcoVerified /><span>{t('common.verifiedUser')}</span>
               </div>
             )}
             {/* Row 3: 별점 | 거래 n건 */}

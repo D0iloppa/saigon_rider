@@ -57,6 +57,7 @@
     "myLocation": "내 위치"
   },
   "common": {
+    "verifiedUser": "인증받은 사용자",
     "expand": "펼치기",
     "collapse": "접기",
     "myItemBadge": "내 매물",

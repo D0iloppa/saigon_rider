@@ -38,6 +38,7 @@ import SkeletonRows from '@/components/ui/SkeletonRows';
 import styles from './ProfileMain.module.css';
 import sys from '@/styles/system.module.css';
 import { SHOW_LEGACY_GAME_ECONOMY, SHOW_LIFETIME_DISTANCE } from '@/lib/featureFlags';
+import { useSmsVerification } from '@/hooks/useSmsVerification';
 
 interface MileageTier {
   key: string;
@@ -128,6 +129,7 @@ export default function ProfileMain() {
     }
   }, []);
   const { t } = useTranslation();
+  const { enabled: smsVerification } = useSmsVerification();
 
   const [stats, setStats] = useState<UserStats | null>(null);
   const [totalMileage, setTotalMileage] = useState(0);
@@ -393,7 +395,7 @@ export default function ProfileMain() {
               className={styles.nickVerified}
               data-testid="profile-verified-badge"
               role="img"
-              aria-label={t('profile.phoneVerifiedBadge')}
+              aria-label={t('common.verifiedUser')}
             />
           )}
           <ChevronRight size={18} className={styles.nickChevron} aria-hidden="true" />
@@ -466,7 +468,7 @@ export default function ProfileMain() {
         >
         {/* SGR-330: 휴대폰 인증 신뢰 카드 — 판매자 신뢰도 트리거. FR-2 제안 ①: 인증 완료 후에는
             여기 카드 자리를 비우고(진행 성격이 없어졌으므로), 완료 표시는 헤더 배지(✓ 휴대폰 인증)로 옮긴다(260929). */}
-        {!u.phoneVerified && (
+        {smsVerification && !u.phoneVerified && (
           <button
             type="button"
             onClick={() => navigate('/auth/phone-verify')}

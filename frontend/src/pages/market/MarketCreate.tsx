@@ -225,8 +225,7 @@ export default function MarketCreate() {
             : district === null
               ? t('market.postNeedsLocation', { defaultValue: '거래 희망 장소를 선택해주세요' })
               : null;
-  const needsPhoneVerification = !businessProfileId && !!user && !user.phoneVerified;
-  const canPost = !posting && !!user && !needsPhoneVerification && postBlockReason === null;
+  const canPost = !posting && !!user && postBlockReason === null;
   const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
   const draft = useMemo<MarketDraft>(() => ({
     version: DRAFT_VERSION,
@@ -252,11 +251,6 @@ export default function MarketCreate() {
 
   const handleSubmit = async () => {
     if (!canPost || !user) return;
-    if (!businessProfileId && !user.phoneVerified) {
-      if (draftKey) writeDraft(draftKey, draft);
-      navigate('/auth/phone-verify', { state: { from: { pathname: '/market/new' } } });
-      return;
-    }
     setPosting(true);
     try {
       const { id } = await createListing({
@@ -277,21 +271,10 @@ export default function MarketCreate() {
       if (draftKey) removeDraft(draftKey);
       navigate(`/market/${id}`, { replace: true });
     } catch (err: any) {
-      // 안전망: 라우트 가드를 우회해 도달한 경우(캐시된 store 등) 백엔드가 403으로 막으면 인증 화면으로 보낸다.
-      // 업체 명의 등록(businessProfileId 有)은 이 폰인증 안내 화면과 무관 — 리다이렉트하지 않는다.
-      if (!businessProfileId && /^HTTP 403 \|/.test(err?.message ?? '')) {
-        navigate('/auth/phone-verify', { state: { from: { pathname: '/market/new' } } });
-        return;
-      }
       toast.error(extractDetail(err, t('market.createError', { defaultValue: '등록 실패' })));
     } finally {
       setPosting(false);
     }
-  };
-
-  const handlePhoneVerification = () => {
-    if (draftKey) writeDraft(draftKey, draft);
-    navigate('/auth/phone-verify', { state: { from: { pathname: '/market/new' } } });
   };
 
 
@@ -310,17 +293,6 @@ export default function MarketCreate() {
         }
       />
 
-      {needsPhoneVerification ? (
-        <div className={styles.gateBody}>
-          <div className={styles.gateBlock}>
-            <h2>{t('market.phoneVerificationRequired', { defaultValue: '휴대폰 인증 후 등록할 수 있어요' })}</h2>
-            <p>{t('market.phoneVerificationRequiredDesc', { defaultValue: '안전한 거래를 위해 판매자 인증이 필요해요.' })}</p>
-            <Button onClick={handlePhoneVerification} fullWidth>
-              {t('market.goToPhoneVerification', { defaultValue: '인증하기' })}
-            </Button>
-          </div>
-        </div>
-      ) : (
       <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         {postBlockReason && <p className={styles.submitHint} aria-live="polite">{postBlockReason}</p>}
         {/* Photos */}
@@ -457,7 +429,6 @@ export default function MarketCreate() {
         />
 
       </div>
-      )}
 
       <CategoryPickerSheet
         open={catSheetOpen}

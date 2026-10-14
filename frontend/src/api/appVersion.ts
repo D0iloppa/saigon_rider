@@ -6,6 +6,7 @@ export interface AppConfig {
   googleClientId: string;
   isDev: boolean;
   otpDevBypass: boolean;
+  smsVerification: boolean;
   keywordAlertMaxCount: number;
   splashPrefetchTimeoutMs: number;
 }
@@ -17,6 +18,7 @@ export async function fetchAppConfig(): Promise<AppConfig> {
       google_client_id: string;
       is_dev: boolean;
       otp_dev_bypass?: boolean;
+      sms_verification?: boolean;
       keyword_alert_max_count?: number;
       splash_prefetch_timeout_ms?: number;
     }>('/app-config');
@@ -25,6 +27,7 @@ export async function fetchAppConfig(): Promise<AppConfig> {
       googleClientId: raw.google_client_id ?? '',
       isDev: raw.is_dev ?? false,
       otpDevBypass: raw.otp_dev_bypass ?? false,
+      smsVerification: raw.sms_verification ?? false,
       keywordAlertMaxCount: raw.keyword_alert_max_count ?? 20,
       splashPrefetchTimeoutMs: raw.splash_prefetch_timeout_ms ?? 3000,
     };
@@ -34,6 +37,7 @@ export async function fetchAppConfig(): Promise<AppConfig> {
       googleClientId: '',
       isDev: false,
       otpDevBypass: false,
+      smsVerification: false,
       keywordAlertMaxCount: 20,
       splashPrefetchTimeoutMs: 3000,
     };

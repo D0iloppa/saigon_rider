@@ -28,7 +28,7 @@ export function VerifiedBadge({ verified, phoneMasked, className = '' }: Props) 
 
   if (!verified) return null;
 
-  const label = t('market.verified', { defaultValue: '인증' });
+  const label = t('common.verifiedUser');
   const tooltip = t('market.phoneVerified', { defaultValue: '전화 인증 완료' });
 
   if (!phoneMasked) {

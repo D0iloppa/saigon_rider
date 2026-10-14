@@ -16,11 +16,6 @@ export function toastFeedWriteError(
   navigate: (to: string, opts?: { state?: unknown }) => void,
   group?: { id: string; slug?: string | null } | null,
 ) {
-  // 휴대폰 미인증 403 — 날 토스트 대신 인증 화면으로 보내고 완료 후 현재 화면으로 복귀시킨다.
-  if (extractErrorCode(err) === 'phone_verification_required') {
-    navigate('/auth/phone-verify', { state: { from: { pathname: `${window.location.pathname}${window.location.search}` } } });
-    return;
-  }
   const action = group && extractErrorCode(err) === 'group_member_required'
     ? { label: t('feed.viewGroup'), onClick: () => navigate(`/group/${group.slug ?? group.id}`) }
     : undefined;

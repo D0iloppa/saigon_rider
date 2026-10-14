@@ -40,6 +40,7 @@ import OAuthResult from '@/pages/auth/OAuthResult';
 import AccountRestore from '@/pages/auth/AccountRestore';
 import ProfileSetup from '@/pages/auth/ProfileSetup';
 import PhoneVerify from '@/pages/auth/PhoneVerify';
+import { useSmsVerification } from '@/hooks/useSmsVerification';
 import Suspended from '@/pages/auth/Suspended';
 
 // Home — 로그인 후 첫 화면(부트스트랩 직후 진입)이라 eager 유지
@@ -204,6 +205,13 @@ import styles from './App.module.css';
 // P2-1: 라우트 lazy 전환 후 청크 로딩 대기 중 보여줄 최소 fallback. 화면 전환마다
 // 깜빡이지 않도록 BackgroundRoutes 전체를 감싸는 Suspense 하나만 둔다 — 이미 로드된
 // 청크로의 이동은 재서스펜드되지 않으므로, 최초로 그 라우트에 진입할 때만 잠깐 보인다.
+// SMS_VERIFICATION 플래그가 꺼져 있으면 휴대폰 인증 화면은 존재하지 않는 것으로 취급 → 프로필로.
+function PhoneVerifyRoute() {
+  const { enabled, loaded } = useSmsVerification();
+  if (!loaded) return null;
+  return enabled ? <PhoneVerify /> : <Navigate to="/profile" replace />;
+}
+
 function RouteFallback() {
   const { t } = useTranslation();
   return <div className={styles.routeLoading}>{t('common.loading')}</div>;
@@ -640,7 +648,7 @@ export default function App() {
           {/* 탈퇴 계정 복구 안내 — 로그인 409(account_deleted) 에서 라우팅 (세션 없음이 정상) */}
           <Route path="/auth/restore" element={<AccountRestore />} />
           <Route path="/auth/profile-setup" element={<ProfileSetup />} />
-          <Route path="/auth/phone-verify" element={<PhoneVerify />} />
+          <Route path="/auth/phone-verify" element={<PhoneVerifyRoute />} />
           {/* 정지/밴 안내 — PrivateRoute 로 감싸지 않는다: 밴 유저는 최초 로그인부터 isAuthenticated 가 없을 수 있음 */}
           <Route path="/suspended" element={<Suspended />} />
 

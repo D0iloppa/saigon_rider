@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { StatusBar } from '@/components/layout/StatusBar';
@@ -57,9 +57,9 @@ export default function ProfileSetup() {
   // 연령(만 14세 이상, 약관 §1) 확인 — 약관/개인정보 동의와 별개 체크박스 (묶으면 개별 동의로 인정받기 어렵다).
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   // 필수 동의 미체크 상태에서 건너뛰기/시작하기를 누르면 미체크 행을 잠깐 강조한다.
-  // hintActive: 둘 다 체크할 때까지 유지(안내 문구·체크박스 강조) / shake: 탭마다 재생되는 1회성 흔들림.
+  // hintActive: 둘 다 체크할 때까지 유지(안내 문구·체크박스 강조), 다 체크하면 해제 / hintNonce: 탭마다 증가 — key 로 흔들림·스크린리더 안내를 재시작.
   const [hintActive, setHintActive] = useState(false);
-  const [shake, setShake] = useState(false);
+  const [hintNonce, setHintNonce] = useState(0);
   const groupRef = useRef<HTMLDivElement>(null);
   const kb = useKeyboard();
   // iOS 네이티브는 키보드가 순수 오버레이라 하단 CTA 버튼이 키보드에 가려진다 —
@@ -91,11 +91,18 @@ export default function ProfileSetup() {
 
   const showConsentHint = () => {
     setHintActive(true);
-    // 반복 탭에도 흔들림이 다시 재생되도록 한 프레임 비웠다가 다시 켠다.
-    setShake(false);
-    requestAnimationFrame(() => setShake(true));
-    groupRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setHintNonce((n) => n + 1);
   };
+
+  // 그룹은 key 로 재마운트되므로 커밋 이후에 스크롤한다 — 화면 밖일 때만 움직인다.
+  useEffect(() => {
+    if (hintNonce > 0) groupRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [hintNonce]);
+
+  // 둘 다 체크하면 힌트 해제 — 이후 체크를 풀어도 새 탭 전까지 다시 뜨지 않는다.
+  useEffect(() => {
+    if (agreed && ageConfirmed) setHintActive(false);
+  }, [agreed, ageConfirmed]);
 
   const hintVisible = hintActive && (!agreed || !ageConfirmed);
 
@@ -232,8 +239,8 @@ export default function ProfileSetup() {
         {/* F-9: 약관/개인정보처리방침 동의 — 체크 전에는 시작/건너뛰기 모두 막는다 */}
         <div
           ref={groupRef}
-          className={`${styles.consentGroup} ${shake ? styles.consentShake : ''}`}
-          onAnimationEnd={() => setShake(false)}
+          key={hintNonce}
+          className={`${styles.consentGroup} ${hintNonce > 0 ? styles.consentShake : ''}`}
         >
         <label className={styles.consentRow}>
           <input
@@ -269,10 +276,10 @@ export default function ProfileSetup() {
         <div className={styles.consentHintSlot}>
           <p id="consent-hint" role="alert" className={`${styles.consentHintText} ${hintVisible ? styles.consentHintOn : ''}`}>
             {hintVisible && (
-              <>
+              <Fragment key={hintNonce}>
                 <CircleAlert size={14} className={styles.consentHintIcon} aria-hidden="true" />
                 {t('profileSetup.consentHint')}
-              </>
+              </Fragment>
             )}
           </p>
         </div>

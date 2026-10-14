@@ -40,6 +40,8 @@ export default function FeedList({ embedded = false }: { embedded?: boolean } = 
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
   const requireAuth = useRequireAuth();
+  // /browse(게스트)와 회원 /feed 는 스크롤 위치를 공유하지 않는다 — 로그인 후 /feed 가 게스트 오프셋으로 열리던 문제.
+  const scrollKey = embedded ? `${FEED_SCROLL_KEY}_browse` : FEED_SCROLL_KEY;
   const [searchParams, setSearchParams] = useSearchParams();
   // 필터를 URL 쿼리로 보존한다(P2-11). 단 'neighborhood' 복원은 제외 — 이 필터는 GPS
   // 요청을 트리거하는 effect(아래)에 걸려 있어서, 저장된 값을 그대로 복원하면 화면
@@ -106,10 +108,10 @@ export default function FeedList({ embedded = false }: { embedded?: boolean } = 
   useEffect(() => {
     const el = scrollBodyRef.current;
     if (!el) return;
-    const onScroll = () => sessionStorage.setItem(FEED_SCROLL_KEY, String(el.scrollTop));
+    const onScroll = () => sessionStorage.setItem(scrollKey, String(el.scrollTop));
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-  }, [scrollBodyRef]);
+  }, [scrollBodyRef, scrollKey]);
 
   // 스크롤 위치 복원 — 마운트 후 첫 로드가 끝났을 때 1회만. 이후 필터 변경으로 목록이
   // 새로고침돼도 다시 복원하지 않는다(새 필터는 처음부터 보여야 한다 — MarketMain 과 동일 원칙).
@@ -118,9 +120,9 @@ export default function FeedList({ embedded = false }: { embedded?: boolean } = 
     if (restoredScrollRef.current || isLoading || posts.length === 0) return;
     restoredScrollRef.current = true;
     const el = scrollBodyRef.current;
-    const saved = Number(sessionStorage.getItem(FEED_SCROLL_KEY));
+    const saved = Number(sessionStorage.getItem(scrollKey));
     if (el && Number.isFinite(saved) && saved > 0) el.scrollTop = saved;
-  }, [isLoading, posts.length, scrollBodyRef]);
+  }, [isLoading, posts.length, scrollBodyRef, scrollKey]);
 
   const FILTERS: { key: FilterKey; label: string; Icon: LucideIcon }[] = [
     { key: 'all',          label: t('feed.filterAll'),          Icon: Globe },
@@ -198,7 +200,7 @@ export default function FeedList({ embedded = false }: { embedded?: boolean } = 
                   icon={UsersRound}
                   title={t('feed.emptyGroupsTitle')}
                   actionLabel={t('feed.emptyGroupsAction')}
-                  onAction={() => navigate('/community/groups', { replace: true })}
+                  onAction={() => { if (requireAuth()) navigate('/community/groups', { replace: !embedded }); }}
                 />
               ) : (
                 <StateBlock

@@ -658,7 +658,7 @@ export default function App() {
           <Route path="/link" element={<LinkRouter />} />
 
           {/* Public read surfaces */}
-          {/* 게스트 둘러보기 [상품|커뮤니티] — 로그인 사용자는 컴포넌트 안에서 /home 으로 보낸다(대표 결정 2026-10-14). */}
+          {/* 게스트 둘러보기 [상품|커뮤니티] — 로그인 사용자는 컴포넌트 안에서 보던 탭의 회원 화면(/feed·/market)으로 보낸다(2026-10-14). */}
           <Route path="/browse" element={<GuestBrowse />} />
           <Route path="/market" element={<MarketMain />} />
           <Route path="/market/search" element={<MarketSearch />} />

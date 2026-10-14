@@ -20,7 +20,13 @@ export default function GuestBrowse() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const tab: Tab = searchParams.get('tab') === 'community' ? 'community' : 'market';
-  if (isAuthenticated) return <Navigate to={tab === 'community' ? '/feed' : '/market'} replace />;
+  if (isAuthenticated) {
+    // tab 만 떼고 나머지 쿼리(view=map, filter 등)는 회원 화면으로 넘긴다 — 로그인 전 보던 상태 유지.
+    const rest = new URLSearchParams(searchParams);
+    rest.delete('tab');
+    const qs = rest.toString();
+    return <Navigate to={`${tab === 'community' ? '/feed' : '/market'}${qs ? `?${qs}` : ''}`} replace />;
+  }
 
   const seg = (key: Tab, label: string) => (
     <button

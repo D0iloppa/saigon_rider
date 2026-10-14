@@ -205,7 +205,7 @@ export default function MarketMain({ embedded = false }: { embedded?: boolean } 
   useEffect(() => {
     if (searchParams.get('near') == null) return;
     setSort('distance');
-    setSearchParams({}, { replace: true });
+    setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete('near'); return next; }, { replace: true });
   }, [searchParams, setSearchParams]);
 
   // 표시 중인 지역 라벨. 권역 밖이라 중심가로 대체된 상태면 동네명을 쓰지 않는다 —

@@ -58,8 +58,8 @@ test('게스트 둘러보기(/browse)는 기존 MarketMain·FeedList 를 그대�
   assert.match(source, /<FeedList embedded \/>/);
   // 탭은 URL 쿼리 — 새로고침·뒤로가기·상세 왕복에 유지된다.
   assert.match(source, /searchParams\.get\('tab'\) === 'community' \? 'community' : 'market'/);
-  // 로그인 사용자는 홈으로(회원 화면은 탭바가 담당).
-  assert.match(source, /if \(isAuthenticated\) return <Navigate to="\/home" replace \/>/);
+  // 로그인 사용자는 보던 탭의 회원 화면으로(쓰기→로그인 후 맥락 유지, 2026-10-14).
+  assert.match(source, /tab === 'community' \? '\/feed' : '\/market'/);
 
   for (const lang of ['ko', 'en', 'vi']) {
     const browse = JSON.parse(read(`../../locales/${lang}/translation.json`)).browse;

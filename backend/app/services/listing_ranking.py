@@ -18,7 +18,6 @@ FRESHNESS_HALF_LIFE_HOURS = 72.0
 QUALITY_PHOTO_BONUS = 0.15
 QUALITY_DESC_MIN_LEN = 30
 QUALITY_DESC_BONUS = 0.05
-QUALITY_PHONE_VERIFIED_BONUS = 0.15
 # 016 §4-6 #41: 서류·명의 기재(선택 표시) 매물 가산 — 미기재는 감점이 아니라 "기재분만 가산 없음".
 QUALITY_PAPER_STATUS_BONUS = 0.10
 
@@ -42,10 +41,6 @@ def recommended_score_sql() -> str:
               ) THEN {QUALITY_PHOTO_BONUS} ELSE 0 END
             + CASE WHEN LENGTH(COALESCE(marketplace_listings.description, '')) >= {QUALITY_DESC_MIN_LEN}
               THEN {QUALITY_DESC_BONUS} ELSE 0 END
-            + CASE WHEN EXISTS (
-                SELECT 1 FROM users u
-                WHERE u.id = marketplace_listings.seller_id AND u.phone_verified_at IS NOT NULL
-              ) THEN {QUALITY_PHONE_VERIFIED_BONUS} ELSE 0 END
             + CASE WHEN marketplace_listings.paper_status IS NOT NULL THEN {QUALITY_PAPER_STATUS_BONUS} ELSE 0 END
         )
         * {TRUST_PENALTY}

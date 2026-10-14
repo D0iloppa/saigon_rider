@@ -870,10 +870,6 @@ async def create_listing(
                 status_code=422, detail=f"Business profile listing limit reached (max {_BUSINESS_LISTING_CAP})"
             )
 
-    # 판매자 휴대폰 인증 게이트 — OTP 인증(phone_verified_at) 완료 전 매물 등록 불가.
-    # 개인 판매자 경로는 그대로(무변화) — 검증된 업체 프로필로 등록할 때만 이 게이트를 건너뛴다.
-    if business_profile is None and seller.phone_verified_at is None:
-        raise HTTPException(status_code=403, detail="Phone verification required to list items")
     if not body.title.strip():
         raise HTTPException(status_code=400, detail="title is required")
     if body.latitude is not None and body.longitude is not None and not in_service_area(body.latitude, body.longitude):

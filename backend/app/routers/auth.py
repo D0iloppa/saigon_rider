@@ -427,6 +427,8 @@ async def request_otp(
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     """세션 유저의 휴대폰 인증 코드 발송. 응답에 코드는 절대 포함되지 않는다."""
+    if not sms_verification_enabled():
+        raise HTTPException(status_code=404, detail="Not Found")
     phone = _normalize_vn_phone(body.phone)
     if phone is None:
         raise HTTPException(status_code=400, detail="Invalid phone number")
@@ -504,6 +506,8 @@ async def verify_otp(
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     """코드 검증 성공 시 users.phone + phone_verified_at 설정. 폰 1개 = 계정 1개 (UNIQUE 강제)."""
+    if not sms_verification_enabled():
+        raise HTTPException(status_code=404, detail="Not Found")
     phone = _normalize_vn_phone(body.phone)
     if phone is None:
         raise HTTPException(status_code=400, detail="Invalid phone number")
@@ -1043,6 +1047,11 @@ _DEV_MODE = os.getenv("APP_ENV", "").strip().lower() in _DEV_ENV_VALUES
 # OTP_DEV_BYPASS 가 명시적으로 truthy 일 때만 활성. 운영(APP_ENV=production)에서는 플래그를 켜도 항상 False.
 # 판정 로직은 이 함수 하나뿐 — verify_otp 는 이 함수만 호출한다(중복 분기 금지).
 _OTP_BYPASS_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def sms_verification_enabled() -> bool:
+    """휴대폰(SMS) 인증 기능 노출 여부 — env SMS_VERIFICATION (기본 false)."""
+    return os.getenv("SMS_VERIFICATION", "").strip().lower() in _OTP_BYPASS_TRUTHY
 
 
 def _otp_bypass_enabled() -> bool:

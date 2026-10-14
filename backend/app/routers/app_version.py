@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..models import AppConfig, AppVersion
-from ..routers.auth import _otp_bypass_enabled
+from ..routers.auth import _otp_bypass_enabled, sms_verification_enabled
 from ..schemas import AppVersionChild, AppVersionCurrentOut, AppVersionOut, Page
 
 router = APIRouter(prefix="/app-version", tags=["앱 버전 (App Version)"])
@@ -28,6 +28,8 @@ async def get_app_config(db: AsyncSession = Depends(get_db)) -> dict:
         "is_dev": os.getenv("APP_ENV", "development").lower() not in ("production", "prod"),
         # auth.py _otp_bypass_enabled() 판정을 그대로 노출 — OTP 검증 완화 UI 여부 (운영에서는 항상 False)
         "otp_dev_bypass": _otp_bypass_enabled(),
+        # 휴대폰(SMS) 인증 화면/API 노출 여부 (env SMS_VERIFICATION, 기본 false)
+        "sms_verification": sms_verification_enabled(),
         # 스플래시가 홈 데이터 프리페치를 기다릴 최대 시간(ms) — 재빌드 없이 서버에서 조정.
         "splash_prefetch_timeout_ms": int(os.getenv("SPLASH_PREFETCH_TIMEOUT_MS", "3000")),
     }

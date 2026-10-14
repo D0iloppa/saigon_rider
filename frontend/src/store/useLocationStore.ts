@@ -185,7 +185,11 @@ function notifyFallback(messageKey: string, defaultValue: string) {
   shownFallbackKeys.add(messageKey);
   // 스플래시 오버레이가 화면을 덮고 있는 동안(홈이 그 밑에서 이미 마운트돼 측위 중일 수 있다)엔
   // 토스트를 미룬다 — 스플래시 위에 떠 보이던 버그(2026-09-28) 수정. lib/splashOverlay.ts.
-  runAfterSplash(() => toast.neutral(i18n.t(messageKey, { defaultValue })));
+  // 위치 폴백 안내만: 화면에 [지도보기] 필이 있으면 그 위에 띄운다(필 가림 방지 — 게스트 바처럼 하단이
+  // 높은 화면에서 겹쳤다, 2026-10-14). 필이 없으면 Toast 가 기존 하단 배치로 폴백 — 다른 토스트는 무관.
+  runAfterSplash(() =>
+    toast.neutral(i18n.t(messageKey, { defaultValue }), { anchor: '[data-toast-anchor="map-pill"]', anchorPlacement: 'top' }),
+  );
 }
 
 export const useLocationStore = create<LocationState>()(

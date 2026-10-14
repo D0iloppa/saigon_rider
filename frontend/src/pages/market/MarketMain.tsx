@@ -736,7 +736,7 @@ export default function MarketMain({ embedded = false }: { embedded?: boolean } 
 
       {/* 지도보기 — 동네지도(NeighborhoodMapList) 하단 플로팅 필과 동일 위치·모양·문구 */}
       {viewMode === 'list' && (
-        <button type="button" className={styles.mapPill} onClick={() => setViewMode('map')}>
+        <button type="button" className={styles.mapPill} data-toast-anchor="map-pill" onClick={() => setViewMode('map')}>
           <MapPinned size={17} />
           {t('map.viewMap')}
         </button>

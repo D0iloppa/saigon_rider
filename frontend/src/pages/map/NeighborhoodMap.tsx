@@ -314,7 +314,7 @@ export default function NeighborhoodMap() {
         </div>
       </main>
 
-      <button type="button" className={styles.mapPill} onClick={openMap}>
+      <button type="button" className={styles.mapPill} data-toast-anchor="map-pill" onClick={openMap}>
         <MapPinned size={17} />
         {t('map.viewMap')}
       </button>

@@ -388,11 +388,16 @@
     "bootstrapErrorBody": "Check your network connection and try again.",
     "bootstrapLogin": "Go to login",
     "subtitle": "Saigon motorbike deals, from meetup to ride",
-    "startBtn": "Browse marketplace"
+    "startBtn": "Browse",
+    "loginBtn": "Log in"
   },
   "guest": {
     "barText": "Log in to chat and start selling",
     "barCta": "Log in"
+  },
+  "browse": {
+    "tabMarket": "Items",
+    "tabCommunity": "Community"
   },
   "phoneInput": {
     "titleLine1": "Log in with",

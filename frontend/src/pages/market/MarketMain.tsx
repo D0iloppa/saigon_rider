@@ -79,8 +79,11 @@ const SORTS: ListingSort[] = ['recent', 'recommended', 'distance', 'price_low', 
  * 오토바이 라이더 거래 플랫폼 — 동네 피드 (SGR-287)
  * 1열 매물 카드 (REF-02): 실이미지 썸네일 + 제목 + `동네·시간` + 가격(굵게) + ♥.
  * GPS 기반 동네(HCMC 밖이면 폴백) · 정렬 · 무한스크롤 · 당겨서 새로고침.
+ *
+ * `embedded` — 게스트 둘러보기(`/browse`, F-N-03 FR-2)가 [상품|커뮤니티] 세그먼트 아래에 이 화면을
+ * 그대로 끼울 때 true. 상단 status bar 여백만 뺀다(세그먼트 헤더가 이미 흡수) — 동작은 동일.
  */
-export default function MarketMain() {
+export default function MarketMain({ embedded = false }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
   const requireAuth = useRequireAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -454,7 +457,7 @@ export default function MarketMain() {
   );
 
   return (
-    <div className={styles.root}>
+    <div className={styles.root} data-embedded={embedded || undefined}>
       {/* Header — 지도 뷰에서는 렌더하지 않는다. 지도 상단은 동네지도와 동일하게
           [◀ + 검색바 + 아바타] 오버레이만 띄운다(대표 지시 2026-08-06 "동네지도 기준으로 통일").
           알림·찜·거래완료 숨기기·지역명(표시범위 시트)은 리스트 뷰 전용으로 남는다. */}

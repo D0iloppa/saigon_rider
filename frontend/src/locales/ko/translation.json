@@ -388,11 +388,16 @@
     "bootstrapErrorBody": "네트워크 연결을 확인한 뒤 다시 시도해주세요.",
     "bootstrapLogin": "로그인 화면으로 이동",
     "subtitle": "호치민 오토바이 거래, 약속부터 이동까지",
-    "startBtn": "마켓 둘러보기"
+    "startBtn": "둘러보기",
+    "loginBtn": "로그인"
   },
   "guest": {
     "barText": "로그인하면 채팅하고 판매할 수 있어요",
     "barCta": "로그인"
+  },
+  "browse": {
+    "tabMarket": "상품",
+    "tabCommunity": "커뮤니티"
   },
   "phoneInput": {
     "titleLine1": "휴대폰 번호로",

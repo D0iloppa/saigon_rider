@@ -388,11 +388,16 @@
     "bootstrapErrorBody": "Kiểm tra kết nối mạng rồi thử lại.",
     "bootstrapLogin": "Đi đến đăng nhập",
     "subtitle": "Giao dịch xe máy Sài Gòn, từ hẹn gặp đến di chuyển",
-    "startBtn": "Khám phá chợ"
+    "startBtn": "Khám phá",
+    "loginBtn": "Đăng nhập"
   },
   "guest": {
     "barText": "Đăng nhập để nhắn tin và đăng bán",
     "barCta": "Đăng nhập"
+  },
+  "browse": {
+    "tabMarket": "Sản phẩm",
+    "tabCommunity": "Cộng đồng"
   },
   "phoneInput": {
     "titleLine1": "Đăng nhập bằng",

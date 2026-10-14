@@ -1,0 +1,53 @@
+/* 게스트 둘러보기 (/browse) — 세그먼트 헤더 + 임베드 바디 (F-N-03 FR-2) */
+.root {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* 헤더: status bar 는 여기서 한 번만 흡수한다 — 임베드된 MarketMain(data-embedded)은 자기 인셋을 뺀다. */
+.header {
+  flex-shrink: 0;
+  padding: calc(var(--status-bar-height) + 8px) 20px 0;
+}
+
+/* 세그먼트 — FriendAdd.module.css .segmentWrap/.segTab 문법 미러(surface 판 + 1px 테두리 + 4px 패딩).
+   활성은 마켓 카테고리 칩(MarketMain .listChipActive)과 같은 잉크 채움 — 앱 안의 "선택됨" 문법 재사용.
+   전폭 2등분: 첫 화면의 모드 전환이라 탭 영역을 크게 잡는다. */
+.segment {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.segTab {
+  flex: 1;
+  height: 38px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-2);
+  transition: background .15s ease, color .15s ease;
+}
+
+.segTab:active { background: var(--surface-2); }
+
+.segTabActive,
+.segTabActive:active {
+  background: var(--text);
+  color: var(--surface);
+}
+
+/* 임베드 바디 — MarketMain .root / FeedList .page 가 height:100% 로 채운다. 글쓰기 FAB·지도 필은 각 화면이
+   자기 root 기준 absolute 라 이 영역 바닥(= AppShell 게스트 바 바로 위)에 그대로 붙는다. */
+.body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}

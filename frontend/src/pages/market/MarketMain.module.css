@@ -14,6 +14,12 @@
   flex-shrink: 0;
 }
 
+/* 게스트 둘러보기(/browse) 임베드 — 세그먼트 헤더가 status bar 를 이미 흡수했으므로
+   리스트 헤더·지도 오버레이의 상단 인셋에서 var(--status-bar-height) 만 뺀다(F-N-03 FR-2). */
+.root[data-embedded] .header { padding-top: 10px; }
+.root[data-embedded] .mapSearchOverlay { top: 10px; }
+.root[data-embedded] .mapChipsOverlay { top: calc(10px + 44px + 10px); }
+
 .headerRow {
   display: flex;
   align-items: center;

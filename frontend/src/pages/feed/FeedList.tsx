@@ -33,7 +33,9 @@ const FEED_SCROLL_KEY = 'feed_scroll_v1';
 export { ImageViewer } from '@/components/ui/ImageViewer';
 
 // ─── FeedList ────────────────────────────────────────────────────────────────
-export default function FeedList() {
+// `embedded` — 게스트 둘러보기(`/browse`, F-N-03 FR-2)가 [상품|커뮤니티] 세그먼트 아래에 이 화면을
+// 그대로 끼울 때 true. 커뮤니티 셸 헤더([피드 그룹]·☰)만 숨긴다 — 둘러보기 세그먼트가 그 자리를 대신한다.
+export default function FeedList({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
@@ -132,7 +134,7 @@ export default function FeedList() {
 
   return (
     <div className={styles.page}>
-      <CommunityHeader active="feed" />
+      {!embedded && <CommunityHeader active="feed" />}
 
       <div className={styles.scrollBody} ref={scrollBodyRef as React.RefObject<HTMLDivElement>}>
       <div style={contentStyle}>

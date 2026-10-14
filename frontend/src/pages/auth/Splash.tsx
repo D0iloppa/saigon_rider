@@ -34,10 +34,10 @@ export default function Splash() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      // **로그인 사용자 = 홈 / 비로그인 둘러보기 = 마켓** (대표 결정 2026-08-13).
+      // **로그인 사용자 = 홈 / 비로그인 둘러보기 = /browse** (대표 결정 2026-08-13 → 2026-10-14 개정).
       // 홈에 유가·날씨·침수·주유소·정비소 진입점이 걸려 있어 로그인 사용자에게는 홈이 맞고,
-      // 마켓 우선은 아직 로그인하지 않은 사람에게 가치를 먼저 보여주는 목적이었다 — 두 목적을
-      // 사용자 상태로 분리했다. 게스트 CTA 는 아래 splash.startBtn(→ /market).
+      // 비로그인에게는 가치를 먼저 보여준다 — 게스트 CTA 는 아래 [둘러보기](→ /browse, 상품|커뮤니티 탭)
+      // + [로그인](→ /auth/oauth) 두 개다(F-N-03 FR-1).
       //
       // ⚠️ 로그인 후 목적지는 이 파일 말고도 OAuthLogin·OAuthResult·ProfileSetup 에 있다(총 8곳).
       // 한 곳만 바꾸면 경로별로 갈린다 — 계약 테스트 `pages/market/marketFirstValue.contract.test.mjs`
@@ -126,7 +126,9 @@ export default function Splash() {
       {/* Bottom sheet — 다크 스플래시 배경 전용 유리 표면 (공용 glass-surface 는 라이트 테마용이라 회색으로 보임) */}
       <div className={styles.sheet}>
         <div className={styles.sheetInner}>
-          <Button onClick={() => navigate('/market')}>{t('splash.startBtn')}</Button>
+          {/* 주행동 = 둘러보기(채움). 로그인은 보조(glass) — 다크 배경 위라 secondary(흰 바탕+주황 테두리)는 어긋난다. */}
+          <Button onClick={() => navigate('/browse')}>{t('splash.startBtn')}</Button>
+          <Button variant="glass" onClick={() => navigate('/auth/oauth')}>{t('splash.loginBtn')}</Button>
         </div>
       </div>
     </div>

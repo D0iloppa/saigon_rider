@@ -57,6 +57,8 @@ const NeighborhoodCategories = lazyWithRetry(() => import('@/pages/map/Neighborh
 
 // Market (오토바이 라이더 거래 — 퀘스트 탭 자리 신규 엔트리)
 const MarketMain = lazyWithRetry(() => import('@/pages/market/MarketMain'));
+// 비로그인 둘러보기 — 스플래시 [둘러보기] 목적지. MarketMain·FeedList 를 세그먼트 아래에 끼운다(F-N-03 FR-2).
+const GuestBrowse = lazyWithRetry(() => import('@/pages/browse/GuestBrowse'));
 const MarketCreate = lazyWithRetry(() => import('@/pages/market/MarketCreate'));
 const MarketEdit = lazyWithRetry(() => import('@/pages/market/MarketEdit'));
 const MarketDetail = lazyWithRetry(() => import('@/pages/market/MarketDetail'));
@@ -290,7 +292,7 @@ const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth', '/auth/restore', '/se
 // 비로그인도 볼 수 있는 공개 열람 경로. 세션 만료 시 로그아웃은 하되 화면을 뺏지 않는다 —
 // 익명으로 계속 읽을 수 있는 화면이라 스플래시로 밀어낼 이유가 없다. 같은 prefix 의 보호 화면
 // (/market/new 등)은 logout() 직후 PrivateRoute 가 스스로 스플래시로 보낸다.
-const PUBLIC_BROWSE_PREFIXES = ['/market', '/biz', '/map', '/feed'];
+const PUBLIC_BROWSE_PREFIXES = ['/market', '/biz', '/map', '/feed', '/browse'];
 
 export default function App() {
   const { t } = useTranslation();
@@ -656,6 +658,8 @@ export default function App() {
           <Route path="/link" element={<LinkRouter />} />
 
           {/* Public read surfaces */}
+          {/* 게스트 둘러보기 [상품|커뮤니티] — 로그인 사용자는 컴포넌트 안에서 /home 으로 보낸다(대표 결정 2026-10-14). */}
+          <Route path="/browse" element={<GuestBrowse />} />
           <Route path="/market" element={<MarketMain />} />
           <Route path="/market/search" element={<MarketSearch />} />
           <Route path="/market/:id" element={<MarketDetail />} />

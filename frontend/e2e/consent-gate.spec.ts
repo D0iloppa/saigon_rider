@@ -50,7 +50,10 @@ test.describe('동의 게이트', () => {
     await expect(page).toHaveURL(/\/auth\/profile-setup$/, { timeout: 10_000 });
 
     // 미체크: 건너뛰기 → 화면 유지 + 힌트 토스트
-    await page.getByRole('button', { name: 'Bỏ qua' }).click();
+    await expect(page.getByPlaceholder('Nhập biệt danh…')).toBeVisible();
+    // aria-disabled 버튼은 Playwright 가 "비활성"으로 보고 클릭을 기다린다. force 클릭은 부팅 스플래시가
+    // 걷히기 전 좌표에 떨어질 수 있어, 클릭 이벤트를 버튼에 직접 보낸다(실제 탭은 정상 수신된다).
+    await page.getByRole('button', { name: 'Bỏ qua' }).dispatchEvent('click');
     await expect(page.getByText('Vui lòng đồng ý các điều khoản bắt buộc để tiếp tục')).toBeVisible();
     await expect(page).toHaveURL(/\/auth\/profile-setup$/);
 

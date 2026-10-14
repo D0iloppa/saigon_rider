@@ -202,9 +202,6 @@ import styles from './App.module.css';
  * 오버레이 레이어로 얹는다. URL 은 실제 상세 경로 — 딥링크/공유/하드웨어 뒤로가기 모두 정상.
  * backgroundLocation 없는 진입(마켓 리스트·커뮤니티·딥링크 등)은 기존 페이지 이동 그대로.
  */
-// P2-1: 라우트 lazy 전환 후 청크 로딩 대기 중 보여줄 최소 fallback. 화면 전환마다
-// 깜빡이지 않도록 BackgroundRoutes 전체를 감싸는 Suspense 하나만 둔다 — 이미 로드된
-// 청크로의 이동은 재서스펜드되지 않으므로, 최초로 그 라우트에 진입할 때만 잠깐 보인다.
 // SMS_VERIFICATION 플래그가 꺼져 있으면 휴대폰 인증 화면은 존재하지 않는 것으로 취급 → 프로필로.
 function PhoneVerifyRoute() {
   const { enabled, loaded } = useSmsVerification();
@@ -212,6 +209,9 @@ function PhoneVerifyRoute() {
   return enabled ? <PhoneVerify /> : <Navigate to="/profile" replace />;
 }
 
+// P2-1: 라우트 lazy 전환 후 청크 로딩 대기 중 보여줄 최소 fallback. 화면 전환마다
+// 깜빡이지 않도록 BackgroundRoutes 전체를 감싸는 Suspense 하나만 둔다 — 이미 로드된
+// 청크로의 이동은 재서스펜드되지 않으므로, 최초로 그 라우트에 진입할 때만 잠깐 보인다.
 function RouteFallback() {
   const { t } = useTranslation();
   return <div className={styles.routeLoading}>{t('common.loading')}</div>;

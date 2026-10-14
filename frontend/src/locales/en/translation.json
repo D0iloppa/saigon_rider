@@ -57,6 +57,7 @@
     "myLocation": "My location"
   },
   "common": {
+    "official": "Official",
     "verifiedUser": "Verified user",
     "expand": "Expand",
     "collapse": "Collapse",

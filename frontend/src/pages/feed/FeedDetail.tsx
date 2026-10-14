@@ -32,6 +32,7 @@ import { ImageViewer } from '@/components/ui/ImageViewer';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import feedStyles from './FeedList.module.css';
 import { GroupSourceChip } from './GroupSourceChip';
+import { OfficialBadge } from '@/components/ui/OfficialBadge';
 import { toastFeedWriteError } from './feedWriteErrors';
 import styles from './FeedDetail.module.css';
 
@@ -278,7 +279,10 @@ export default function FeedDetail() {
                     <AppImage src={post.userAvatarUrl ?? undefined} alt="" className={styles.authorAvatar} variant="circle" />
                   </button>
                   <div className={styles.authorInfo}>
-                    <button className={styles.authorName} type="button" onClick={handleAuthorTap}>{post.userNickname ?? 'Unknown'}</button>
+                    <div className={styles.authorNameRow}>
+                      <button className={styles.authorName} type="button" onClick={handleAuthorTap}>{post.userNickname ?? 'Unknown'}</button>
+                      <OfficialBadge official={post.userIsOfficial} />
+                    </div>
                     <div className={styles.authorSub}>
                       <span>{formatRelativeTime(post.createdAt)}</span>
                       {post.group && (
@@ -314,6 +318,7 @@ export default function FeedDetail() {
                     <div className={feedStyles.commentBody}>
                       <div className={feedStyles.commentNick}>
                         {c.userNickname}
+                        <OfficialBadge official={c.userIsOfficial} />
                         <span>{formatRelativeTime(c.createdAt)}</span>
                       </div>
                       <div className={feedStyles.commentText}>{c.content}</div>

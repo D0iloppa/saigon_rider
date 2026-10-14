@@ -6,6 +6,7 @@ import { formatRelativeTime } from '@/lib/format';
 import type { FeedPost } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { OwnerBadge } from '@/components/ui/OwnerBadge';
+import { OfficialBadge } from '@/components/ui/OfficialBadge';
 import { useUserStore } from '@/store/useUserStore';
 import { GroupSourceChip } from './GroupSourceChip';
 import styles from './FeedList.module.css';
@@ -85,6 +86,7 @@ export function FeedPostCard({ p, onCheer, hideGroupChip }: { p: FeedPost; onChe
                 navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
               }}
             >{p.userNickname ?? '—'}</strong>
+            <OfficialBadge official={p.userIsOfficial} />
             {user && p.userId === user.id && <OwnerBadge label={t('common.myPostBadge')} />}
           </span>
           <span className={styles.metaLine}>

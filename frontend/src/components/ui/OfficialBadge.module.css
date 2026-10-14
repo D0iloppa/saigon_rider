@@ -1,0 +1,26 @@
+.badge.badge {  /* 이중 클래스 — 댓글 닉네임 줄의 `.commentNick span` 규칙(시간 스타일)보다 우선 */
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 1px 6px 1px 4px;
+  border-radius: 999px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: -0.1px;
+  white-space: nowrap;
+}
+
+.check {
+  display: block;
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

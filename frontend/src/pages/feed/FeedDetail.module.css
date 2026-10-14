@@ -106,6 +106,14 @@
   min-width: 0;
 }
 
+.authorNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .authorName {
   flex: 0 1 auto;
   max-width: 100%;

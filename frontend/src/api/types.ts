@@ -85,6 +85,7 @@ export interface FeedPost {
   userNickname: string | null;
   userAvatarUrl?: string | null;
   userLevel: number;
+  userIsOfficial?: boolean;
   attemptId?: string;
   questTitle?: string;
   photoUrl: string | null;
@@ -112,6 +113,7 @@ export interface Comment {
   userId?: string;
   userNickname: string;
   userAvatarUrl?: string;
+  userIsOfficial?: boolean;
   content: string;
   createdAt: string;
   likeCount: number;
@@ -229,6 +231,7 @@ export interface UserProfile {
   isFollowing: boolean;
   isFriend: boolean; // 맞팔 여부 (P4-4)
   isPhoneVerified: boolean;
+  isOfficial?: boolean;
   phoneMasked: string | null;
   memberSince: string | null;
   marketplaceSoldCount: number;

@@ -10,6 +10,7 @@ import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import { Chip } from '@/components/ui/Chip';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
+import { OfficialBadge } from '@/components/ui/OfficialBadge';
 import { TrustTierChip } from '@/components/ui/TrustTierChip';
 import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -298,6 +299,7 @@ export default function UserProfile() {
               <div className={styles.info}>
                 <div className={styles.nickRow}>
                   <span className={styles.nickname}>{profile.nickname ?? 'Unknown'}</span>
+                  <OfficialBadge official={profile.isOfficial} />
                   <VerifiedBadge verified={profile.isPhoneVerified} phoneMasked={profile.phoneMasked} />
                   {/* WP-4(2026-09-09, F049) — 서버가 변환한 티어만 받는다(tier prop),
                       원값 manner_temp 는 이 응답에 아예 없다. MarketDetail 의 판매자 신뢰뱃지 그룹과

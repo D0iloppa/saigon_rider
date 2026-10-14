@@ -139,6 +139,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
     isFollowing: res.is_following,
     isFriend: res.is_friend ?? false,
     isPhoneVerified: res.is_phone_verified ?? false,
+    isOfficial: res.is_official ?? false,
     phoneMasked: res.phone_masked ?? null,
     memberSince: res.member_since ?? null,
     marketplaceSoldCount: res.marketplace_sold_count ?? 0,

@@ -1,7 +1,6 @@
 import { fetchListings, fetchAds, type ListingCard, type MarketAd } from '@/api/market';
 import { fetchBizNewsFeed, type BizNewsFeedItem } from '@/api/biz';
 import { ADS_ENABLED } from '@/lib/adPlacement';
-import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 
 /**
@@ -28,9 +27,8 @@ export function startHomePrefetch() {
   started = true;
   const { lat, lng } = BEN_THANH_FALLBACK;
 
-  // 폴백 좌표(권역 밖/위치 꺼짐)면 반경을 걸지 않는다 — MarketMain 과 동일 규칙.
-  const { coordsSource } = useLocationStore.getState();
-  nearbyPromise = fetchListings({ lat, lng, sort: 'distance', size: 8, radiusKm: coordsSource === 'fallback' ? null : NEARBY_RADIUS_KM })
+  // 프리페치는 항상 폴백(Bến Thành) 좌표 기준이므로 반경을 걸지 않는다 — MarketMain 과 동일 규칙.
+  nearbyPromise = fetchListings({ lat, lng, sort: 'distance', size: 8, radiusKm: null })
     .then((p) => { preloadThumbs(p.items.map((i) => i.thumbnailUrl)); return p.items; })
     .catch(() => []);
 

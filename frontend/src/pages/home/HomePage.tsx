@@ -271,7 +271,7 @@ export default function HomePage() {
     return Promise.allSettled([
       // "내 주변 인기 상품" — 'gps' 범위면 반경 안에서만 고른다(대표 지시 2026-08-06).
       // '전체'면 반경 없이 거리순 — 기준점이 도시 중심이라 반경으로 자르면 의미가 없다.
-      (prefetch?.nearbyPromise && usingFallbackCoords && scopeMode === 'gps' && coordsSource !== 'fallback'
+      (prefetch?.nearbyPromise && usingFallbackCoords && scopeMode === 'gps' && coordsSource === 'fallback'
         ? prefetch.nearbyPromise
         : fetchListings({
             lat, lng, sort: 'distance', size: 8,

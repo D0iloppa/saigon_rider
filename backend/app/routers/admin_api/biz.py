@@ -407,6 +407,18 @@ async def upload_biz_photo(
     )
 
 
+# 업체 전용이 아닌 범용 이미지 업로드 별칭 (공식 그룹 커버·커뮤니티 글 이미지) — 동일 핸들러 재사용.
+contents_router = APIRouter(prefix="/contents")
+contents_router.add_api_route(
+    "/upload",
+    upload_biz_photo,
+    methods=["POST"],
+    response_model=ContentOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="이미지 업로드 (admin, owner_type=system)",
+)
+
+
 @router.get(
     "/categories",
     response_model=list[BusinessCategoryOut],

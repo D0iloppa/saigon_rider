@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import FeedPost, FeedPostImage, PostComment, User
+from ...models import CommunityGroup, CommunityGroupMember, FeedPost, FeedPostImage, PostComment, User
 from ...schemas import Page
 from ...utils import default_avatar_url, resolve_avatar_url
 from ..feed import _resolve_image_urls
@@ -44,6 +44,8 @@ class AdminFeedRow(BaseModel):
     content: str | None
     thumbnail_url: str | None
     image_count: int
+    group_id: uuid.UUID | None
+    group_name: str | None
     like_count: int
     comment_count: int
     is_story: bool
@@ -56,6 +58,8 @@ class AdminFeedDetail(BaseModel):
     content: str | None
     image_urls: list[str]
     image_content_ids: list[uuid.UUID]
+    group_id: uuid.UUID | None
+    group_name: str | None
     latitude: Decimal | None
     longitude: Decimal | None
     district_name: str | None
@@ -70,6 +74,7 @@ class FeedWriteRequest(BaseModel):
     content: str | None = None
     is_story: bool = False
     image_content_ids: list[uuid.UUID] = []
+    group_id: uuid.UUID | None = None  # 공식 계정이 멤버인 그룹만, None = 전체 피드
 
 
 class AdminCommentRow(BaseModel):
@@ -91,7 +96,24 @@ def _author_brief(user: User | None, user_id: uuid.UUID) -> FeedAuthorBrief:
     )
 
 
-def _feed_row(post: FeedPost, user: User | None) -> AdminFeedRow:
+async def _group_names(db: AsyncSession, group_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
+    if not group_ids:
+        return {}
+    rows = (
+        await db.execute(select(CommunityGroup.id, CommunityGroup.name).where(CommunityGroup.id.in_(group_ids)))
+    ).all()
+    return {gid: name for gid, name in rows}
+
+
+async def _require_official_group(db: AsyncSession, group_id: uuid.UUID) -> CommunityGroup:
+    group = await db.get(CommunityGroup, group_id)
+    member = await db.get(CommunityGroupMember, (group_id, ADMIN_USER_ID))
+    if group is None or member is None or member.status != "ACTIVE":
+        raise HTTPException(status_code=400, detail="group must be one the official account is a member of")
+    return group
+
+
+def _feed_row(post: FeedPost, user: User | None, group_names: dict[uuid.UUID, str]) -> AdminFeedRow:
     image_urls = _resolve_image_urls(post)
     return AdminFeedRow(
         id=post.id,
@@ -99,6 +121,8 @@ def _feed_row(post: FeedPost, user: User | None) -> AdminFeedRow:
         content=post.content,
         thumbnail_url=image_urls[0] if image_urls else None,
         image_count=len(image_urls),
+        group_id=post.group_id,
+        group_name=group_names.get(post.group_id) if post.group_id else None,
         like_count=post.like_count,
         comment_count=post.comment_count,
         is_story=post.is_story,
@@ -130,7 +154,8 @@ async def list_feed(
             .limit(size)
         )
     ).all()
-    items = [_feed_row(post, user) for post, user in rows]
+    group_names = await _group_names(db, {post.group_id for post, _ in rows if post.group_id})
+    items = [_feed_row(post, user, group_names) for post, user in rows]
     return Page(items=items, total=total, page=page, size=size)
 
 
@@ -142,6 +167,8 @@ async def _feed_detail(db: AsyncSession, post: FeedPost) -> AdminFeedDetail:
         content=post.content,
         image_urls=_resolve_image_urls(post),
         image_content_ids=[img.content_id for img in post.images or []],
+        group_id=post.group_id,
+        group_name=(await _group_names(db, {post.group_id})).get(post.group_id) if post.group_id else None,
         latitude=post.latitude,
         longitude=post.longitude,
         district_name=post.district.name_ko if post.district else None,
@@ -204,9 +231,12 @@ async def create_feed_post(
     if not text_body and not body.image_content_ids:
         raise HTTPException(status_code=400, detail="content or image is required")
 
+    group = await _require_official_group(db, body.group_id) if body.group_id else None
+
     now = datetime.now(UTC)
     post = FeedPost(
         user_id=ADMIN_USER_ID,
+        group_id=body.group_id,
         content=text_body,
         image_content_id=body.image_content_ids[0] if body.image_content_ids else None,
         is_story=body.is_story,
@@ -215,6 +245,8 @@ async def create_feed_post(
     )
     db.add(post)
     await db.flush()
+    if group is not None:
+        group.post_count += 1
 
     for idx, cid in enumerate(body.image_content_ids):
         db.add(FeedPostImage(post_id=post.id, content_id=cid, sort_order=idx))
@@ -241,6 +273,15 @@ async def update_feed_post(
     if not text_body and not body.image_content_ids:
         raise HTTPException(status_code=400, detail="content or image is required")
 
+    new_group = await _require_official_group(db, body.group_id) if body.group_id else None
+    if post.group_id != body.group_id:
+        old_group = await db.get(CommunityGroup, post.group_id) if post.group_id else None
+        if old_group is not None:
+            old_group.post_count = max(old_group.post_count - 1, 0)
+        if new_group is not None:
+            new_group.post_count += 1
+        post.group_id = body.group_id
+
     await db.execute(FeedPostImage.__table__.delete().where(FeedPostImage.post_id == post_id))
     for idx, cid in enumerate(body.image_content_ids):
         db.add(FeedPostImage(post_id=post_id, content_id=cid, sort_order=idx))
@@ -265,6 +306,9 @@ async def delete_feed_post(
     db: AsyncSession = Depends(get_db),
 ):
     post = await _get_post_or_404(db, post_id)
+    group = await db.get(CommunityGroup, post.group_id) if post.group_id else None
+    if group is not None:
+        group.post_count = max(group.post_count - 1, 0)
     await db.delete(post)
     await audit(db, session, request, "FEED_DELETE", "feed_post", str(post_id))
     await db.commit()

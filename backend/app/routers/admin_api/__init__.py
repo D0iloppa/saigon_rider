@@ -17,6 +17,7 @@ from . import (
     biz_contracts,
     channel_board,
     cms,
+    community_groups,
     dashboard,
     dev_context,
     feed,
@@ -62,6 +63,8 @@ router.include_router(biz.router)
 router.include_router(biz_contracts.router)
 router.include_router(accounts.router)
 router.include_router(feed.router)
+router.include_router(community_groups.router)
+router.include_router(biz.contents_router)
 router.include_router(dev_context.router)
 router.include_router(fuel.router)
 router.include_router(ride_policy.router)

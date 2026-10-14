@@ -14,6 +14,11 @@ const read = (path) => readFileSync(join(here, path), 'utf8');
 // (S-5 채팅 탭 승격 시 6탭 확정 = 홈 유지 결정), 마켓 우선은 **아직 로그인하지 않은 사람에게
 // 서비스 가치를 먼저 보여주는** 목적이었다. 두 목적을 사용자 상태로 분리한다.
 // 나머지 마켓 우선 항목(익명 진입 시 위치 미요청·스플래시 문구)은 그대로 유효하다.
+//
+// 2026-10-14 개정 (대표 결정, F-N-03) — **비로그인 진입은 스플래시 [둘러보기][로그인] 두 버튼.**
+// [둘러보기](주행동) → `/browse`(게스트 둘러보기, [상품|커뮤니티] 세그먼트가 MarketMain·FeedList 를
+// 그대로 감싼다) / [로그인](보조) → `/auth/oauth`. 종전 "단일 버튼 → /market" 계약은 여기서 대체한다.
+// 로그인 후 목적지(홈)와 마켓 우선 항목은 그대로다.
 
 test('로그인 완료 기본 목적지는 홈이다 (딥링크 복귀가 우선)', () => {
   for (const path of [
@@ -30,10 +35,36 @@ test('로그인 완료 기본 목적지는 홈이다 (딥링크 복귀가 우선
   }
 });
 
-test('비로그인 둘러보기 CTA 는 로그인 대신 공개 마켓을 연다', () => {
+test('스플래시는 [둘러보기](주행동 → /browse) + [로그인](보조 → /auth/oauth) 두 버튼이다 (2026-10-14)', () => {
   const source = read('../auth/Splash.tsx');
-  assert.match(source, /<Button onClick=\{\(\) => navigate\('\/market'\)\}>/);
-  assert.doesNotMatch(source, /<Button onClick=\{\(\) => navigate\('\/auth\/oauth'\)\}>/);
+  // 주행동은 채움(primary 기본값) — 로그인 없이 가치를 먼저 보여준다.
+  assert.match(source, /<Button onClick=\{\(\) => navigate\('\/browse'\)\}>\{t\('splash\.startBtn'\)\}<\/Button>/);
+  // 로그인은 보조(glass) — 주행동과 무게가 같아지면 안 된다.
+  assert.match(source, /<Button variant="glass" onClick=\{\(\) => navigate\('\/auth\/oauth'\)\}>\{t\('splash\.loginBtn'\)\}<\/Button>/);
+  // 종전 단일 CTA(→ /market)는 남지 않는다 — 게스트 마켓 진입은 /browse 세그먼트가 담당한다.
+  assert.doesNotMatch(source, /navigate\('\/market'\)/);
+
+  for (const lang of ['ko', 'en', 'vi']) {
+    const splash = JSON.parse(read(`../../locales/${lang}/translation.json`)).splash;
+    assert.ok(splash.startBtn && splash.loginBtn, `${lang} splash.startBtn/loginBtn missing`);
+  }
+});
+
+test('게스트 둘러보기(/browse)는 기존 MarketMain·FeedList 를 그대로 끼운다 — 포크·복제 없음 (2026-10-14)', () => {
+  const source = read('../browse/GuestBrowse.tsx');
+  assert.match(source, /import MarketMain from '@\/pages\/market\/MarketMain'/);
+  assert.match(source, /import FeedList from '@\/pages\/feed\/FeedList'/);
+  assert.match(source, /<MarketMain embedded \/>/);
+  assert.match(source, /<FeedList embedded \/>/);
+  // 탭은 URL 쿼리 — 새로고침·뒤로가기·상세 왕복에 유지된다.
+  assert.match(source, /searchParams\.get\('tab'\) === 'community' \? 'community' : 'market'/);
+  // 로그인 사용자는 홈으로(회원 화면은 탭바가 담당).
+  assert.match(source, /if \(isAuthenticated\) return <Navigate to="\/home" replace \/>/);
+
+  for (const lang of ['ko', 'en', 'vi']) {
+    const browse = JSON.parse(read(`../../locales/${lang}/translation.json`)).browse;
+    assert.ok(browse?.tabMarket && browse?.tabCommunity, `${lang} browse.tabMarket/tabCommunity missing`);
+  }
 });
 
 test('신규·익명 마켓 진입은 위치 권한을 새로 요청하지 않고, 이미 승인된 경우에만 재측위한다', () => {

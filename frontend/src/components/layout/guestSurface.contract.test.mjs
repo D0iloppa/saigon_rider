@@ -11,6 +11,8 @@ test('all guest public browse surfaces replace the normal tabbar with the guest 
   const shell = read('AppShell.tsx');
 
   // 비회원 공개 열람은 경로와 무관하게 게스트 바만 보인다. 로그인 사용자는 기존 탭바를 유지한다.
+  // (2026-10-14 대표 결정으로 재확인 — 게스트에게 탭바는 없고, 상품|커뮤니티 전환은 /browse 세그먼트가 담당한다.
+  //  /browse 는 HIDE_TABBAR_PATHS 에 넣지 않는다 — 게스트 바가 보여야 한다.)
   assert.match(shell, /const tabBarHiddenByPath = HIDE_TABBAR_PATHS\.some\(\(p\) => pathname\.startsWith\(p\)\)/);
   assert.match(shell, /const hideTabBar = tabBarHiddenByPath \|\| !isAuthenticated/);
   assert.match(shell, /const showGuestBar = !isAuthenticated && !tabBarHiddenByPath/);
@@ -20,6 +22,7 @@ test('all guest public browse surfaces replace the normal tabbar with the guest 
   // /map, /market, /biz 어느 경로도 조건에 넣지 않는다. 인증 여부만으로 결정해야 세 공개 화면이
   // 같은 정책을 공유하고, 로그인 사용자는 !isAuthenticated 조건을 통과해 기존 탭바를 유지한다.
   assert.doesNotMatch(shell, /isGuestMapBrowse|pathname === '\/(map|market|biz)'/);
+  assert.doesNotMatch(shell, /'\/browse'/);
 });
 
 test('guest bar CTA reuses the shared auth guard so the current route is restored after login', () => {
@@ -35,7 +38,10 @@ test('guest bar CTA reuses the shared auth guard so the current route is restore
 test('expired session keeps public browse screens instead of pushing to splash', () => {
   const app = read('../../App.tsx');
 
-  assert.match(app, /const PUBLIC_BROWSE_PREFIXES = \['\/market', '\/biz', '\/map'\]/);
+  // /feed 는 261014 앱스토어 5.1.1(v) 대응으로, /browse 는 2026-10-14 비로그인 진입 재설계(F-N-03)로 공개 경로가 됐다.
+  assert.match(app, /const PUBLIC_BROWSE_PREFIXES = \['\/market', '\/biz', '\/map', '\/feed', '\/browse'\]/);
+  // /browse 는 공개 라우트 — PrivateRoute 로 감싸면 스플래시 [둘러보기]가 다시 로그인 벽이 된다.
+  assert.match(app, /<Route path="\/browse" element=\{<GuestBrowse \/>\} \/>/);
 
   const handler = app.slice(app.indexOf('setSessionExpiredHandler(('), app.indexOf('// 정지/밴 계정 전역 핸들러'));
   const logoutAt = handler.indexOf('logout();');

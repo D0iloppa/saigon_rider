@@ -43,6 +43,8 @@ from ..schemas import (
     Page,
 )
 from ..services import location_channel_membership
+from ..services.community_group import create_group_with_room
+from ..services.community_group import require_active_topic as _require_active_topic
 from ..utils import build_imgproxy_url, resolve_avatar_url
 from .dm import create_conversation, send_message
 from .feed import FeedPageOut, _enrich
@@ -56,16 +58,6 @@ topics_router = APIRouter(prefix="/community/group-topics", tags=["커뮤니티 
 
 def _topic_labels(t: CommunityGroupTopic) -> GroupTopicLabels:
     return GroupTopicLabels(ko=t.label_ko, en=t.label_en, vi=t.label_vi)
-
-
-async def _require_active_topic(db: AsyncSession, code: str) -> None:
-    ok = (
-        await db.execute(
-            select(CommunityGroupTopic.code).where(CommunityGroupTopic.code == code, CommunityGroupTopic.is_active)
-        )
-    ).scalar_one_or_none()
-    if ok is None:
-        raise HTTPException(status_code=422, detail={"code": "invalid_topic"})
 
 
 @topics_router.get("", response_model=list[GroupTopicOut], summary="그룹 주제 목록 (활성, 정렬순)")
@@ -183,9 +175,9 @@ async def create_group(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    await _require_active_topic(db, body.topic)
-    now = datetime.now(UTC)
-    group = CommunityGroup(
+    group = await create_group_with_room(
+        db,
+        owner_id=_session_uid,
         name=body.name,
         description=body.description,
         cover_content_id=body.cover_content_id,
@@ -195,33 +187,7 @@ async def create_group(
         join_policy=body.join_policy,
         visibility=body.visibility,
         topic=body.topic,
-        owner_id=_session_uid,
-        member_count=1,
-        created_at=now,
-        updated_at=now,
     )
-    db.add(group)
-    await db.flush()
-
-    db.add(CommunityGroupMember(group_id=group.id, user_id=_session_uid, role="owner", status="ACTIVE", joined_at=now))
-
-    # 그룹 개설과 동시에 오픈톡방 1개 자동 생성 (§4.2, P2-3) — dm.py create_group_conversation 패턴 재사용.
-    conv = DmConversation(
-        conversation_type="open",
-        title=group.name,
-        community_group_id=group.id,
-        created_by=_session_uid,
-        member_count=1,
-        last_message_at=now,
-    )
-    db.add(conv)
-    await db.flush()
-    db.add(
-        DmConversationMember(
-            conversation_id=conv.id, user_id=_session_uid, role="owner", joined_at=now, last_read_at=now
-        )
-    )
-
     await db.commit()
     await db.refresh(group)
     return await _group_out(db, group, _session_uid)

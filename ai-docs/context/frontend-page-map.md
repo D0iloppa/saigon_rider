@@ -32,16 +32,19 @@
 
 > 📋 **스토리보드**: [F-N-01 FR-1](../review/storyboard/index.html#F-N-01__FR-1), [F-N-01 FR-2](../review/storyboard/index.html#F-N-01__FR-2) — `ActiveSessionBar`(무전기·실시간위치 진행 바)의 설계 근거·제안·판정은 스토리보드 참조. **2026-09-24부로 하단 "전역 고정" 표시는 폐기 — 세션이 속한 DM 방 안에서만 in-flow 로 보인다(r5).**
 
-> **앱 첫 화면 — 로그인=홈 / 비로그인 둘러보기=마켓 (대표 결정 2026-08-13)**
+> **앱 첫 화면 — 로그인=홈 / 비로그인 둘러보기=마켓 (대표 결정 2026-08-13) → 비로그인은 `/browse` (대표 결정 2026-10-14)**
 >
 > | 사용자 상태 | 목적지 | 판정 위치 |
 > |---|---|---|
 > | 로그인 완료·세션 유지 재진입 | **`/home`** | `Splash.tsx` · `OAuthLogin.tsx`(3) · `OAuthResult.tsx` · `ProfileSetup.tsx`(3) — **총 8곳**, 전부 `consumeReturnTo() ?? '/home'`(딥링크·세션만료 복귀가 우선) |
-> | 비로그인 둘러보기 | **`/market`** | `Splash.tsx` 의 `splash.startBtn` CTA |
+> | 비로그인 [둘러보기](주행동·채움) | **`/browse`** | `Splash.tsx` 의 `splash.startBtn` CTA (2026-10-14 전까지는 `/market`) |
+> | 비로그인 [로그인](보조·glass) | **`/auth/oauth`** | `Splash.tsx` 의 `splash.loginBtn` CTA (2026-10-14 신설) |
+>
+> **게스트 둘러보기 `/browse` (2026-10-14, 📋 [F-N-03 FR-1](../review/storyboard/index.html#F-N-03__FR-1)·[FR-2](../review/storyboard/index.html#F-N-03__FR-2))**: `pages/browse/GuestBrowse.tsx`(+`.module.css`), 공개 라우트. 상단 세그먼트 **[상품 / 커뮤니티]**(`browse.tabMarket`·`browse.tabCommunity`) 아래에 기존 `MarketMain`·`FeedList` 를 **그대로** 끼운다 — 포크 없음. 두 화면에 `embedded?: boolean` prop 만 추가: `MarketMain` 은 루트에 `data-embedded` 를 달아 리스트 헤더·지도 오버레이의 `var(--status-bar-height)` 인셋만 뺀다(세그먼트 헤더가 흡수), `FeedList` 는 `CommunityHeader`([피드 그룹]·☰)만 숨긴다. 탭은 URL `?tab=market|community`(기본 market, 전환은 push) — 뒤로가기·새로고침·상세(`/market/:id`·`/feed/post/:id`) 왕복에 유지. 쓰기·찜·FAB 은 각 화면의 `useRequireAuth` 그대로(returnTo=`/browse?tab=…`). **로그인 사용자의 `/browse` 는 `/home` 으로 replace**(회원은 탭바 `/market`·`/feed`). 게스트에게 탭바는 없고 게스트 바만 있다(2026-08-12 규약 재확인) — `/browse` 는 `HIDE_TABBAR_PATHS` 에 넣지 않는다. `App.tsx` `PUBLIC_BROWSE_PREFIXES` 에 `/browse`(세션 만료 시 화면 유지). ⚠️ 알려진 한계: `/browse` 에서 로그인하면 returnTo 가 `/browse…` 라 홈에 착지한다(원래 탭의 회원 화면으로 보내는 매핑은 미결).
 >
 > 근거: 홈에 유가·날씨·침수·주유소·정비소 진입점이 걸려 있어 로그인 사용자에게는 홈이 맞다(S-5 채팅 탭 승격 시 6탭 확정 = 홈 유지 결정). 반면 **마켓 우선(`bad1a05`, 2026-08-12)의 목적은 아직 로그인하지 않은 사람에게 서비스 가치를 먼저 보여주는 것**이었다 — 두 목적을 사용자 상태로 분리했다. `bad1a05` 는 로그인 후 목적지까지 마켓으로 통일했던 것이고, 그 부분만 되돌린 것이다.
 >
-> **계약 테스트가 고정한다** — `pages/market/marketFirstValue.contract.test.mjs`: 4파일 전부 `'/home'` 폴백 필수 + `'/market'` 폴백 금지, 게스트 CTA 는 마켓 필수. 나머지 마켓 우선 항목(익명 진입 시 위치 자동요청 금지 / 스플래시 문구는 퀘스트가 아니라 오토바이 거래·만남)은 **그대로 유효**하다.
+> **계약 테스트가 고정한다** — `pages/market/marketFirstValue.contract.test.mjs`: 4파일 전부 `'/home'` 폴백 필수 + `'/market'` 폴백 금지, 게스트 CTA 는 [둘러보기]→`/browse`(채움) + [로그인]→`/auth/oauth`(glass) 두 버튼 + `GuestBrowse` 가 `MarketMain`·`FeedList` 를 `embedded` 로 끼움(2026-10-14 갱신). `components/layout/guestSurface.contract.test.mjs` 가 `PUBLIC_BROWSE_PREFIXES`(…`/feed`, `/browse`)·`/browse` 공개 라우트를 고정. 나머지 마켓 우선 항목(익명 진입 시 위치 자동요청 금지 / 스플래시 문구는 퀘스트가 아니라 오토바이 거래·만남)은 **그대로 유효**하다.
 >
 > **구현(260928) 스플래시 홈 프리페치 + 서버구동 타임아웃**: `App.tsx` 마운트 시 `lib/homePrefetch.ts`(`startHomePrefetch()`)가 부팅(세션 검증) 작업과 병렬로 홈 첫 화면 데이터(내 주변 인기 상품·업체 소식·최근 등록 상품·광고, FALLBACK=중심가 좌표 기준)를 미리 조회하고 각 섹션 첫 3~4장 썸네일을 `new Image().src`로 프리로드한다. 스플래시 fade-out 은 부팅 완료 + (목적지가 홈일 때만) `homeDataReady()` 완료 또는 서버값 `app-config.splash_prefetch_timeout_ms`(기본 3000, env `SPLASH_PREFETCH_TIMEOUT_MS`) 경과 중 먼저 오는 쪽까지 기다린다(로그인/온보딩으로 가는 경로는 늘리지 않음 — `lib/returnTo.ts` `peekReturnTo()`로 판별). `HomePage.tsx` 는 첫 로드에서 좌표가 아직 FALLBACK 이면(=GPS 미측위) 프리페치 결과를 재사용해 중복 요청을 만들지 않는다. 같은 커밋에서 `fix(map)`: `useLocationStore.ts` 의 `notifyFallback()`(지역-밖 토스트 등)이 `lib/splashOverlay.ts` 로 스플래시 오버레이가 내려간 뒤로 지연되도록 고쳤다 — 종전엔 스플래시 밑에서 이미 마운트된 홈의 `ensureLocation()` 이 토스트를 스플래시 위에 띄웠다.
 >

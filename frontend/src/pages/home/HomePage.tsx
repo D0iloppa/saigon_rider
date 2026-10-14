@@ -271,11 +271,12 @@ export default function HomePage() {
     return Promise.allSettled([
       // "내 주변 인기 상품" — 'gps' 범위면 반경 안에서만 고른다(대표 지시 2026-08-06).
       // '전체'면 반경 없이 거리순 — 기준점이 도시 중심이라 반경으로 자르면 의미가 없다.
-      (prefetch?.nearbyPromise && usingFallbackCoords && scopeMode === 'gps'
+      (prefetch?.nearbyPromise && usingFallbackCoords && scopeMode === 'gps' && coordsSource !== 'fallback'
         ? prefetch.nearbyPromise
         : fetchListings({
             lat, lng, sort: 'distance', size: 8,
-            radiusKm: scopeMode === 'gps' ? NEARBY_RADIUS_KM : null,
+            // 폴백 좌표(권역 밖/위치 꺼짐)면 반경을 걸지 않는다 — MarketMain 과 동일 규칙.
+            radiusKm: scopeMode === 'gps' && coordsSource !== 'fallback' ? NEARBY_RADIUS_KM : null,
           }).then((p) => p.items))
         .then((items) => { setNearbyProducts(items); setNearbyStatus('ready'); })
         .catch(() => { setNearbyProducts([]); setNearbyStatus('unavailable'); }),
@@ -321,7 +322,7 @@ export default function HomePage() {
         .then((items) => setPinnedNotice(items[0]?.is_pinned ? items[0] : null))
         .catch(() => setPinnedNotice(null)),
     ]).finally(() => setDataLoading(false));
-  }, [coords, infoOrigin, infoRadiusKm, scopeMode, i18n.language]);
+  }, [coords, infoOrigin, infoRadiusKm, scopeMode, coordsSource, i18n.language]);
 
   useEffect(() => {
     if (!locationReady) return;

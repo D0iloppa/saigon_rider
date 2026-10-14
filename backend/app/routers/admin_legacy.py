@@ -21,16 +21,17 @@ from ..admin_auth import (
     ADMIN_USER as _ADMIN_USER,
 )
 from ..admin_auth import (
-    COOKIE as _COOKIE,
-)
-from ..admin_auth import (
-    JWT_EXP_HOURS as _JWT_EXP_HOURS,
-)
-from ..admin_auth import (
+    ADMIN_USER_ID,
     AdminSession,
     authenticate,
     verify_admin_page,
     verify_root_page,
+)
+from ..admin_auth import (
+    COOKIE as _COOKIE,
+)
+from ..admin_auth import (
+    JWT_EXP_HOURS as _JWT_EXP_HOURS,
 )
 from ..admin_auth import (
     hash_password as _hash_password,
@@ -95,10 +96,6 @@ _TEMPLATE_DIR = Path(__file__).parent.parent / "templates" / "admin"
 
 # Wiki 링크 — nginx /wiki/ 프록시 (ENV 로 override 가능)
 WIKI_BASE_PATH = os.getenv("WIKI_BASE_PATH", "/wiki/")
-
-# 가상 admin user (database/init/015_admin_seed.sql 시드와 일치)
-# 모든 관리자는 이 user_id 로 피드를 작성 (공통 'SaigonRider' 계정)
-ADMIN_USER_ID = uuid.UUID(os.getenv("ADMIN_USER_ID", "00000000-0000-0000-0000-000000000001"))
 
 CONTENTS_BASE_PATH = Path(os.getenv("CONTENTS_BASE_PATH", "/data"))
 ALLOWED_IMAGE_MIME = {

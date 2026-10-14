@@ -90,11 +90,14 @@ export default function FeedEditPage() {
 
   const groupOptions = [
     { value: '', label: '그룹 없음 (전체 피드)' },
-    ...(groups?.items ?? []).map((g) => ({
-      value: g.id,
-      label: g.status === 'ACTIVE' ? g.name : `${g.name} (정지)`,
-    })),
+    ...(groups?.items ?? [])
+      .filter((g) => g.status === 'ACTIVE')
+      .map((g) => ({ value: g.id, label: g.name })),
   ]
+  // 현재 글의 그룹이 목록에 없으면(정지 그룹 등) 현재 값은 그대로 보여 폼이 깨지지 않게 한다.
+  if (form.group_id && !groupOptions.some((o) => o.value === form.group_id)) {
+    groupOptions.push({ value: form.group_id, label: post?.group_name ?? form.group_id })
+  }
 
   return (
     <Card title={isNew ? '새 글 작성 (SaigonRider 공식계정)' : '글 수정'}>
@@ -128,18 +131,17 @@ export default function FeedEditPage() {
             showUploadList={false}
             multiple
             accept="image/jpeg,image/png,image/gif,image/webp"
-            customRequest={(options) =>
-              upload.mutate(options.file as File, {
-                onSuccess: (res) => {
-                  setForm((f) => ({ ...f, images: [...f.images, { id: res.id, url: res.imgproxy_url }] }))
-                  options.onSuccess?.(res)
-                },
-                onError: (err) => {
-                  message.error(err instanceof Error ? err.message : '이미지 업로드에 실패했습니다.')
-                  options.onError?.(err as Error)
-                },
-              })
-            }
+            customRequest={async (options) => {
+              // multiple 업로드: 공유 mutation 의 per-call onSuccess 는 마지막 호출만 발화하므로 파일마다 mutateAsync.
+              try {
+                const res = await upload.mutateAsync(options.file as File)
+                setForm((f) => ({ ...f, images: [...f.images, { id: res.id, url: res.imgproxy_url }] }))
+                options.onSuccess?.(res)
+              } catch (err) {
+                message.error(err instanceof Error ? err.message : '이미지 업로드에 실패했습니다.')
+                options.onError?.(err as Error)
+              }
+            }}
           >
             <Button loading={upload.isPending}>이미지 추가</Button>
           </Upload>

@@ -1,5 +1,4 @@
 import logging
-import re
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -44,6 +43,7 @@ from ..schemas import (
 )
 from ..services import noti_events
 from ..services.dm_policy import require_unblocked
+from ..services.feed_post_effects import apply_post_created_effects, extract_hashtags
 from ..services.location_privacy import resolve_nearest_ward, to_approx_coords
 from ..services.search_index import immediate_blob
 from ..services.service_area import in_service_area
@@ -53,15 +53,6 @@ from ._report_guard import guard_duplicate_report
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/feed", tags=["피드 (Feed)"])
-
-_HASHTAG_PATTERN = re.compile(r"#(\w+)")
-
-
-def _extract_hashtags(content: str | None) -> list[str]:
-    """본문에서 #태그 를 파싱한다. 대소문자 무시(소문자 정규화) + 중복 제거."""
-    if not content:
-        return []
-    return sorted({tag.lower()[:50] for tag in _HASHTAG_PATTERN.findall(content)})
 
 
 async def _get_post_or_404(post_id: uuid.UUID, db: AsyncSession) -> FeedPost:
@@ -435,65 +426,7 @@ async def create_feed_post(
     for idx, cid in enumerate(content_ids):
         db.add(FeedPostImage(post_id=post_id, content_id=cid, sort_order=idx))
 
-    for tag in _extract_hashtags(body.content):
-        db.add(PostHashtag(post_id=post_id, tag=tag))
-
-    if group is not None:
-        group.post_count += 1
-
-    # P4-3: 팔로우한 사람의 새 글 / 그룹 새 글 알림 — 대상이 있을 때만 author 를 조회한다.
-    follower_ids = (
-        (await db.execute(select(UserFollow.follower_id).where(UserFollow.following_id == body.user_id)))
-        .scalars()
-        .all()
-    )
-    group_member_ids: list[uuid.UUID] = []
-    if group is not None:
-        group_member_ids = (
-            (
-                await db.execute(
-                    select(CommunityGroupMember.user_id).where(
-                        CommunityGroupMember.group_id == group.id,
-                        CommunityGroupMember.status == "ACTIVE",
-                        CommunityGroupMember.user_id != body.user_id,
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-    if follower_ids or group_member_ids:
-        author = await db.get(User, body.user_id)
-        preview = (body.content or "")[:100]
-        if follower_ids:
-            noti_events.enqueue(
-                db,
-                "feed.followed_post_created",
-                {
-                    "recipient_ids": [str(fid) for fid in follower_ids],
-                    "post_id": str(post_id),
-                    "author_nickname": author.nickname if author else None,
-                    "preview": preview,
-                },
-            )
-        if group_member_ids:
-            noti_events.enqueue(
-                db,
-                "feed.group_post_created",
-                {
-                    "recipient_ids": [str(mid) for mid in group_member_ids],
-                    "post_id": str(post_id),
-                    "group_id": str(group.id),
-                    "group_name": group.name,
-                    "author_nickname": author.nickname if author else None,
-                    "preview": preview,
-                },
-            )
-
-    if body.content:
-        noti_events.enqueue(
-            db, "search.reindex", {"entity_type": "feed", "entity_id": str(post_id), "texts": [body.content]}
-        )
+    await apply_post_created_effects(db, post_id=post_id, author_id=body.user_id, content=body.content, group=group)
     await db.commit()
 
     try:
@@ -532,7 +465,7 @@ async def update_feed_post(
     if body.content is not None:
         post.content = body.content
         await db.execute(delete(PostHashtag).where(PostHashtag.post_id == post_id))
-        for tag in _extract_hashtags(body.content):
+        for tag in extract_hashtags(body.content):
             db.add(PostHashtag(post_id=post_id, tag=tag))
     if body.image_content_ids is not None:
         await db.execute(select(FeedPostImage).where(FeedPostImage.post_id == post_id))

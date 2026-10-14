@@ -11,7 +11,6 @@ contents 중개 규약(content_id UUID 입력, badges.py의 icon_content_id와 �
 따른다. 구 `/admin-legacy/settings` 라우트는 손대지 않고 병행 유지한다.
 """
 
-import os
 import uuid
 from datetime import UTC, datetime
 from typing import Literal
@@ -21,15 +20,13 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...admin_auth import AdminSession, verify_admin_api, verify_root_api
+from ...admin_auth import ADMIN_USER_ID, AdminSession, verify_admin_api, verify_root_api
 from ...database import get_db
 from ...models import AppConfig, AppVersion, NicknameWord, User
 from ...utils import resolve_avatar_url
 from ._audit import audit
 
 router = APIRouter(prefix="/settings")
-
-ADMIN_USER_ID = uuid.UUID(os.getenv("ADMIN_USER_ID", "00000000-0000-0000-0000-000000000001"))
 
 
 async def _get_admin_user(db: AsyncSession) -> User:

@@ -4,19 +4,18 @@
 오픈톡방 자동 생성까지 동일. 하드 삭제는 없고 상태(ACTIVE/SUSPENDED)만 바꾼다.
 """
 
-import os
 import uuid
 from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...admin_auth import AdminSession, verify_admin_api
+from ...admin_auth import ADMIN_USER_ID, AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import CommunityGroup, CommunityGroupTopic
+from ...models import CommunityGroup, CommunityGroupTopic, DmConversation
 from ...schemas import Page
 from ...services.community_group import create_group_with_room, require_active_topic
 from ...utils import build_imgproxy_url
@@ -24,7 +23,6 @@ from ._audit import audit
 
 router = APIRouter(prefix="/community-groups")
 
-ADMIN_USER_ID = uuid.UUID(os.getenv("ADMIN_USER_ID", "00000000-0000-0000-0000-000000000001"))
 
 JoinPolicy = Literal["open", "approval", "invite"]
 Visibility = Literal["public", "private"]
@@ -178,12 +176,17 @@ async def update_group(
     db: AsyncSession = Depends(get_db),
 ):
     group = await db.get(CommunityGroup, group_id)
-    if group is None:
+    if group is None or group.owner_id != ADMIN_USER_ID:
         raise HTTPException(status_code=404, detail="Group not found")
 
     changes = body.model_dump(exclude_unset=True)
-    if body.topic is not None:
+    if body.topic is not None and body.topic != group.topic:
         await require_active_topic(db, body.topic)
+    if body.name is not None and body.name != group.name:
+        # 개설 시 오픈톡방 title = group.name (services/community_group.create_group_with_room) — 이름 변경 시 동기화.
+        await db.execute(
+            update(DmConversation).where(DmConversation.community_group_id == group.id).values(title=body.name)
+        )
     for field in ("name", "description", "topic", "join_policy", "visibility", "status"):
         if field in changes and (changes[field] is not None or field == "description"):
             setattr(group, field, changes[field])

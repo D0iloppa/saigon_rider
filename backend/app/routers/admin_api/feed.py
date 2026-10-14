@@ -8,20 +8,22 @@
 손대지 않고 병행 유지한다.
 """
 
-import os
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...admin_auth import AdminSession, verify_admin_api
+from ...admin_auth import ADMIN_USER_ID, AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import CommunityGroup, CommunityGroupMember, FeedPost, FeedPostImage, PostComment, User
+from ...models import CommunityGroup, CommunityGroupMember, FeedPost, FeedPostImage, PostComment, PostHashtag, User
 from ...schemas import Page
+from ...services.feed_post_effects import apply_post_created_effects, extract_hashtags
+from ...services.search_index import immediate_blob
+from ...services.translate import warm_translations
 from ...utils import default_avatar_url, resolve_avatar_url
 from ..feed import _resolve_image_urls
 from ._audit import audit
@@ -29,7 +31,6 @@ from ._audit import audit
 router = APIRouter(prefix="/community")
 
 # admin_legacy.py 와 동일한 공통계정 (공식 피드 게시자)
-ADMIN_USER_ID = uuid.UUID(os.getenv("ADMIN_USER_ID", "00000000-0000-0000-0000-000000000001"))
 
 
 class FeedAuthorBrief(BaseModel):
@@ -108,7 +109,7 @@ async def _group_names(db: AsyncSession, group_ids: set[uuid.UUID]) -> dict[uuid
 async def _require_official_group(db: AsyncSession, group_id: uuid.UUID) -> CommunityGroup:
     group = await db.get(CommunityGroup, group_id)
     member = await db.get(CommunityGroupMember, (group_id, ADMIN_USER_ID))
-    if group is None or member is None or member.status != "ACTIVE":
+    if group is None or group.status != "ACTIVE" or member is None or member.status != "ACTIVE":
         raise HTTPException(status_code=400, detail="group must be one the official account is a member of")
     return group
 
@@ -224,6 +225,7 @@ async def list_feed_comments(
 async def create_feed_post(
     body: FeedWriteRequest,
     request: Request,
+    background: BackgroundTasks,
     session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
@@ -242,17 +244,20 @@ async def create_feed_post(
         is_story=body.is_story,
         created_at=now,
         updated_at=now,
+        search_blob=immediate_blob([text_body]),
     )
     db.add(post)
     await db.flush()
-    if group is not None:
-        group.post_count += 1
 
     for idx, cid in enumerate(body.image_content_ids):
         db.add(FeedPostImage(post_id=post.id, content_id=cid, sort_order=idx))
 
+    await apply_post_created_effects(db, post_id=post.id, author_id=ADMIN_USER_ID, content=text_body, group=group)
+
     await audit(db, session, request, "FEED_CREATE", "feed_post", str(post.id), {"is_story": post.is_story})
     await db.commit()
+    if text_body:
+        background.add_task(warm_translations, [text_body])
 
     # commit 이후 컬렉션 관계(images)는 expire 되어 db.get() 만으로는 재조회되지 않음 — 명시 refresh 필요.
     await db.refresh(post, attribute_names=["images"])
@@ -273,8 +278,9 @@ async def update_feed_post(
     if not text_body and not body.image_content_ids:
         raise HTTPException(status_code=400, detail="content or image is required")
 
-    new_group = await _require_official_group(db, body.group_id) if body.group_id else None
-    if post.group_id != body.group_id:
+    # group_id 를 보내지 않으면 "변경 없음" — 명시적으로 보냈고 현재와 다를 때만 검증·카운트 조정.
+    if "group_id" in body.model_fields_set and post.group_id != body.group_id:
+        new_group = await _require_official_group(db, body.group_id) if body.group_id else None
         old_group = await db.get(CommunityGroup, post.group_id) if post.group_id else None
         if old_group is not None:
             old_group.post_count = max(old_group.post_count - 1, 0)
@@ -285,6 +291,10 @@ async def update_feed_post(
     await db.execute(FeedPostImage.__table__.delete().where(FeedPostImage.post_id == post_id))
     for idx, cid in enumerate(body.image_content_ids):
         db.add(FeedPostImage(post_id=post_id, content_id=cid, sort_order=idx))
+
+    await db.execute(delete(PostHashtag).where(PostHashtag.post_id == post_id))
+    for tag in extract_hashtags(text_body):
+        db.add(PostHashtag(post_id=post_id, tag=tag))
 
     post.content = text_body
     post.image_content_id = body.image_content_ids[0] if body.image_content_ids else None

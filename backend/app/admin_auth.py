@@ -6,6 +6,7 @@ JWT(HS256, ADMIN_JWT_SECRET) + httpOnly 쿠키 ``admin_session`` 계약을 한 �
 """
 
 import os
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import bcrypt
@@ -25,6 +26,8 @@ if not JWT_SECRET:
 JWT_ALG = "HS256"
 JWT_EXP_HOURS = 8
 COOKIE = "admin_session"
+# 공식 계정(공통 'SaigonRider' 가상 유저, database/init/015_admin_seed.sql) — 관리자가 피드·그룹을 게시하는 명의
+ADMIN_USER_ID = uuid.UUID(os.getenv("ADMIN_USER_ID", "00000000-0000-0000-0000-000000000001"))
 
 
 class AdminSession:

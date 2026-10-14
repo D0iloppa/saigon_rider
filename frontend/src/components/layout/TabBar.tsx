@@ -9,7 +9,7 @@ import styles from './TabBar.module.css';
 
 // 익명이어도 그대로 동작하는 탭 — 나머지(개인화 탭)는 눌렀을 때 requireAuth() 로 로그인을
 // 유도한다(탭바 자체를 숨겨 스플래시로 튕기던 종전 방식 대체, 대표 보고 "지도보기 실패" 대응).
-const PUBLIC_TAB_PATHS = ['/market', '/map'];
+const PUBLIC_TAB_PATHS = ['/market', '/map', '/feed'];
 
 // 탭 루트가 아닌 하위 화면도 소속 탭을 활성 표시하기 위한 경로 매핑 (P1-8).
 // 여기 없는 경로는 계속 매핑 대상이 아니며, 탭바 자체를 숨겨야 하면 AppShell 의

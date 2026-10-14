@@ -22,6 +22,7 @@ import type { FeedPost, Comment } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { useUserStore } from '@/store/useUserStore';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useConfirmStore } from '@/store/useConfirmStore';
 import { loadSession } from '@/lib/session';
 import { toast } from '@/components/ui/Toast';
@@ -40,6 +41,7 @@ export default function FeedDetail() {
   const navigate = useNavigate();
   const { postId } = useParams<{ postId: string }>();
   const user = useUserStore((s) => s.user);
+  const requireAuth = useRequireAuth();
   const { hash } = useLocation();
   const commentsRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
@@ -81,7 +83,7 @@ export default function FeedDetail() {
   const toastWriteError = (err: unknown) => toastFeedWriteError(err, t, navigate, post?.group);
 
   const handleCheer = async () => {
-    if (!post) return;
+    if (!post || !requireAuth()) return;
     try {
       const { cheered, count } = await toggleCheer(post.id);
       setPost((p) => p && { ...p, iCheered: cheered, cheerCount: count });
@@ -91,7 +93,7 @@ export default function FeedDetail() {
   };
 
   const handleCommentLike = async (c: Comment) => {
-    if (!post) return;
+    if (!post || !requireAuth()) return;
     try {
       const { liked, count } = await toggleCommentLike(post.id, c.id);
       setComments((prev) => prev.map((x) => (x.id === c.id ? { ...x, iLiked: liked, likeCount: count } : x)));
@@ -185,6 +187,12 @@ export default function FeedDetail() {
   const handleSend = async () => {
     const text = input.trim();
     if (!text || !post || sendingRef.current) return;
+    if (!requireAuth()) return;
+    // 댓글도 개인 매물 등록처럼 휴대폰 인증 후에만 — 서버도 403 으로 막는다.
+    if (user && !user.phoneVerified) {
+      navigate('/auth/phone-verify', { state: { from: { pathname: `/feed/post/${post.id}` } } });
+      return;
+    }
     const session = loadSession();
     if (!session) return;
     sendingRef.current = true;
@@ -333,7 +341,7 @@ export default function FeedDetail() {
                     ) : (
                       <button
                         className={styles.commentReportBtn}
-                        onClick={() => setCommentReportTarget(c)}
+                        onClick={() => { if (requireAuth()) setCommentReportTarget(c); }}
                         aria-label={t('feed.report', { defaultValue: '신고하기' })}
                       >
                         <Flag size={13} strokeWidth={2} />
@@ -398,7 +406,7 @@ export default function FeedDetail() {
               </button>
             </>
           ) : (
-            <button className={styles.reportItem} onClick={() => { setPostMoreOpen(false); setPostReportOpen(true); }}>
+            <button className={styles.reportItem} onClick={() => { setPostMoreOpen(false); if (requireAuth()) setPostReportOpen(true); }}>
               <Flag size={16} strokeWidth={2.2} /> {t('feed.report', { defaultValue: '신고하기' })}
             </button>
           )}

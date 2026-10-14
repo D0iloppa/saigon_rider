@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toggleCheer } from '@/api/feed';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import type { FeedPost } from '@/api/types';
 import { toastFeedWriteError } from './feedWriteErrors';
 
@@ -12,8 +13,10 @@ export function useCheerToggle(
 ) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   return async (p: FeedPost, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!requireAuth()) return;
     try {
       const { cheered, count } = await toggleCheer(p.id);
       setPosts((prev) => (!cheered && opts.removeOnUncheer

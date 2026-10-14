@@ -170,6 +170,14 @@ class FeedPageOut(Page[FeedPostEnrichedOut]):
     has_more: bool
 
 
+async def _require_phone_verified(user_id: uuid.UUID, db: AsyncSession) -> User | None:
+    """글·댓글 작성은 개인 매물 등록과 같이 휴대폰 OTP 인증(phone_verified_at) 완료 후에만."""
+    user = await db.get(User, user_id)
+    if user is not None and user.phone_verified_at is None:
+        raise HTTPException(status_code=403, detail="Phone verification required to post")
+    return user
+
+
 @router.get("", response_model=FeedPageOut, summary="피드 목록")
 async def get_feed(
     filter: str = "all",
@@ -387,6 +395,7 @@ async def create_feed_post(
     # 세션 유저 명의로만 작성 가능 — body.user_id 는 세션과 일치해야 함 (impersonation 차단)
     if body.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
+    await _require_phone_verified(body.user_id, db)
     has_images = bool(body.image_content_ids) or body.image_content_id is not None
     if body.content is None and body.image_url is None and not has_images:
         raise HTTPException(status_code=400, detail="content, image_content_ids or image_url is required")
@@ -687,6 +696,7 @@ async def post_comment(
     # 세션 유저 명의로만 작성 가능 (impersonation 차단)
     if body.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
+    user = await _require_phone_verified(body.user_id, db)
     if body.content is None and body.image_url is None:
         raise HTTPException(status_code=400, detail="content or image_url is required")
 
@@ -694,8 +704,6 @@ async def post_comment(
     if post.user_id != body.user_id:
         await require_unblocked(db, body.user_id, post.user_id)
     await _require_group_member(post.group_id, body.user_id, db)
-
-    user = await db.get(User, body.user_id)
 
     comment = PostComment(
         post_id=post_id,

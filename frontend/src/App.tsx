@@ -220,7 +220,7 @@ function BackgroundRoutes({ children }: { children: ReactNode }) {
           <Routes>
             <Route path="/biz/:id" element={<BizPublic />} />
             <Route path="/market/:id" element={<MarketDetail />} />
-            <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
+            <Route path="/feed/post/:postId" element={<FeedDetail />} />
             <Route path="/profile/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
             <Route path="/profile/:userId/listings" element={<PrivateRoute><ProfileListings /></PrivateRoute>} />
             <Route path="/profile/:userId/posts" element={<PrivateRoute><ProfilePosts /></PrivateRoute>} />
@@ -282,7 +282,7 @@ const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth', '/auth/restore', '/se
 // 비로그인도 볼 수 있는 공개 열람 경로. 세션 만료 시 로그아웃은 하되 화면을 뺏지 않는다 —
 // 익명으로 계속 읽을 수 있는 화면이라 스플래시로 밀어낼 이유가 없다. 같은 prefix 의 보호 화면
 // (/market/new 등)은 logout() 직후 PrivateRoute 가 스스로 스플래시로 보낸다.
-const PUBLIC_BROWSE_PREFIXES = ['/market', '/biz', '/map'];
+const PUBLIC_BROWSE_PREFIXES = ['/market', '/biz', '/map', '/feed'];
 
 export default function App() {
   const { t } = useTranslation();
@@ -693,10 +693,10 @@ export default function App() {
           <Route path="/quests" element={<PrivateRoute><QuestList /></PrivateRoute>} />
           <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />
           <Route path="/quest-check/:userQuestId" element={<PrivateRoute><QuestCheckPage /></PrivateRoute>} />
-          <Route path="/feed" element={<PrivateRoute><FeedList /></PrivateRoute>} />
+          <Route path="/feed" element={<FeedList />} />
           <Route path="/feed/new" element={<PrivateRoute><FeedCreate /></PrivateRoute>} />
           <Route path="/feed/edit/:postId" element={<PrivateRoute><FeedEdit /></PrivateRoute>} />
-          <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
+          <Route path="/feed/post/:postId" element={<FeedDetail />} />
           <Route path="/dm" element={<PrivateRoute><DmList /></PrivateRoute>} />
           <Route path="/dm/group/new" element={<PrivateRoute><DmGroupCreate /></PrivateRoute>} />
           {/* 게시판(init/218) — /dm/:id 보다 먼저 둘 필요는 없지만(정적 세그먼트가 우선 매칭),

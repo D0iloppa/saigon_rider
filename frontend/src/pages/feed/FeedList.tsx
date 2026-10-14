@@ -13,6 +13,7 @@ import type { FeedPost } from '@/api/types';
 import { StoryAvatar } from '@/components/ui/StoryAvatar';
 import { Chip } from '@/components/ui/Chip';
 import { useUserStore } from '@/store/useUserStore';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { toast } from '@/components/ui/Toast';
@@ -36,6 +37,7 @@ export default function FeedList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
+  const requireAuth = useRequireAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   // 필터를 URL 쿼리로 보존한다(P2-11). 단 'neighborhood' 복원은 제외 — 이 필터는 GPS
   // 요청을 트리거하는 effect(아래)에 걸려 있어서, 저장된 값을 그대로 복원하면 화면
@@ -238,7 +240,7 @@ export default function FeedList() {
       </div>{/* scrollBody */}
 
       {/* 새 글 작성 FAB — 마켓 목록 writeFab 과 같은 자리·모양(F-CM-01 FR-1 제안 ②) */}
-      <button className={styles.writeFab} type="button" onClick={() => navigate('/feed/new')} aria-label={t('feedCreate.title')}>
+      <button className={styles.writeFab} type="button" onClick={() => { if (requireAuth()) navigate('/feed/new'); }} aria-label={t('feedCreate.title')}>
         <Plus size={26} strokeWidth={2.4} />
       </button>
 

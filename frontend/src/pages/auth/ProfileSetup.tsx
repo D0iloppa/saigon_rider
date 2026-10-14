@@ -5,6 +5,7 @@ import { StatusBar } from '@/components/layout/StatusBar';
 import { RadioCircle } from '@/components/ui/RadioCircle';
 import { emojiUrl } from '@/lib/emoji';
 import { Button } from '@/components/ui/Button';
+import { CircleAlert } from 'lucide-react';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
@@ -56,10 +57,10 @@ export default function ProfileSetup() {
   // 연령(만 14세 이상, 약관 §1) 확인 — 약관/개인정보 동의와 별개 체크박스 (묶으면 개별 동의로 인정받기 어렵다).
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   // 필수 동의 미체크 상태에서 건너뛰기/시작하기를 누르면 미체크 행을 잠깐 강조한다.
-  const [hintRows, setHintRows] = useState(false);
-  const hintTimer = useRef<ReturnType<typeof setTimeout>>();
-  const agreeRowRef = useRef<HTMLLabelElement>(null);
-  const ageRowRef = useRef<HTMLLabelElement>(null);
+  // hintActive: 둘 다 체크할 때까지 유지(안내 문구·체크박스 강조) / shake: 탭마다 재생되는 1회성 흔들림.
+  const [hintActive, setHintActive] = useState(false);
+  const [shake, setShake] = useState(false);
+  const groupRef = useRef<HTMLDivElement>(null);
   const kb = useKeyboard();
   // iOS 네이티브는 키보드가 순수 오버레이라 하단 CTA 버튼이 키보드에 가려진다 —
   // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
@@ -88,19 +89,15 @@ export default function ProfileSetup() {
   const isValid =
     nickname.length >= 2 && nickname.length <= 20 && style && nickStatus !== 'taken' && nickStatus !== 'checking';
 
-  useEffect(() => () => clearTimeout(hintTimer.current), []);
-
   const showConsentHint = () => {
-    toast(t('profileSetup.consentHint'), { id: 'consent-hint' });
+    setHintActive(true);
     // 반복 탭에도 흔들림이 다시 재생되도록 한 프레임 비웠다가 다시 켠다.
-    clearTimeout(hintTimer.current);
-    setHintRows(false);
-    requestAnimationFrame(() => {
-      setHintRows(true);
-      hintTimer.current = setTimeout(() => setHintRows(false), 1500);
-    });
-    (!agreed ? agreeRowRef : ageRowRef).current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setShake(false);
+    requestAnimationFrame(() => setShake(true));
+    groupRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   };
+
+  const hintVisible = hintActive && (!agreed || !ageConfirmed);
 
   const handleSkip = async () => {
     if (skipping) return;
@@ -233,9 +230,16 @@ export default function ProfileSetup() {
         <div className={styles.spacer} />
 
         {/* F-9: 약관/개인정보처리방침 동의 — 체크 전에는 시작/건너뛰기 모두 막는다 */}
-        <label ref={agreeRowRef} className={`${styles.consentRow} ${hintRows && !agreed ? styles.consentHint : ''}`}>
+        <div
+          ref={groupRef}
+          className={`${styles.consentGroup} ${shake ? styles.consentShake : ''}`}
+          onAnimationEnd={() => setShake(false)}
+        >
+        <label className={styles.consentRow}>
           <input
             type="checkbox"
+            className={hintVisible && !agreed ? styles.consentInvalid : undefined}
+            aria-describedby={hintVisible ? 'consent-hint' : undefined}
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
           />
@@ -249,14 +253,29 @@ export default function ProfileSetup() {
         </label>
 
         {/* 연령(만 14세 이상) 확인 — 약관/개인정보 동의와 별개 체크박스 (개별 동의 요건) */}
-        <label ref={ageRowRef} className={`${styles.consentRow} ${hintRows && !ageConfirmed ? styles.consentHint : ''}`}>
+        <label className={styles.consentRow}>
           <input
             type="checkbox"
+            className={hintVisible && !ageConfirmed ? styles.consentInvalid : undefined}
+            aria-describedby={hintVisible ? 'consent-hint' : undefined}
             checked={ageConfirmed}
             onChange={(e) => setAgeConfirmed(e.target.checked)}
           />
           <span>{t('profileSetup.consentAgeLabel')}</span>
         </label>
+        </div>
+
+        {/* 고정 높이 슬롯 — 문구가 나타나도 CTA 위치가 움직이지 않는다 */}
+        <div className={styles.consentHintSlot}>
+          <p id="consent-hint" role="alert" className={`${styles.consentHintText} ${hintVisible ? styles.consentHintOn : ''}`}>
+            {hintVisible && (
+              <>
+                <CircleAlert size={14} className={styles.consentHintIcon} aria-hidden="true" />
+                {t('profileSetup.consentHint')}
+              </>
+            )}
+          </p>
+        </div>
       </div>
 
       {/* Bottom CTA — gradient fade */}

@@ -41,7 +41,7 @@ test.describe('동의 게이트', () => {
     await expect(page).toHaveURL(/\/home$/);
   });
 
-  test('필수 동의 미체크 상태에서 건너뛰기는 진행하지 않고 안내 토스트를 띄운다. 체크 후에는 이동한다', async ({ page, request }) => {
+  test('필수 동의 미체크 상태에서 건너뛰기는 진행하지 않고 인라인 안내를 띄운다. 체크 후에는 이동한다', async ({ page, request }) => {
     const tag = uniqueTag('s');
     session = await devLogin(request, tag);
     await injectSession(page, session);
@@ -49,7 +49,7 @@ test.describe('동의 게이트', () => {
     await page.goto('/home');
     await expect(page).toHaveURL(/\/auth\/profile-setup$/, { timeout: 10_000 });
 
-    // 미체크: 건너뛰기 → 화면 유지 + 힌트 토스트
+    // 미체크: 건너뛰기 → 화면 유지 + 인라인 힌트
     await expect(page.getByPlaceholder('Nhập biệt danh…')).toBeVisible();
     // aria-disabled 버튼은 Playwright 가 "비활성"으로 보고 클릭을 기다린다. force 클릭은 부팅 스플래시가
     // 걷히기 전 좌표에 떨어질 수 있어, 클릭 이벤트를 버튼에 직접 보낸다(실제 탭은 정상 수신된다).
@@ -61,6 +61,7 @@ test.describe('동의 게이트', () => {
     const boxes = page.getByRole('checkbox');
     await boxes.nth(0).check();
     await boxes.nth(1).check();
+    await expect(page.getByText('Vui lòng đồng ý các điều khoản bắt buộc để tiếp tục')).toBeHidden();
     await page.getByRole('button', { name: 'Bỏ qua' }).click();
     await expect(page).toHaveURL(/\/home$/, { timeout: 10_000 });
   });

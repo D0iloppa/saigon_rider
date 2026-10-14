@@ -551,6 +551,10 @@ services:
       - "/migrations/254_fm_measurement.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (254) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/255_user_is_official.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (255) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -663,6 +667,7 @@ services:
       - ./database/init/252_community_group_member_ban_meta.sql:/migrations/252_community_group_member_ban_meta.sql:ro
       - ./database/init/253_fm_tables.sql:/migrations/253_fm_tables.sql:ro
       - ./database/init/254_fm_measurement.sql:/migrations/254_fm_measurement.sql:ro
+      - ./database/init/255_user_is_official.sql:/migrations/255_user_is_official.sql:ro
     networks:
       - dev-net
     depends_on:

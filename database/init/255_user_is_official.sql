@@ -9,4 +9,5 @@ UPDATE users
                THEN 'Saigon Rider'
            ELSE users.nickname
        END
- WHERE id = '00000000-0000-0000-0000-000000000001';
+ WHERE id = '00000000-0000-0000-0000-000000000001'
+   AND is_official = false;  -- 최초 1회만 — bff_migrate 재실행 시 관리자가 바꾼 닉네임을 되돌리지 않는다

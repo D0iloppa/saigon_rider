@@ -114,6 +114,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
     is_following: boolean;
     is_friend: boolean;
     is_phone_verified: boolean;
+    is_official?: boolean;
     phone_masked: string | null;
     member_since: string;
     marketplace_sold_count: number;

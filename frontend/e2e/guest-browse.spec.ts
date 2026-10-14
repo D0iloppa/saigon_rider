@@ -8,7 +8,7 @@ import { devLogin, injectSession, uniqueTag, saveConsentViaApi, cleanupUser, typ
  *     글 상세 왕복 후에도 탭이 유지되며, 글쓰기 FAB 은 /auth/oauth 로 보낸다.
  *  B. 상품 탭에서 매물 상세 왕복 후 탭 유지, 매물 등록 FAB 은 /auth/oauth.
  *  C. 스플래시 [로그인] → /auth/oauth.
- *  D. 로그인 사용자의 /browse 는 /home 으로.
+ *  D. 로그인 사용자의 /browse?tab=community 는 /feed 로(보던 탭의 회원 화면).
  */
 
 test.describe('게스트 둘러보기 (/browse)', () => {
@@ -86,13 +86,13 @@ test.describe('로그인 사용자의 /browse', () => {
     while (sessions.length) cleanupUser(sessions.pop()!.userId);
   });
 
-  test('D. 로그인 상태로 /browse 진입 → /home', async ({ page, request }) => {
+  test('D. 로그인 상태로 /browse?tab=community 진입 → /feed', async ({ page, request }) => {
     const session = await devLogin(request, uniqueTag('b'));
     sessions.push(session);
     await saveConsentViaApi(request, session);
     await injectSession(page, session);
 
     await page.goto('/browse?tab=community');
-    await expect(page).toHaveURL(/\/home$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/feed$/, { timeout: 15_000 });
   });
 });

@@ -468,7 +468,7 @@
 - **판정(261014)** 대표 확정 — 구현 완료(261014, 통합테스트는 감독 1회).
 
 ##### FR-2 게스트 둘러보기 — `/browse` [상품 / 커뮤니티]
-- **조건** 비로그인. 로그인 사용자가 `/browse` 로 오면 `/home` 으로 replace(회원 화면은 탭바 `/market`·`/feed` 가 담당). 세션 만료 시 화면 유지(`PUBLIC_BROWSE_PREFIXES`).
+- **조건** 비로그인. 로그인 사용자가 `/browse` 로 오면 보던 탭의 회원 화면(`?tab=community`→`/feed`, 그 외→`/market`)으로 replace — 쓰기→로그인 후 맥락 유지. 세션 만료 시 화면 유지(`PUBLIC_BROWSE_PREFIXES`).
 - **와이어** `H` status bar 아래 전폭 세그먼트 [상품(활성) / 커뮤니티] / `C`·`B` 선택 탭의 기존 화면 그대로 — 상품 = `MarketMain`(동네 제목·검색/알림/찜·정렬|카테고리 칩·매물 목록·[지도 보기] 필·등록 FAB), 커뮤니티 = `FeedList`(필터 칩 5종·1열 글 카드·글쓰기 FAB; 셸 헤더 [피드 그룹]·☰ 는 숨김) / `K` 게스트 바 "로그인하면 채팅하고 판매할 수 있어요" + [로그인]. **탭바 없음.**
 - **요소 표**
 
@@ -482,10 +482,10 @@
 - **주행동** 세그먼트 전환. 화면 안의 주행동(매물·글 열람)은 각 임베드 화면이 그대로 가진다.
 - **상태** 기본 탭 = 상품(`?tab` 없음). `/browse?tab=community` 새로고침 → 커뮤니티 유지. 상세에서 뒤로가기 → 같은 탭. 세그먼트 전환 시 다른 탭의 쿼리(`view=map`·`filter=`)는 버린다.
 - **카피** 세그먼트 ko [상품][커뮤니티] · en [Items][Community] · vi [Sản phẩm][Cộng đồng] (`browse.tabMarket` · `browse.tabCommunity`). 게스트 바는 `guest.barText`/`guest.barCta` 그대로.
-- **전이** `/splash` → `/browse` ⇄ `/browse?tab=community` → 상세(`/market/:id`·`/feed/post/:id`) → 뒤로 → 같은 탭 / 쓰기 → `/auth/oauth` → 로그인 → returnTo(`/browse…`) → 로그인 사용자라 `/home`.
-- **검증** 비로그인 `/browse` 에 탭바가 없고 게스트 바가 보인다. 세그먼트 활성 탭이 URL 과 일치하고 새로고침·상세 왕복에 유지된다. 두 탭의 FAB 이 `/auth/oauth` 로 간다. 로그인 상태 `/browse` → `/home`. e2e `frontend/e2e/guest-browse.spec.ts`.
+- **전이** `/splash` → `/browse` ⇄ `/browse?tab=community` → 상세(`/market/:id`·`/feed/post/:id`) → 뒤로 → 같은 탭 / 쓰기 → `/auth/oauth` → 로그인 → returnTo(`/browse?tab=…`) → 같은 탭의 회원 화면(`/feed`·`/market`).
+- **검증** 비로그인 `/browse` 에 탭바가 없고 게스트 바가 보인다. 세그먼트 활성 탭이 URL 과 일치하고 새로고침·상세 왕복에 유지된다. 두 탭의 FAB 이 `/auth/oauth` 로 간다. 로그인 상태 `/browse?tab=community` → `/feed`. e2e `frontend/e2e/guest-browse.spec.ts`.
 - **근거** `frontend/src/pages/browse/GuestBrowse.tsx`(+`.module.css`), `frontend/src/pages/market/MarketMain.tsx` `embedded`(`data-embedded` → 헤더·지도 오버레이 상단 인셋), `frontend/src/pages/feed/FeedList.tsx` `embedded`(셸 헤더 숨김), `frontend/src/App.tsx` `/browse` 라우트·`PUBLIC_BROWSE_PREFIXES`, `frontend/src/components/layout/AppShell.tsx` 게스트 바.
-- **판정(261014)** 대표 확정 — 구현 완료(261014, 통합테스트는 감독 1회). **알려진 한계** `/browse` 에서 로그인하면 returnTo 가 `/browse…` 라 홈으로 착지한다 — 원래 탭의 회원 화면(`/market`·`/feed`)으로 보내는 매핑은 미결(대표 판단 필요).
+- **판정(261014)** 대표 확정 — 구현 완료(261014, 통합테스트는 감독 1회). 로그인 후 returnTo `/browse?tab=…` 는 같은 탭의 회원 화면(`/market`·`/feed`)으로 매핑(감독 보정 261014).
 
 #### F-S0-01 매물 등록
 ##### FR-1 등록 폼(게이트 통과 판매자)

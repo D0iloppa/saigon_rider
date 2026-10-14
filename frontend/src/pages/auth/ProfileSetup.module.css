@@ -192,6 +192,30 @@
   flex-shrink: 0;
 }
 
+/* 필수 동의 미체크 상태에서 건너뛰기/시작하기 탭 시 ~1.5s 강조 */
+.consentHint {
+  border-radius: 8px;
+  box-shadow: 0 0 0 2px var(--brand-500);
+  animation: consentShake 0.4s ease-in-out;
+}
+
+@keyframes consentShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.startWrap { position: relative; }
+
+.startHintOverlay {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
 .consentLink {
   color: var(--brand-500);
   font-weight: 600;

@@ -497,7 +497,8 @@
     "consentSuffix": "에 동의합니다 (필수)",
     "errorConsentRequired": "약관 및 개인정보처리방침에 동의해주세요",
     "consentAgeLabel": "만 14세 이상입니다 (필수)",
-    "errorAgeRequired": "만 14세 이상임을 확인해주세요"
+    "errorAgeRequired": "만 14세 이상임을 확인해주세요",
+    "consentHint": "필수 약관에 동의해야 시작할 수 있어요"
   },
   "home": {
     "progressLabel": "오늘은 {{needed}}km 더 달리면 Lv.{{nextLevel}}",

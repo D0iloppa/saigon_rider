@@ -38,4 +38,25 @@ test.describe('동의 게이트', () => {
     await page.waitForTimeout(1500);
     await expect(page).toHaveURL(/\/home$/);
   });
+
+  test('필수 동의 미체크 상태에서 건너뛰기는 진행하지 않고 안내 토스트를 띄운다. 체크 후에는 이동한다', async ({ page, request }) => {
+    const tag = uniqueTag('s');
+    session = await devLogin(request, tag);
+    await injectSession(page, session);
+
+    await page.goto('/home');
+    await expect(page).toHaveURL(/\/auth\/profile-setup$/, { timeout: 10_000 });
+
+    // 미체크: 건너뛰기 → 화면 유지 + 힌트 토스트
+    await page.getByRole('button', { name: 'Bỏ qua' }).click();
+    await expect(page.getByText('Vui lòng đồng ý các điều khoản bắt buộc để tiếp tục')).toBeVisible();
+    await expect(page).toHaveURL(/\/auth\/profile-setup$/);
+
+    // 체크 후: 건너뛰기 → 온보딩을 벗어난다(/home 또는 returnTo)
+    const boxes = page.getByRole('checkbox');
+    await boxes.nth(0).check();
+    await boxes.nth(1).check();
+    await page.getByRole('button', { name: 'Bỏ qua' }).click();
+    await expect(page).toHaveURL(/\/home$/, { timeout: 10_000 });
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { StatusBar } from '@/components/layout/StatusBar';
@@ -55,6 +55,11 @@ export default function ProfileSetup() {
   const [agreed, setAgreed] = useState(false);
   // 연령(만 14세 이상, 약관 §1) 확인 — 약관/개인정보 동의와 별개 체크박스 (묶으면 개별 동의로 인정받기 어렵다).
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+  // 필수 동의 미체크 상태에서 건너뛰기/시작하기를 누르면 미체크 행을 잠깐 강조한다.
+  const [hintRows, setHintRows] = useState(false);
+  const hintTimer = useRef<ReturnType<typeof setTimeout>>();
+  const agreeRowRef = useRef<HTMLLabelElement>(null);
+  const ageRowRef = useRef<HTMLLabelElement>(null);
   const kb = useKeyboard();
   // iOS 네이티브는 키보드가 순수 오버레이라 하단 CTA 버튼이 키보드에 가려진다 —
   // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
@@ -83,8 +88,23 @@ export default function ProfileSetup() {
   const isValid =
     nickname.length >= 2 && nickname.length <= 20 && style && nickStatus !== 'taken' && nickStatus !== 'checking';
 
+  useEffect(() => () => clearTimeout(hintTimer.current), []);
+
+  const showConsentHint = () => {
+    toast(t('profileSetup.consentHint'));
+    setHintRows(true);
+    clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setHintRows(false), 1500);
+    (!agreed ? agreeRowRef : ageRowRef).current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  };
+
   const handleSkip = async () => {
-    if (!user?.id || skipping || !agreed || !ageConfirmed) return;
+    if (skipping) return;
+    if (!agreed || !ageConfirmed) {
+      showConsentHint();
+      return;
+    }
+    if (!user?.id) return;
     setSkipping(true);
     try {
       const consented = await apiSaveConsent(user.id, CONSENT_DOCUMENT_VERSION, CONSENT_DOCUMENT_VERSION, ageConfirmed);
@@ -154,7 +174,7 @@ export default function ProfileSetup() {
           <span className={`${styles.dot} ${styles.dotActive}`} />
           <span className={styles.dot} />
         </div>
-        <button className={styles.skipBtn} onClick={handleSkip} disabled={skipping || !agreed || !ageConfirmed}>
+        <button className={styles.skipBtn} onClick={handleSkip} disabled={skipping}>
           {t('profileSetup.skip')}
         </button>
       </div>
@@ -210,7 +230,7 @@ export default function ProfileSetup() {
         <div className={styles.spacer} />
 
         {/* F-9: 약관/개인정보처리방침 동의 — 체크 전에는 시작/건너뛰기 모두 막는다 */}
-        <label className={styles.consentRow}>
+        <label ref={agreeRowRef} className={`${styles.consentRow} ${hintRows && !agreed ? styles.consentHint : ''}`}>
           <input
             type="checkbox"
             checked={agreed}
@@ -226,7 +246,7 @@ export default function ProfileSetup() {
         </label>
 
         {/* 연령(만 14세 이상) 확인 — 약관/개인정보 동의와 별개 체크박스 (개별 동의 요건) */}
-        <label className={styles.consentRow}>
+        <label ref={ageRowRef} className={`${styles.consentRow} ${hintRows && !ageConfirmed ? styles.consentHint : ''}`}>
           <input
             type="checkbox"
             checked={ageConfirmed}
@@ -238,9 +258,15 @@ export default function ProfileSetup() {
 
       {/* Bottom CTA — gradient fade */}
       <div className={styles.bottomCta}>
-        <Button onClick={handleSubmit} disabled={!isValid || saving || !agreed || !ageConfirmed}>
-          {t('profileSetup.startBtn')}
-        </Button>
+        {/* disabled 버튼은 클릭을 받지 못하므로, 동의 미체크일 때만 투명 오버레이로 힌트를 띄운다(버튼 외관은 그대로). */}
+        <div className={styles.startWrap}>
+          <Button onClick={handleSubmit} disabled={!isValid || saving || !agreed || !ageConfirmed}>
+            {t('profileSetup.startBtn')}
+          </Button>
+          {(!agreed || !ageConfirmed) && (
+            <button type="button" className={styles.startHintOverlay} aria-hidden="true" tabIndex={-1} onClick={showConsentHint} />
+          )}
+        </div>
       </div>
     </div>
   );

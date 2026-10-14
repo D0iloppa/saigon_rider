@@ -497,7 +497,8 @@
     "consentSuffix": " (required)",
     "errorConsentRequired": "Please agree to the Terms of Service and Privacy Policy",
     "consentAgeLabel": "I am at least 14 years old (required)",
-    "errorAgeRequired": "Please confirm that you are at least 14 years old"
+    "errorAgeRequired": "Please confirm that you are at least 14 years old",
+    "consentHint": "Please agree to the required terms to continue"
   },
   "home": {
     "progressLabel": "{{needed}}km more to reach Lv.{{nextLevel}} today",

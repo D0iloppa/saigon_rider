@@ -497,7 +497,8 @@
     "consentSuffix": " (bắt buộc)",
     "errorConsentRequired": "Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật",
     "consentAgeLabel": "Tôi từ 14 tuổi trở lên (bắt buộc)",
-    "errorAgeRequired": "Vui lòng xác nhận bạn từ 14 tuổi trở lên"
+    "errorAgeRequired": "Vui lòng xác nhận bạn từ 14 tuổi trở lên",
+    "consentHint": "Vui lòng đồng ý các điều khoản bắt buộc để tiếp tục"
   },
   "home": {
     "progressLabel": "Đi thêm {{needed}}km để đạt Lv.{{nextLevel}} hôm nay",

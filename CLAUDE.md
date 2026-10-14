@@ -167,14 +167,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **왜 있나:** Zalo Graph API(`/v2.0/me`)는 **베트남 밖 IP를 error -501 로 차단**한다(개인정보 제한). BFF 는 한국 호스팅이라, Zalo OAuth 인증 호출만 **베트남 IP VPS 를 프록시 경유**시켜 우회한다. (일반 앱 트래픽은 직접 통신 — 프록시는 Zalo 로그인 경로에만 적용.)
 
-- **프로바이더/구축**: GreenCloudVPS (`greencloudvps.com`, Budget KVM `SSDKVM-1`, 호치민 리전), **개인 계정(doil qwon)**, 구축 **2026-07-21**. 월 ~$6 — 비용 정리 대상(대표 지시).
-- **서버**: IP `103.186.65.169`, Ho Chi Minh City, `AS151858 INTERDIGI JOINT STOCK COMPANY`(VN 등록 AS), Ubuntu 22.04.
-- **SSH 접속 전략**: `ssh root@103.186.65.169` — ed25519 키(`~/.ssh/id_ed25519`, comment `zalo-proxy`)로 인증. 키 미인식 시 `ssh -i ~/.ssh/id_ed25519 root@103.186.65.169`. (하드닝 TODO: 키 등록 완료됐으니 `sshd` `PasswordAuthentication no` 권장.)
-- **프록시**: tinyproxy(HTTP 포워드), 포트 `8888`, **BasicAuth** 로 접근제어(user `zaloproxy`, IP 화이트리스트 대신 인증 — dev/prod BFF egress IP 가변 대응). 방화벽 ufw 22/8888.
+- **프로바이더/구축**: VoyraCloud (`voyracloud.com`, Cloud VPS 1C-1G-20GB·트래픽 500GB/월, **호치민(VN) 리전**), **월간 결제 $4.5**, 구매 **2026-10-14**. (2025년 설립 싱가포르 업체 — 실적이 짧아 월간 유지, VN 판정·Zalo 로그인 확인 후 장기 결제 검토.)
+  - 이전: GreenCloudVPS 호치민(`103.186.65.169`, 2026-07-21~) — **2026-10-14 해지**(그린클라우드 VN 리전 폐지). 이 IP 로 된 설정·문서는 전부 stale.
+- **서버**: IP `152.32.222.240`, Ubuntu 24.04.3. ipinfo: `country: VN`(Ho Chi Minh City), org `AS135377 UCLOUD INFORMATION TECHNOLOGY (HK) LIMITED` — **AS 등록은 홍콩**(구 서버는 VN 등록 AS). **2026-10-14 운영 실제 Zalo 로그인 성공 — 이 IP 로 -501 미발생 확인.**
+- **SSH 접속 전략**: `ssh zalo-proxy` (`~/.ssh/config` 별칭 → `ubuntu@152.32.222.240`, 키 `~/.ssh/zalo_proxy_ed25519`, `IdentitiesOnly yes`). 계정은 root 아닌 `ubuntu`(비번 없는 sudo). 비밀번호 로그인 차단 완료(`/etc/ssh/sshd_config.d/50-cloud-init.conf` `PasswordAuthentication no`).
+- **프록시**: tinyproxy(HTTP 포워드), 포트 `8888`, **BasicAuth** 로 접근제어(user `zaloproxy`, IP 화이트리스트 대신 인증 — dev/prod BFF egress IP 가변 대응). 방화벽 ufw 22/8888. 설정 `/etc/tinyproxy/tinyproxy.conf`(원본 `.orig`), `ConnectPort 443` 만 허용, 무인증 요청은 407.
 - **코드 연동**: `backend/app/services/oauth.py` 의 `exchange_zalo_code()` 가 env `ZALO_API_PROXY` 로 Zalo 두 호출(access_token 교환·`/me` 프로필)만 프록시 경유. **미설정 시 직접 호출**(무변화). httpx 0.27 `proxy=`(HTTP 프록시만 — socks5 미지원).
-- **시크릿(커밋 금지)**: BasicAuth 비밀번호는 `.env` `ZALO_API_PROXY` 에만 — `ZALO_API_PROXY=http://zaloproxy:<pw>@103.186.65.169:8888`. SSH 개인키·비번은 어떤 커밋 파일에도 남기지 않는다.
+- **시크릿(커밋 금지)**: BasicAuth 비밀번호는 `.env` `ZALO_API_PROXY` 에만 — `ZALO_API_PROXY=http://zaloproxy:<pw>@<IP>:8888`. 로컬 BasicAuth 비밀번호 사본은 `~/.ssh/zalo_proxy_basicauth`(600). dev·운영(`saigon-prod-new` `/app/SaigonRider/.env`) `.env` 교체 완료(2026-10-14, 운영 백업 `.env.bak-zalo-<ts>`). SSH 개인키·비번은 어떤 커밋 파일에도 남기지 않는다.
 - **운영 주의**: 이 VPS 는 **Zalo 로그인의 단일 장애점(SPOF)** — 죽으면 로그인 차단. 업타임 모니터링 권장.
-- **검증**: 프록시 egress 가 VN 인지 — `curl -x http://zaloproxy:<pw>@103.186.65.169:8888 -s https://ipinfo.io/json` → `country: VN`. 최종 확인은 실제 Zalo 로그인(-501 미발생).
+- **검증**: 프록시 egress 가 VN 인지 — `curl -x http://zaloproxy:<pw>@<IP>:8888 -s https://ipinfo.io/json` → `country: VN`. 최종 확인은 실제 Zalo 로그인(-501 미발생).
+- **Zalo 앱 활성화**: developers.zalo.me 앱 `Saigon Rider`(ID `4386386707555387397`, 콘솔 계정 = 히엔 선생님)가 **"Chưa kích hoạt"(미활성)** 이면 일반 사용자 로그인이 Zalo 인증 페이지(`oauth.zaloapp.com`)에서 `-14029 The application is not approved` 로 막힌다 — 프록시와 무관(BFF 호출 전 단계). 2026-10-14 설정 화면 토글로 활성화("Đang hoạt động"). 활성 앱은 승인된 API만 호출 가능. Callback URL 은 운영·dev 둘 다 등록돼 있음.
 
 ## 보안 최소 룰 (전문은 agent-guidelines §4)
 

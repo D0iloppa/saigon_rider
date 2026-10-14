@@ -64,7 +64,7 @@ Capacitor WebView 하이브리드 앱. Docker Compose, **단일 nginx(:18090) �
 
 ### Zalo 인증 프록시 VPS (SPOF)
 
-Zalo Graph API `/v2.0/me` 가 **베트남 밖 IP 를 error -501 로 차단**한다. BFF 는 한국 호스팅이라 Zalo OAuth 호출만 VN VPS(GreenCloudVPS 호치민, `103.186.65.169`, tinyproxy:8888 BasicAuth) 를 경유시킨다. 일반 앱 트래픽은 직접 통신. 연동은 `backend/app/services/oauth.py` `exchange_zalo_code()` 의 env `ZALO_API_PROXY` — **미설정 시 직접 호출(fail-open)**. 이 VPS 가 죽으면 **Zalo 로그인 전면 차단**.
+Zalo Graph API `/v2.0/me` 가 **베트남 밖 IP 를 error -501 로 차단**한다. BFF 는 한국 호스팅이라 Zalo OAuth 호출만 VN VPS(VoyraCloud 호치민, 2026-10-14 교체 — IP 는 CLAUDE.md "Zalo 인증 프록시 VPS" 절, tinyproxy:8888 BasicAuth; 구 GreenCloudVPS `103.186.65.169` 는 해지) 를 경유시킨다. 일반 앱 트래픽은 직접 통신. 연동은 `backend/app/services/oauth.py` `exchange_zalo_code()` 의 env `ZALO_API_PROXY` — **미설정 시 직접 호출(fail-open)**. 이 VPS 가 죽으면 **Zalo 로그인 전면 차단**.
 
 ### 프론트 메뉴 구조 (한글 메뉴명 → 라우트 → 컴포넌트)
 
@@ -164,7 +164,7 @@ Zalo Graph API `/v2.0/me` 가 **베트남 밖 IP 를 error -501 로 차단**한�
 
 - **BFF/Engine 을 쪼갠 대가**: 네트워크 홉·서비스키 관리·배포 단위 증가를 감수하고 v1 모놀리식의 결합을 끊었다. 대신 경계를 코드로 강제하지 않고 **규약으로만** 지킨다 — `engine_client.py` 우회가 물리적으로 막혀 있지는 않다.
 - **Valhalla 자체호스팅**: 호출당 과금을 없앤 대신 라우팅 품질·운영 부담을 떠안았다. 오토바이 경로는 베타로 명시 고지(`rideNav.twoWheelerWarning`).
-- **Zalo 프록시 VPS**: 월 ~$6 짜리 단일 VPS 가 로그인 SPOF 다. 비용 정리 대상으로 지목돼 있으나 대체 수단은 아직 없다.
+- **Zalo 프록시 VPS**: 월 $4.5 짜리 단일 VPS(VoyraCloud, 2026-10-14 GreenCloud 에서 교체) 가 로그인 SPOF 다. 대체·이중화 수단은 아직 없다. (새 IP 는 AS 등록이 홍콩(UCloud)이지만 2026-10-14 운영 Zalo 로그인 성공 확인.)
 - **어드민 2종 병행**: 이식 완료 전까지 같은 기능이 두 곳에 존재하는 중복을 감수한다.
 - **업체 등록의 폰인증 면제**: 사업자 계정 승인(APPROVED)이 개인 폰인증을 대체한다. 서류검증(`verification_status=verified`)까지는 요구하지 않는다 — **초기 도입기 한정, 파일럿 이후 재검토**(대표 결정 2026-08-11, `backend/app/routers/market.py:800-803`).
 - **매물 `status` 자유문자열**: 스키마 제약 대신 쿼리별 수동 필터를 택한 결과, 필터 누락 버그가 반복 발생한다.

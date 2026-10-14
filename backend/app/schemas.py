@@ -874,6 +874,7 @@ class FeedPostEnrichedOut(BaseModel):
     user_nickname: str | None
     user_avatar_url: str | None
     user_level: int
+    user_is_official: bool = False
     ride_session_id: UUID | None
     content: str | None
     image_url: str | None
@@ -949,6 +950,7 @@ class CommentOut(BaseModel):
     user_id: UUID
     user_nickname: str | None = None
     user_avatar_url: str | None = None
+    user_is_official: bool = False
     parent_id: UUID | None
     content: str | None
     image_url: str | None
@@ -1171,6 +1173,7 @@ class UserProfileOut(BaseModel):
     # P4-4: 맞팔(is_following 이고 상대도 나를 팔로우) 여부 — 친구 표기용
     is_friend: bool = False
     is_phone_verified: bool = False
+    is_official: bool = False
     phone_masked: str | None = None
     member_since: datetime
     marketplace_sold_count: int = 0

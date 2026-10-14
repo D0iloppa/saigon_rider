@@ -156,6 +156,8 @@ class User(Base):
     passcode_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     session_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_advertiser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # 255: 공식 계정 배지 (ADMIN_USER_ID 가상 계정)
+    is_official: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     status: Mapped[str] = mapped_column(String(12), nullable=False, default="ACTIVE", server_default="ACTIVE")
     suspended_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

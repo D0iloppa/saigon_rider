@@ -605,6 +605,7 @@ async def get_user_profile(
         is_following=is_following,
         is_friend=is_friend,
         is_phone_verified=user.phone_verified_at is not None,
+        is_official=user.is_official,
         phone_masked=mask_phone(user.phone) if user.phone_verified_at is not None else None,
         member_since=user.created_at,
         marketplace_sold_count=sold_count,

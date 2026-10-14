@@ -44,6 +44,11 @@ test('official group + post via admin API, official badge and open join in app',
   const post = await postRes.json();
   expect(post.group_id).toBe(group.id);
 
+  // group_id 를 빼고 수정하면 그룹 유지(리뷰 지적 회귀 방지)
+  const edit = await admin.put(`/admin/api/community/feed/${post.id}`, { data: { content: 'e2e official post' } });
+  expect(edit.status(), await edit.text()).toBe(200);
+  expect((await edit.json()).group_id).toBe(group.id);
+
   // 일반 유저: 자유가입 → 공식 글 상세·공식 계정 프로필에 '공식' 배지
   const u = await devLogin(request, uniqueTag('off'));
   users.push(u);

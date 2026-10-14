@@ -88,6 +88,9 @@ export default function FeedDetailPage() {
         <Descriptions.Item label="내용" span={2}>
           <span style={{ whiteSpace: 'pre-line' }}>{post.content ?? '-'}</span>
         </Descriptions.Item>
+        <Descriptions.Item label="그룹" span={2}>
+          {post.group_name ?? '전체 피드'}
+        </Descriptions.Item>
         <Descriptions.Item label="좋아요">{post.like_count}</Descriptions.Item>
         <Descriptions.Item label="댓글">{post.comment_count}</Descriptions.Item>
         <Descriptions.Item label="지역">{post.district_name ?? '-'}</Descriptions.Item>

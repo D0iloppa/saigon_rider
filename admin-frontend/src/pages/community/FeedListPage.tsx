@@ -43,6 +43,7 @@ export default function FeedListPage() {
       key: 'content',
       render: (v: string | null) => (v ? <span style={{ whiteSpace: 'pre-line' }}>{v.slice(0, 60)}</span> : '-'),
     },
+    { title: '그룹', dataIndex: 'group_name', key: 'group_name', render: (v: string | null) => v ?? '전체 피드' },
     { title: '이미지수', dataIndex: 'image_count', key: 'image_count', width: 80 },
     { title: '좋아요', dataIndex: 'like_count', key: 'like_count', width: 80 },
     { title: '댓글', dataIndex: 'comment_count', key: 'comment_count', width: 80 },

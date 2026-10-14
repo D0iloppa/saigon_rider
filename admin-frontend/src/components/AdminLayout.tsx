@@ -73,7 +73,10 @@ const MENU_ITEMS = [
     { key: '/biz/ad-tiers', icon: <DollarOutlined />, label: '광고 티어 정책' },
     { key: '/fm', icon: <GlobalOutlined />, label: 'FactMind' },
   ] },
-  { key: 'group-community', label: 'COMMUNITY', children: [{ key: '/community/feed', icon: <PictureOutlined />, label: '피드 관리' }] },
+  { key: 'group-community', label: 'COMMUNITY', children: [
+    { key: '/community/feed', icon: <PictureOutlined />, label: '커뮤니티 글' },
+    { key: '/community/groups', icon: <TeamOutlined />, label: '공식 그룹' },
+  ] },
   { key: 'group-map', label: 'NEIGHBORHOOD MAP', children: [
     { key: '/map/poi', icon: <EnvironmentOutlined />, label: 'POI 관리' },
     { key: '/map/place-suggestions', icon: <CompassOutlined />, label: '장소 제보 심사' },
@@ -119,7 +122,8 @@ const PAGE_META = [
   { path: '/analytics/zero-results', title: '0건 검색어', description: '결과 0건 검색어를 확인해 필드 에이전트 발굴 대상을 정합니다.' },
   { path: '/analytics/retention', title: '코호트 리텐션', description: '가입 주차별 D1/D7/D30 리텐션율을 히트맵으로 확인합니다.' },
   { path: '/analytics/first-touch', title: '비회원 유입경로', description: 'UTM first-touch 기준 익명 방문자 수와 회원 연결(전환) 비율입니다. 같은 세션에서 로그인한 경우만 연결로 집계합니다.' },
-  { path: '/community/feed', title: '피드 관리', description: '공식계정 피드를 작성하고, 사용자 피드 게시물을 조회·삭제합니다.' },
+  { path: '/community/feed', title: '커뮤니티 글', description: '공식계정으로 커뮤니티 글(전체 피드 또는 공식 그룹)을 작성하고, 사용자 글을 조회·삭제합니다.' },
+  { path: '/community/groups', title: '공식 그룹', description: '공식계정이 소유하는 커뮤니티 그룹을 만들고 수정·정지합니다.' },
   { path: '/map/poi', title: 'POI 관리', description: '동네지도에 노출되는 POI를 등록하고 관리합니다.' },
   { path: '/map/place-suggestions', title: '장소 제보 심사', description: '사용자가 제보한 장소를 승인하거나 반려합니다.' },
   { path: '/map/gas-submissions', title: '주유소 제보 심사', description: '사용자가 제보한 주유소를 승인하거나 반려합니다.' },

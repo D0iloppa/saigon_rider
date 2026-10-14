@@ -13,6 +13,8 @@ export interface AdminFeedRow {
   content: string | null
   thumbnail_url: string | null
   image_count: number
+  group_id: string | null
+  group_name: string | null
   like_count: number
   comment_count: number
   is_story: boolean
@@ -25,6 +27,8 @@ export interface AdminFeedDetail {
   content: string | null
   image_urls: string[]
   image_content_ids: string[]
+  group_id: string | null
+  group_name: string | null
   latitude: number | string | null
   longitude: number | string | null
   district_name: string | null
@@ -55,6 +59,7 @@ export interface FeedWriteBody {
   content?: string | null
   is_story: boolean
   image_content_ids: string[]
+  group_id?: string | null
 }
 
 export function useFeedList(params: FeedListParams) {

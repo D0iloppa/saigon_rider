@@ -13,4 +13,8 @@
 # =============================================================
 set -euo pipefail
 
+# root 개인 crontab(/var/spool/cron/root)은 PATH=/usr/bin:/bin 이라 /usr/sbin/nginx 를 못 찾는다 →
+# certbot nginx 플러그인이 NoInstallationError 로 매번 실패해 2026-10-14 인증서가 만료됐다. 명시한다.
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
 /usr/bin/certbot renew --quiet --deploy-hook "systemctl reload nginx"

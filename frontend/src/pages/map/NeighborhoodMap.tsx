@@ -25,7 +25,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { haversineM } from '@/lib/polyline';
 import { requestDeviceLocation } from '@/lib/serviceLocation';
-import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
+import { useLocationStore, nearbyRadiusKm } from '@/store/useLocationStore';
 import BizRichCard from './BizRichCard';
 import styles from './NeighborhoodMapList.module.css';
 
@@ -72,6 +72,7 @@ export default function NeighborhoodMap() {
   // 표시 범위는 앱 전역 단일 SoT — 'gps'(내 위치 반경) ↔ 'all'(전체). 종전의 화면 로컬
   // 지역 선택('region')과 URL 쿼리(rlat/rlng) 보존은 폐기됐다(대표 지시 2026-08-06).
   const regionMode = useLocationStore((s) => s.mode);
+  const coordsSource = useLocationStore((s) => s.coordsSource);
   const coords = useLocationStore((s) => s.coords);
   const wardName = useLocationStore((s) => s.wardName);
   const ensureLocation = useLocationStore((s) => s.ensureLocation);
@@ -121,7 +122,8 @@ export default function NeighborhoodMap() {
     setError(false);
 
     // 'gps' 면 내 좌표 반경, 'all' 이면 호치민 전역. 행정동 폴리곤으로 좁히지 않는다.
-    const bbox = regionMode === 'gps' && coords ? radiusBbox(coords, NEARBY_RADIUS_KM) : HCMC_BBOX;
+    const radiusKm = nearbyRadiusKm(regionMode, coordsSource);
+    const bbox = radiusKm != null && coords ? radiusBbox(coords, radiusKm) : HCMC_BBOX;
 
     fetchBizMapItems({
       ...bbox,
@@ -134,8 +136,8 @@ export default function NeighborhoodMap() {
       maxItems: BIZ_MAX_ITEMS,
     }).then((items) => {
       // bbox 는 반경의 외접 사각형이라 모서리가 반경보다 멀다 — 실제 거리로 한 번 더 좁힌다.
-      const filtered = regionMode === 'gps' && coords
-        ? items.filter((biz) => haversineM(coords.lat, coords.lng, biz.lat, biz.lng) <= NEARBY_RADIUS_KM * 1000)
+      const filtered = radiusKm != null && coords
+        ? items.filter((biz) => haversineM(coords.lat, coords.lng, biz.lat, biz.lng) <= radiusKm * 1000)
         : items;
       setBizItems(filtered);
       setTotal(filtered.length);
@@ -148,7 +150,7 @@ export default function NeighborhoodMap() {
       });
 
     return () => controller.abort();
-  }, [bizCategory, reloadKey, i18n.language, regionMode, coords, userPos]);
+  }, [bizCategory, reloadKey, i18n.language, regionMode, coordsSource, coords, userPos]);
 
   // 지역·카테고리를 URL 쿼리로 되쓴다(P2-11) — replace 만 사용해 히스토리 엔트리를 늘리지
   // 않는다. "지도보기" 진입(openMap)은 별도로 push 를 쓰고, 지도 쪽 뒤로가기(onExitMap)는

@@ -3,7 +3,7 @@ import { Flame, Megaphone, Newspaper, Package, PackageSearch, Route } from 'luci
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
-import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
+import { useLocationStore, nearbyRadiusKm } from '@/store/useLocationStore';
 import { useServiceLocation } from '@/hooks/useServiceLocation';
 import { fetchWallet } from '@/api/wallet';
 import { useDmStore } from '@/store/useDmStore';
@@ -276,7 +276,7 @@ export default function HomePage() {
         : fetchListings({
             lat, lng, sort: 'distance', size: 8,
             // 폴백 좌표(권역 밖/위치 꺼짐)면 반경을 걸지 않는다 — MarketMain 과 동일 규칙.
-            radiusKm: scopeMode === 'gps' && coordsSource !== 'fallback' ? NEARBY_RADIUS_KM : null,
+            radiusKm: nearbyRadiusKm(scopeMode, coordsSource),
           }).then((p) => p.items))
         .then((items) => { setNearbyProducts(items); setNearbyStatus('ready'); })
         .catch(() => { setNearbyProducts([]); setNearbyStatus('unavailable'); }),

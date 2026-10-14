@@ -174,7 +174,10 @@ async def _require_phone_verified(user_id: uuid.UUID, db: AsyncSession) -> User 
     """글·댓글 작성은 개인 매물 등록과 같이 휴대폰 OTP 인증(phone_verified_at) 완료 후에만."""
     user = await db.get(User, user_id)
     if user is not None and user.phone_verified_at is None:
-        raise HTTPException(status_code=403, detail="Phone verification required to post")
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "phone_verification_required", "message": "Phone verification required to post"},
+        )
     return user
 
 
@@ -536,6 +539,7 @@ async def update_feed_post(
     post = await _get_post_or_404(post_id, db)
     if body.user_id != _session_uid or post.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Not the post owner")
+    await _require_phone_verified(_session_uid, db)
 
     if body.content is not None:
         post.content = body.content

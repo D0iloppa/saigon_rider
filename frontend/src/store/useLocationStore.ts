@@ -25,6 +25,11 @@ import { runAfterSplash } from '@/lib/splashOverlay';
 /** 'gps' 모드에서 "근처"로 볼 반경 (km). 대표 확정 2026-08-06. */
 export const NEARBY_RADIUS_KM = 3;
 
+/** 반경 필터 규칙 단일 출처 — 실제 기기 좌표의 'gps' 모드에서만 3km, 그 외(전체 지역·fallback·좌표 미확정)는 null(반경 없음). */
+export function nearbyRadiusKm(mode: LocationMode, coordsSource: string | null): number | null {
+  return mode === 'gps' && coordsSource === 'device' ? NEARBY_RADIUS_KM : null;
+}
+
 export type LocationMode = 'gps' | 'all';
 
 /** 위치 권한에 대한 사용자 의사 — 프리프롬프트를 다시 띄울지 판단한다. */

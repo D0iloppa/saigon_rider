@@ -177,7 +177,7 @@
     "statusError": "Failed to change status",
     "emptyTitle": "No listings nearby",
     "emptySub": "Be the first to post",
-    "emptyOutOfArea": "Saigon Rider currently serves Ho Chi Minh City, so we show listings city-wide",
+    "emptyOutOfArea": "We couldn't use your location or you're outside our service area (Ho Chi Minh City), so we're showing listings from all of Ho Chi Minh City.",
     "reviewCount": "{{count}} trades",
     "soldCount": "{{count}} sold",
     "responseVeryFast": "Fast reply",

@@ -79,10 +79,11 @@ export default function FeedList() {
       if (!neighborhoodLoc) return { items: [], total: 0, page, size: 20 };
       return fetchFeed({ filter, lat: neighborhoodLoc.lat, lng: neighborhoodLoc.lng, userId: user?.id, page });
     }
-    if (filter === 'following' && user) {
+    // 팔로잉·내 그룹: 비로그인은 전체 피드/서버 401 대신 빈 상태로
+    if (filter === 'following') {
+      if (!user) return { items: [], total: 0, page, size: 20, hasMore: false };
       return fetchFeed({ filter, userId: user.id, page });
     }
-    // 내 그룹: 비로그인은 서버 401 대신 빈 상태로(가입한 그룹이 없는 것과 동일 안내)
     if (filter === 'groups' && !user) return { items: [], total: 0, page, size: 20, hasMore: false };
     return fetchFeed({ filter, page });
   }, [filter, user, neighborhoodLoc]);

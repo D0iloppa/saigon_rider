@@ -14,6 +14,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { native } from '@/lib/native';
 import { requireServiceLocation } from '@/lib/serviceLocation';
 import { useKeyboard } from '@/hooks/useKeyboard';
+import { toastFeedWriteError } from './feedWriteErrors';
 import styles from './FeedCreate.module.css';
 
 const MAX_IMAGES = 10;
@@ -46,6 +47,13 @@ export default function FeedEdit() {
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+
+  // 수정도 글쓰기와 같이 휴대폰 인증 후에만 — 서버도 403 으로 막는다.
+  useEffect(() => {
+    if (user && !user.phoneVerified && postId) {
+      navigate('/auth/phone-verify', { replace: true, state: { from: { pathname: `/feed/edit/${postId}` } } });
+    }
+  }, [user, postId, navigate]);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const kb = useKeyboard();
   const [originalContent, setOriginalContent] = useState('');
@@ -209,7 +217,7 @@ export default function FeedEdit() {
       try { if (draftKey) sessionStorage.removeItem(draftKey); } catch { /* ignore */ }
       navigate('/profile', { replace: true });
     } catch (err: any) {
-      toast.error(err.message ?? t('feedEdit.saveError'));
+      toastFeedWriteError(err, t, navigate);
     } finally {
       setSaving(false);
     }

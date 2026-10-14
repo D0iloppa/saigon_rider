@@ -177,7 +177,7 @@
     "statusError": "Đổi trạng thái thất bại",
     "emptyTitle": "Chưa có tin gần đây",
     "emptySub": "Hãy đăng tin đầu tiên",
-    "emptyOutOfArea": "Saigon Rider hiện phục vụ Thành phố Hồ Chí Minh nên chúng tôi hiển thị tin đăng toàn thành phố",
+    "emptyOutOfArea": "Chúng tôi không xác định được vị trí của bạn hoặc bạn đang ở ngoài khu vực phục vụ (TP. Hồ Chí Minh), nên đang hiển thị tin đăng trên toàn TP. Hồ Chí Minh.",
     "reviewCount": "Giao dịch {{count}}",
     "soldCount": "Đã bán {{count}}",
     "responseVeryFast": "Phản hồi nhanh",

@@ -16,7 +16,7 @@ import {
 } from '@/api/biz';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import { haversineM } from '@/lib/polyline';
-import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
+import { useLocationStore, nearbyRadiusKm } from '@/store/useLocationStore';
 import BizRichCard from './BizRichCard';
 import styles from './MapSearch.module.css';
 
@@ -56,9 +56,11 @@ export default function MapSearch() {
   // FR-2 제안②: FR-1(동네지도)의 표시범위(내 주변/전체)를 검색에도 적용한다. 0건일 때
   // [전체 지역에서 찾기] CTA 를 누르면 이 화면 한정으로 전역 범위로 넓힌다.
   const regionMode = useLocationStore((s) => s.mode);
+  const coordsSource = useLocationStore((s) => s.coordsSource);
   const coords = useLocationStore((s) => s.coords);
   const [scopeExpanded, setScopeExpanded] = useState(false);
-  const scoped = regionMode === 'gps' && !!coords && !scopeExpanded;
+  const radiusKm = nearbyRadiusKm(regionMode, coordsSource);
+  const scoped = radiusKm != null && !!coords && !scopeExpanded;
 
   useEffect(() => {
     fetchBizCategories().then(setCategories).catch(() => setCategories([]));
@@ -82,7 +84,7 @@ export default function MapSearch() {
     const controller = new AbortController();
     setLoading(true);
     setError(false);
-    const bbox = scoped && coords ? radiusBbox(coords, NEARBY_RADIUS_KM) : HCMC_BBOX;
+    const bbox = scoped && coords && radiusKm != null ? radiusBbox(coords, radiusKm) : HCMC_BBOX;
     fetchBizMapItems({
       ...bbox,
       category: category ?? undefined,
@@ -93,8 +95,8 @@ export default function MapSearch() {
       .then((result) => {
         // bbox 는 반경의 외접 사각형이라 모서리가 반경보다 멀다 — NeighborhoodMap 과 동일하게
         // 실제 거리로 한 번 더 좁힌다.
-        const filtered = scoped && coords
-          ? result.filter((biz) => haversineM(coords.lat, coords.lng, biz.lat, biz.lng) <= NEARBY_RADIUS_KM * 1000)
+        const filtered = scoped && coords && radiusKm != null
+          ? result.filter((biz) => haversineM(coords.lat, coords.lng, biz.lat, biz.lng) <= radiusKm * 1000)
           : result;
         setItems(filtered);
       })
@@ -105,7 +107,7 @@ export default function MapSearch() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [active, debounced, category, reloadKey, i18n.language, scoped, coords]);
+  }, [active, debounced, category, reloadKey, i18n.language, scoped, radiusKm, coords]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(() => setReloadKey((v) => v + 1), []),

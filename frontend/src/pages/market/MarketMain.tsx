@@ -18,7 +18,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { adAtIndex, ADS_ENABLED, AD_LIMIT_INITIAL, nextAdLimit } from '@/lib/adPlacement';
 import { useUserStore } from '@/store/useUserStore';
-import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
+import { useLocationStore, nearbyRadiusKm } from '@/store/useLocationStore';
 import { fetchDistricts, localizedName, type District } from '@/api/master';
 import {
   adHref,
@@ -226,7 +226,7 @@ export default function MarketMain() {
             sort,
             lat: coords?.lat, lng: coords?.lng,
             // 권역 밖/위치 꺼짐(폴백 좌표)이면 반경을 걸지 않는다 — 중심가 3km 가 비면 심사자·해외 사용자에게 빈 화면.
-            radiusKm: effectiveLocationMode === 'gps' && coordsSource !== 'fallback' ? NEARBY_RADIUS_KM : null,
+            radiusKm: nearbyRadiusKm(effectiveLocationMode, coordsSource),
             categoryId,
             viewerId: userId, page, size: 20,
           })
@@ -698,7 +698,7 @@ export default function MarketMain() {
                     <div className={sys.stateTitle}>{t('market.emptyTitle', { defaultValue: '근처에 매물이 없어요' })}</div>
                     <div className={sys.stateDesc}>{t('market.emptySub', { defaultValue: '첫 매물을 등록해보세요' })}</div>
                     {coordsSource === 'fallback' && (
-                      <div className={sys.stateDesc}>{t('market.emptyOutOfArea', { defaultValue: 'Saigon Rider는 현재 호치민시에서 서비스 중이라 도시 전체 매물을 보여드려요' })}</div>
+                      <div className={sys.stateDesc}>{t('market.emptyOutOfArea', { defaultValue: '현재 위치를 확인할 수 없거나 서비스 지역(호치민) 밖이라 호치민 전체 매물을 보여드려요' })}</div>
                     )}
                     {/* 표시범위가 이미 '전체'면 더 넓힐 곳이 없어 무의미한 CTA — 숨긴다. */}
                     {effectiveLocationMode !== 'all' && (

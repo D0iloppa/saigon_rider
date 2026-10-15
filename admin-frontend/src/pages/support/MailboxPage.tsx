@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Alert,
@@ -23,6 +24,7 @@ import {
   type UploadFile,
 } from 'antd'
 import {
+  ArrowLeftOutlined,
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
@@ -90,7 +92,8 @@ function HtmlBody({ html, allowRemoteImages }: { html: string; allowRemoteImages
       sandbox="allow-popups allow-popups-to-escape-sandbox"
       srcDoc={srcDoc}
       title="메일 본문"
-      style={{ width: '100%', height: 520, border: BORDER, background: '#fff' }}
+      // 본문 길이는 sandbox 밖에서 알 수 없으므로 남는 높이를 전부 차지하게 — 최소 520.
+      style={{ width: '100%', flex: 1, minHeight: 520, border: BORDER, background: '#fff' }}
     />
   )
 }
@@ -111,105 +114,141 @@ function ReceiptBadges({ address, messageId }: { address: string; messageId: str
   )
 }
 
+/** 상세 — 목록 대신 오른쪽 영역 전체를 쓴다. 상단 바(목록으로 + 액션)는 스크롤해도 고정. */
 function ReaderPane({
   address,
   folder,
   uid,
+  onBack,
   onCompose,
   onTrash,
   onRestore,
+  onPurge,
+  onUnseen,
 }: {
   address: string
   folder: MailFolder
-  uid: number | null
+  uid: number
+  onBack: () => void
   onCompose: (mode: ComposeMode, orig: MailMessageDetail) => void
   onTrash: (uids: number[]) => void
   onRestore: (uids: number[]) => void
+  onPurge: (uids: number[]) => void
+  onUnseen: (uids: number[]) => void
 }) {
   const detail = useMailMessage(address, folder, uid)
   const [allowRemoteImages, setAllowRemoteImages] = useState(false)
   useEffect(() => setAllowRemoteImages(false), [uid])
-
-  if (uid === null) {
-    return (
-      <div style={{ padding: 48 }}>
-        <Empty description="목록에서 메일을 선택하세요." />
-      </div>
-    )
-  }
-  if (detail.isError) {
-    return (
-      <Alert
-        type="error"
-        showIcon
-        style={{ margin: 16 }}
-        message="메일을 불러오지 못했습니다."
-        description={detail.error instanceof Error ? detail.error.message : undefined}
-      />
-    )
-  }
-  const m = detail.data
-  if (!m || m.uid !== uid) return <Skeleton active paragraph={{ rows: 8 }} style={{ padding: 16 }} />
+  const m = detail.data?.uid === uid ? detail.data : undefined
 
   return (
-    <div style={{ padding: 16 }}>
-      <Space direction="vertical" size={12} style={{ display: 'flex' }}>
-        <Space wrap size={6}>
-          <Button size="small" icon={<RollbackOutlined />} onClick={() => onCompose('reply', m)}>
-            답장
-          </Button>
-          <Button size="small" icon={<RetweetOutlined />} onClick={() => onCompose('reply_all', m)}>
-            전체답장
-          </Button>
-          <Button size="small" icon={<ForwardOutlined />} onClick={() => onCompose('forward', m)}>
-            전달
-          </Button>
-          {folder === 'trash' ? (
-            <Button size="small" icon={<UndoOutlined />} onClick={() => onRestore([m.uid])}>
-              복구
-            </Button>
-          ) : (
-            <Popconfirm title="휴지통으로 옮길까요?" onConfirm={() => onTrash([m.uid])}>
-              <Button size="small" danger icon={<DeleteOutlined />}>
-                삭제
-              </Button>
-            </Popconfirm>
-          )}
-        </Space>
-        <Typography.Title level={5} style={{ margin: 0 }}>
-          {m.subject || '(제목 없음)'}
-        </Typography.Title>
-        <Descriptions column={1} size="small">
-          <Descriptions.Item label="보낸사람">{m.from || '-'}</Descriptions.Item>
-          <Descriptions.Item label="받는사람">{m.to || '-'}</Descriptions.Item>
-          {m.cc && <Descriptions.Item label="참조">{m.cc}</Descriptions.Item>}
-          <Descriptions.Item label="날짜">{formatDate(m.date)}</Descriptions.Item>
-        </Descriptions>
-        {folder === 'sent' && <ReceiptBadges address={address} messageId={m.message_id} />}
-        {m.attachments.length > 0 && (
-          <Space wrap>
-            <PaperClipOutlined />
-            {m.attachments.map((a) => (
-              <a key={a.index} href={attachmentUrl(address, folder, m.uid, a.index)} download={a.filename}>
-                {a.filename} ({Math.ceil(a.size / 1024)} KB)
-              </a>
-            ))}
-          </Space>
-        )}
-        {m.html ? (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 6,
+          padding: '8px 12px',
+          borderBottom: BORDER,
+          background: 'var(--ant-color-bg-container)',
+        }}
+      >
+        <Button size="small" icon={<ArrowLeftOutlined />} onClick={onBack}>
+          목록으로
+        </Button>
+        {m && (
           <>
-            <Space>
-              <Switch size="small" checked={allowRemoteImages} onChange={setAllowRemoteImages} />
-              <Typography.Text type="secondary">외부 이미지 표시</Typography.Text>
-            </Space>
-            <HtmlBody html={m.html} allowRemoteImages={allowRemoteImages} />
+            <Button size="small" icon={<RollbackOutlined />} onClick={() => onCompose('reply', m)}>
+              답장
+            </Button>
+            <Button size="small" icon={<RetweetOutlined />} onClick={() => onCompose('reply_all', m)}>
+              전체답장
+            </Button>
+            <Button size="small" icon={<ForwardOutlined />} onClick={() => onCompose('forward', m)}>
+              전달
+            </Button>
+            {folder === 'trash' ? (
+              <>
+                <Button size="small" icon={<UndoOutlined />} onClick={() => onRestore([m.uid])}>
+                  복구
+                </Button>
+                <Popconfirm
+                  title="영구 삭제할까요? 되돌릴 수 없습니다."
+                  okText="영구 삭제"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => onPurge([m.uid])}
+                >
+                  <Button size="small" danger>
+                    영구 삭제
+                  </Button>
+                </Popconfirm>
+              </>
+            ) : (
+              <>
+                <Popconfirm title="휴지통으로 옮길까요?" onConfirm={() => onTrash([m.uid])}>
+                  <Button size="small" danger icon={<DeleteOutlined />}>
+                    삭제
+                  </Button>
+                </Popconfirm>
+                <Button size="small" onClick={() => onUnseen([m.uid])}>
+                  안읽음
+                </Button>
+              </>
+            )}
           </>
-        ) : m.text ? (
-          <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{m.text}</pre>
-        ) : (
-          <Empty description="본문이 없습니다." />
         )}
-      </Space>
+      </div>
+      {detail.isError ? (
+        <Alert
+          type="error"
+          showIcon
+          style={{ margin: 16 }}
+          message="메일을 불러오지 못했습니다."
+          description={detail.error instanceof Error ? detail.error.message : undefined}
+        />
+      ) : !m ? (
+        <Skeleton active paragraph={{ rows: 8 }} style={{ padding: 16 }} />
+      ) : (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, padding: 16 }}>
+          <Typography.Title level={5} style={{ margin: 0 }}>
+            {m.subject || '(제목 없음)'}
+          </Typography.Title>
+          <Descriptions column={1} size="small">
+            <Descriptions.Item label="보낸사람">{m.from || '-'}</Descriptions.Item>
+            <Descriptions.Item label="받는사람">{m.to || '-'}</Descriptions.Item>
+            {m.cc && <Descriptions.Item label="참조">{m.cc}</Descriptions.Item>}
+            <Descriptions.Item label="날짜">{formatDate(m.date)}</Descriptions.Item>
+          </Descriptions>
+          {folder === 'sent' && <ReceiptBadges address={address} messageId={m.message_id} />}
+          {m.attachments.length > 0 && (
+            <Space wrap>
+              <PaperClipOutlined />
+              {m.attachments.map((a) => (
+                <a key={a.index} href={attachmentUrl(address, folder, m.uid, a.index)} download={a.filename}>
+                  {a.filename} ({Math.ceil(a.size / 1024)} KB)
+                </a>
+              ))}
+            </Space>
+          )}
+          {m.html ? (
+            <>
+              <Space>
+                <Switch size="small" checked={allowRemoteImages} onChange={setAllowRemoteImages} />
+                <Typography.Text type="secondary">외부 이미지 표시</Typography.Text>
+              </Space>
+              <HtmlBody html={m.html} allowRemoteImages={allowRemoteImages} />
+            </>
+          ) : m.text ? (
+            <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{m.text}</pre>
+          ) : (
+            <Empty description="본문이 없습니다." />
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -361,25 +400,41 @@ function ComposeModal({
 
 export default function MailboxPage() {
   const screens = Grid.useBreakpoint()
-  const wide = !!screens.xl // 목록과 읽기 패널을 나란히
   const stackedNav = !screens.md // 메일함 패널을 상단 가로 바로
   const queryClient = useQueryClient()
   const { data: mailboxes, isLoading: mailboxesLoading } = useMailboxes()
-  const [address, setAddress] = useState('')
-  const [view, setView] = useState<View>('inbox')
-  const [page, setPage] = useState(1)
-  const [selectedUid, setSelectedUid] = useState<number | null>(null)
+  // 목록 상태는 URL 쿼리(box·folder·page·uid)에 둔다 — 뒤로가기로 목록 복귀, 새로고침해도 같은 메일 유지.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const address = searchParams.get('box') ?? ''
+  const folderParam = searchParams.get('folder')
+  const view: View = NAV.some((f) => f.key === folderParam) ? (folderParam as View) : 'inbox'
+  const page = Math.max(1, Number(searchParams.get('page')) || 1)
+  const uidParam = searchParams.get('uid')
+  const uid = uidParam && /^\d+$/.test(uidParam) ? Number(uidParam) : null
   const [selectedKeys, setSelectedKeys] = useState<number[]>([])
   const [compose, setCompose] = useState<ComposeState | null>(null)
   const folder: MailFolder = view === 'receipts' ? 'sent' : view
 
+  const setParams = (patch: Record<string, string | number | null>, replace = false) => {
+    const next = new URLSearchParams(searchParams)
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null) next.delete(k)
+      else next.set(k, String(v))
+    }
+    setSearchParams(next, { replace })
+  }
+
   useEffect(() => {
-    if (!address && mailboxes?.length) setAddress(mailboxes[0].address)
+    if (!address && mailboxes?.length) setParams({ box: mailboxes[0].address }, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, mailboxes])
+
+  // 메일함·폴더·페이지가 바뀌면(뒤로가기 포함) 체크 선택은 의미를 잃는다.
+  useEffect(() => setSelectedKeys([]), [address, folder, page])
 
   const folders = useMailFolders(address)
   const list = useMailMessages(address, folder, page, PAGE_SIZE, view !== 'receipts')
-  const detail = useMailMessage(address, folder, selectedUid)
+  const detail = useMailMessage(address, folder, uid)
 
   // 상세 열람 시 서버가 \Seen 을 붙인다 → 목록의 굵기와 폴더 배지를 즉시 맞춘다(목록 재조회 없이).
   const openedUid = detail.data?.uid
@@ -397,29 +452,23 @@ export default function MailboxPage() {
     queryClient.invalidateQueries({ queryKey: ['mailbox-folders', address] })
     queryClient.invalidateQueries({ queryKey: ['mailbox-receipts', address] })
   }
-  const reset = () => {
-    setPage(1)
-    setSelectedUid(null)
-    setSelectedKeys([])
-  }
-  const switchView = (v: View) => {
-    setView(v)
-    reset()
-  }
+  const switchView = (v: View) => setParams({ folder: v, page: null, uid: null })
+  // 액션 후 복귀는 replace — 뒤로가기가 이미 지워진 메일의 상세로 돌아가지 않게.
+  const closeDetail = (replace = false) => setParams({ uid: null }, replace)
 
   const run = async (fn: () => Promise<unknown>, ok: string, uids: number[] = []) => {
     try {
       await fn()
       message.success(ok)
       setSelectedKeys([])
-      if (selectedUid !== null && uids.includes(selectedUid)) setSelectedUid(null)
+      if (uid !== null && uids.includes(uid)) closeDetail(true)
       refresh()
     } catch (e) {
       message.error(e instanceof Error ? e.message : '처리에 실패했습니다.')
     }
   }
-  const markSeen = (seen: boolean) =>
-    run(() => setSeen(address, folder, selectedKeys, seen), seen ? '읽음으로 표시했습니다.' : '안읽음으로 표시했습니다.')
+  const markSeen = (seen: boolean, uids = selectedKeys) =>
+    run(() => setSeen(address, folder, uids, seen), seen ? '읽음으로 표시했습니다.' : '안읽음으로 표시했습니다.', uids)
   const trash = (uids: number[]) => run(() => moveToTrash(address, folder, uids), `${uids.length}통을 휴지통으로 옮겼습니다.`, uids)
   const restore = (uids: number[]) => run(() => restoreFromTrash(address, uids), `${uids.length}통을 받은메일함으로 복구했습니다.`, uids)
   const purge = (uids: number[]) => run(() => purgeMessages(address, uids), `${uids.length}통을 영구 삭제했습니다.`, uids)
@@ -429,7 +478,7 @@ export default function MailboxPage() {
       content: '휴지통의 모든 메일이 영구 삭제되며 되돌릴 수 없습니다.',
       okText: '비우기',
       okButtonProps: { danger: true },
-      onOk: () => run(async () => emptyTrash(address), '휴지통을 비웠습니다.', selectedUid !== null ? [selectedUid] : []),
+      onOk: () => run(async () => emptyTrash(address), '휴지통을 비웠습니다.', uid !== null ? [uid] : []),
     })
 
   if (!mailboxesLoading && !mailboxes?.length) {
@@ -455,10 +504,7 @@ export default function MailboxPage() {
         value={address || undefined}
         loading={mailboxesLoading}
         options={(mailboxes ?? []).map((m) => ({ value: m.address, label: m.address }))}
-        onChange={(v) => {
-          setAddress(v)
-          reset()
-        }}
+        onChange={(v) => setParams({ box: v, page: null, uid: null })}
       />
       <Button
         type="primary"
@@ -569,7 +615,7 @@ export default function MailboxPage() {
     {
       title: view === 'sent' ? '받는사람' : '보낸사람',
       key: 'party',
-      width: 200,
+      width: 220,
       ellipsis: true,
       render: (_: unknown, r: MailMessageRow) =>
         view === 'sent' ? <span title={r.to}>{r.to || '-'}</span> : <span title={r.from_addr}>{r.from_name || r.from_addr || '-'}</span>,
@@ -578,15 +624,19 @@ export default function MailboxPage() {
       title: '제목',
       key: 'subject',
       ellipsis: true,
+      render: (_: unknown, r: MailMessageRow) => r.subject || '(제목 없음)',
+    },
+    {
+      key: 'flags',
+      width: 64,
       render: (_: unknown, r: MailMessageRow) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          {r.has_attachments && <PaperClipOutlined style={{ flexShrink: 0 }} />}
-          {r.answered && <RollbackOutlined title="답장함" style={{ flexShrink: 0, color: 'var(--ant-color-text-tertiary)' }} />}
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.subject || '(제목 없음)'}</span>
-        </span>
+        <Space size={6}>
+          {r.has_attachments && <PaperClipOutlined />}
+          {r.answered && <RollbackOutlined title="답장함" style={{ color: 'var(--ant-color-text-tertiary)' }} />}
+        </Space>
       ),
     },
-    { title: '날짜', dataIndex: 'date', key: 'date', width: 140, render: formatDate },
+    { title: '날짜', dataIndex: 'date', key: 'date', width: 150, render: formatDate },
   ]
 
   return (
@@ -629,59 +679,46 @@ export default function MailboxPage() {
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               <ReadReceiptsPane address={address} />
             </div>
+          ) : uid !== null ? (
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              <ReaderPane
+                address={address}
+                folder={folder}
+                uid={uid}
+                onBack={() => closeDetail()}
+                onCompose={(mode, orig) => setCompose({ mode, orig, origFolder: folder })}
+                onTrash={trash}
+                onRestore={restore}
+                onPurge={purge}
+                onUnseen={(uids) => markSeen(false, uids)}
+              />
+            </div>
           ) : (
             <>
               {toolbar}
-              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: wide ? 'row' : 'column' }}>
-                <div
-                  style={{
-                    flex: wide ? '0 0 46%' : undefined,
-                    minWidth: 0,
-                    overflowY: 'auto',
-                    borderRight: wide ? BORDER : undefined,
-                    borderBottom: wide ? undefined : BORDER,
+              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                <Table<MailMessageRow>
+                  rowKey="uid"
+                  size="small"
+                  style={{ border: 0, borderRadius: 0 }}
+                  loading={list.isLoading}
+                  columns={columns}
+                  dataSource={list.data?.items ?? []}
+                  rowSelection={{ selectedRowKeys: selectedKeys, onChange: (keys) => setSelectedKeys(keys as number[]) }}
+                  onRow={(r) => ({
+                    onClick: () => setParams({ uid: r.uid }),
+                    style: { cursor: 'pointer', fontWeight: r.seen ? undefined : 600 },
+                  })}
+                  locale={{ emptyText: <Empty description="메일이 없습니다." /> }}
+                  pagination={{
+                    current: page,
+                    pageSize: PAGE_SIZE,
+                    total,
+                    size: 'small',
+                    showSizeChanger: false,
+                    onChange: (p) => setParams({ page: p === 1 ? null : p }),
                   }}
-                >
-                  <Table<MailMessageRow>
-                    rowKey="uid"
-                    size="small"
-                    style={{ border: 0, borderRadius: 0 }}
-                    loading={list.isLoading}
-                    columns={columns}
-                    dataSource={list.data?.items ?? []}
-                    rowSelection={{ selectedRowKeys: selectedKeys, onChange: (keys) => setSelectedKeys(keys as number[]) }}
-                    onRow={(r) => ({
-                      onClick: () => setSelectedUid(r.uid),
-                      style: {
-                        cursor: 'pointer',
-                        fontWeight: r.seen ? undefined : 600,
-                        background: r.uid === selectedUid ? 'var(--ant-color-primary-bg)' : undefined,
-                      },
-                    })}
-                    locale={{ emptyText: <Empty description="메일이 없습니다." /> }}
-                    pagination={{
-                      current: page,
-                      pageSize: PAGE_SIZE,
-                      total,
-                      size: 'small',
-                      showSizeChanger: false,
-                      onChange: (p) => {
-                        setPage(p)
-                        setSelectedKeys([])
-                      },
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1, minWidth: 0, minHeight: wide ? undefined : 360, overflowY: 'auto' }}>
-                  <ReaderPane
-                    address={address}
-                    folder={folder}
-                    uid={selectedUid}
-                    onCompose={(mode, orig) => setCompose({ mode, orig, origFolder: folder })}
-                    onTrash={trash}
-                    onRestore={restore}
-                  />
-                </div>
+                />
               </div>
             </>
           )}

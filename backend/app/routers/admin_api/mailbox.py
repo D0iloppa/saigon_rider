@@ -59,12 +59,8 @@ _MESSAGES_RE = re.compile(rb"MESSAGES (\d+)")
 _UNSEEN_RE = re.compile(rb"UNSEEN (\d+)")
 _LIST_FETCH = "(UID FLAGS RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE)])"
 
-# D1 고지 배너 — 수신자는 베트남/영어권 고객이 대부분이라 3개 언어를 한 줄로.
-_RECEIPT_BANNER = (
-    '<div style="color:#8a8a8a;font-size:11px;margin-bottom:12px">'
-    "Email này có yêu cầu xác nhận đã đọc · This email requests a read receipt · 본 메일은 수신확인을 요청한 메일입니다."
-    "</div>"
-)
+# D1 고지 배너 — 그룹웨어와 맞춰 비워 둔다(대표 결정 2026-10-15). 다시 켜려면 여기에 HTML 한 줄.
+_RECEIPT_BANNER = ""
 _QUOTE_STYLE = "margin:0 0 0 .8ex;border-left:1px solid #ccc;padding-left:1ex"
 # 인용 원문에서 제거할 활성 콘텐츠 — 스크립트·프레임·폼·문서 래퍼·이벤트 핸들러·javascript: URL. (서버측 sanitize)
 _ACTIVE_HTML = [

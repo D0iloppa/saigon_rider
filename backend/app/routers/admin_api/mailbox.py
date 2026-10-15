@@ -7,6 +7,7 @@ partner@/support@ 메일함을 운영자 콘솔에서 읽고 답한다. 그룹�
 - 삭제 = Trash 로 MOVE. 복구 = Trash → INBOX. 영구삭제·비우기는 Trash 에서만. 스팸 폴더는 다루지 않는다.
 - 발송 = SMTP submission(STARTTLS, 메일함 계정 인증 — 서버 milter 가 DKIM 서명) → Sent 에 \\Seen 사본 APPEND →
   답장이면 원문에 \\Answered. 본문은 평문 입력을 HTML 로 변환(+text/plain 대체본), 원문 인용은 서버가 붙인다.
+  수신자별 SMTP 결과를 부분 반환한다(sent/failed) — 한 명이라도 나갔으면 200, 전원 실패만 502. 사본 저장 실패는 경고 필드.
 - 수신확인(그룹웨어 DESIGN-MAIL-read-receipt.md R2·R3·R5~R9, D1~D3): To/Cc 수신자별 토큰 픽셀을 넣어 별도 SMTP
   트랜잭션으로 보내고(R8), Sent 사본에는 배너만(R7). 열람은 공개 라우터(routers/mail_receipt.py)가 기록. 항상 켬(R1 UI 없음).
 
@@ -57,7 +58,10 @@ _FLAGS_RE = re.compile(rb"FLAGS \(([^)]*)\)")
 _SIZE_RE = re.compile(rb"RFC822\.SIZE (\d+)")
 _MESSAGES_RE = re.compile(rb"MESSAGES (\d+)")
 _UNSEEN_RE = re.compile(rb"UNSEEN (\d+)")
-_LIST_FETCH = "(UID FLAGS RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE)])"
+_LIST_FETCH = "(UID FLAGS RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE)])"
+# BODYSTRUCTURE 는 따로 FETCH — 비ASCII 첨부 파일명이 literal({n}) 로 오면 _group_fetch 가 헤더 literal 과 이어 붙여
+# From/Subject 가 깨진다. 분리하면 메시지당 literal 이 헤더 하나뿐이라 안전하다.
+_STRUCT_FETCH = "(UID BODYSTRUCTURE)"
 
 # D1 고지 배너 — 그룹웨어와 맞춰 비워 둔다(대표 결정 2026-10-15). 다시 켜려면 여기에 HTML 한 줄.
 _RECEIPT_BANNER = ""
@@ -70,6 +74,9 @@ _ACTIVE_HTML = [
     re.compile(r"""(?is)\s+on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)"""),
     re.compile(r"""(?is)(href|src)\s*=\s*(["']?)\s*javascript:[^"'>\s]*\2"""),
 ]
+# 우리 수신확인 픽셀 — 인용 원문·콘솔 상세 HTML 에서 제거한다(R7). 콘솔 iframe 은 sandbox 라 admin_session 쿠키가
+# 안 실리고, 수신자가 답장에 원문을 인용하면 과거 픽셀이 되돌아오므로 쿠키 가드에 의존하지 않는다.
+_PIXEL_RE = re.compile(rf"(?is)<img\b[^>]*{re.escape(BFF_PUBLIC_URL)}/mail/r/[^>]*>")
 
 
 class MailboxOut(BaseModel):
@@ -115,7 +122,8 @@ class MessageDetail(BaseModel):
     subject: str
     date: datetime | None
     message_id: str
-    # 답장 수신자 계산용("이름 <주소>" 형식). reply_to 는 Reply-To 가 있으면 그것, 없으면 From.
+    # 답장 수신자 계산용("이름 <주소>" 형식). reply_to 는 Reply-To 가 있으면 그것, 없으면 From —
+    # 단 From 이 이 메일함(=보낸메일)이면 원문 To.
     reply_to: list[str]
     to_addrs: list[str]
     cc_addrs: list[str]
@@ -137,8 +145,16 @@ class PurgeOut(BaseModel):
     purged: int
 
 
+class SendFailure(BaseModel):
+    address: str
+    error: str
+
+
 class SendOut(BaseModel):
     message_id: str
+    sent: list[str]
+    failed: list[SendFailure]
+    sent_copy_saved: bool
 
 
 class ReadReceiptOut(BaseModel):
@@ -268,6 +284,15 @@ def _attachment_bytes(part: EmailMessage) -> bytes:
     return raw
 
 
+def _attachment_size(part: EmailMessage) -> int:
+    """표시용 크기 추정 — 디코딩하지 않는다(base64 는 인코딩 길이의 3/4). message/rfc822 만 직렬화."""
+    payload = part.get_payload()
+    if not isinstance(payload, str):
+        return len(_attachment_bytes(part))
+    n = len(payload)
+    return n * 3 // 4 if part.get("Content-Transfer-Encoding", "").strip().lower() == "base64" else n
+
+
 def _fetch_message(conn: imaplib.IMAP4_SSL, uid: int) -> EmailMessage:
     _typ, data = conn.uid("FETCH", str(uid), "(BODY.PEEK[])")
     groups = _group_fetch(data)
@@ -327,12 +352,22 @@ async def list_messages(
         if not page_uids:
             return MessagePage(total=len(uids), items=[])
 
-        _typ, data = conn.uid("FETCH", ",".join(map(str, page_uids)), _LIST_FETCH)
+        uidset = ",".join(map(str, page_uids))
+        # BODYSTRUCTURE 의 disposition 토큰만 본다 — 파싱 없이 가볍게. (파일명 literal 은 메타에 안 섞이므로 무관)
+        _typ, data = conn.uid("FETCH", uidset, _STRUCT_FETCH)
+        has_attachments: dict[int, bool] = {}
+        for meta, _literal in _group_fetch(data):
+            uid_m = _UID_RE.search(meta)
+            if uid_m is not None:
+                has_attachments[int(uid_m.group(1))] = b'"attachment"' in meta.lower()
+
+        _typ, data = conn.uid("FETCH", uidset, _LIST_FETCH)
         items = []
         for meta, headers in _group_fetch(data):
             uid_m = _UID_RE.search(meta)
             if uid_m is None:
                 continue
+            row_uid = int(uid_m.group(1))
             msg = _parse(headers)
             from_name, from_addr = _from_parts(msg)
             flags_m = _FLAGS_RE.search(meta)
@@ -340,7 +375,7 @@ async def list_messages(
             size_m = _SIZE_RE.search(meta)
             items.append(
                 MessageRow(
-                    uid=int(uid_m.group(1)),
+                    uid=row_uid,
                     from_name=from_name,
                     from_addr=from_addr,
                     to=_header_str(msg, "To"),
@@ -348,8 +383,7 @@ async def list_messages(
                     date=_date(msg),
                     seen=b"\\Seen" in flags,
                     answered=b"\\Answered" in flags,
-                    # BODYSTRUCTURE 의 disposition 토큰만 본다 — 파싱 없이 가볍게.
-                    has_attachments=b'"attachment"' in meta.lower(),
+                    has_attachments=has_attachments.get(row_uid, False),
                     size=int(size_m.group(1)) if size_m else 0,
                 )
             )
@@ -374,6 +408,12 @@ async def get_message(
         msg = _fetch_message(conn, uid)
         conn.uid("STORE", str(uid), "+FLAGS.SILENT", "(\\Seen)")
         text, html = _body_parts(msg)
+        _from_name, from_addr = _from_parts(msg)
+        # 보낸메일(From 이 이 메일함)의 답장 대상은 원문 To — Reply-To/From 은 우리 자신이다.
+        if from_addr.lower() == address.lower():
+            reply_to = _addr_list(msg, "To")
+        else:
+            reply_to = _addr_list(msg, "Reply-To") or _addr_list(msg, "From")
         return MessageDetail(
             uid=uid,
             from_=_header_str(msg, "From"),
@@ -382,17 +422,17 @@ async def get_message(
             subject=_header_str(msg, "Subject"),
             date=_date(msg),
             message_id=_header_str(msg, "Message-ID"),
-            reply_to=_addr_list(msg, "Reply-To") or _addr_list(msg, "From"),
+            reply_to=reply_to,
             to_addrs=_addr_list(msg, "To"),
             cc_addrs=_addr_list(msg, "Cc"),
             text=text,
-            html=html,
+            html=_PIXEL_RE.sub("", html) if html else html,
             attachments=[
                 AttachmentOut(
                     index=i,
                     filename=part.get_filename() or f"attachment-{i}",
                     content_type=part.get_content_type(),
-                    size=len(_attachment_bytes(part)),
+                    size=_attachment_size(part),
                 )
                 for i, part in enumerate(msg.iter_attachments())
             ],
@@ -570,7 +610,7 @@ def _quote(mode: str, orig: EmailMessage) -> tuple[str, str]:
     """답장/전달 인용 (text, html). 안내 문구는 수신자 언어를 모르므로 통상 관례인 영어."""
     orig_text, orig_html = _body_parts(orig)
     text_src = (orig_text or (_html_to_text(orig_html) if orig_html else "")).strip()
-    html_src = _strip_active_html(orig_html) if orig_html else _text_to_html(text_src)
+    html_src = _PIXEL_RE.sub("", _strip_active_html(orig_html)) if orig_html else _text_to_html(text_src)
     sender = _header_str(orig, "From")
     date = _date(orig)
     date_s = date.strftime("%Y-%m-%d %H:%M %z") if date else _header_str(orig, "Date")
@@ -692,8 +732,66 @@ async def send_message(
     tokens: dict[str, uuid.UUID] = {}
     for a in to_list + cc_list:
         tokens.setdefault(a.addr_spec.lower(), uuid.uuid4())
-    sent_at = datetime.now(UTC)
-    for rcpt, token in tokens.items():
+
+    # MIME(첨부 base64 포함)은 1회 구성 — 수신자별로는 html 대안(픽셀)만 갈아끼운다.
+    msg = _build_message(
+        sender=sender,
+        to=to_list,
+        cc=cc_list,
+        subject=subject,
+        text=text,
+        html=html,
+        message_id=message_id,
+        in_reply_to=in_reply_to,
+        references=references,
+        attachments=attachments,
+    )
+    html_part = msg.get_body(preferencelist=("html",))
+
+    def render(html_body: str) -> bytes:
+        html_part.set_content(html_body, subtype="html")
+        return msg.as_bytes()
+
+    def run(conn: imaplib.IMAP4_SSL) -> tuple[list[tuple[str, uuid.UUID, datetime]], list[SendFailure], bool]:
+        """반환: (성공 [(수신자, 토큰, 전송완료시각)], 실패, 사본 저장 여부). 수신자별 SMTP 트랜잭션(R8)이라 부분 성공이 있다."""
+        sent: list[tuple[str, uuid.UUID, datetime]] = []
+        failed: list[SendFailure] = []
+        try:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.login(address, password)
+                for rcpt, token in tokens.items():
+                    try:
+                        smtp.sendmail(address, [rcpt], render(_with_pixel(html, token)))
+                    except smtplib.SMTPException as e:
+                        failed.append(SendFailure(address=rcpt, error=str(e)))
+                        continue
+                    sent.append((rcpt, token, datetime.now(UTC)))  # D3 10초 창의 기준 — 수신자별 전송 완료 시각
+        except (smtplib.SMTPException, OSError) as e:
+            # 연결·인증 실패 또는 세션 중단 — 아직 시도 못 한 수신자는 전부 실패.
+            done = {r for r, _t, _at in sent} | {f.address for f in failed}
+            failed += [SendFailure(address=rcpt, error=str(e)) for rcpt in tokens if rcpt not in done]
+        if not sent:
+            raise HTTPException(status_code=502, detail=f"메일 발송 실패: {failed[0].error}")
+        # 보낸메일함 사본 — 픽셀 없이 배너만(R7 이중 방어), Message-ID 는 공유. 실패해도 발송은 된 것이므로 경고만.
+        with contextlib.suppress(imaplib.IMAP4.error):
+            conn.create(_FOLDERS["sent"])
+        try:
+            typ, _data = conn.append(
+                _FOLDERS["sent"], "(\\Seen)", imaplib.Time2Internaldate(time.time()), render(_with_banner(html))
+            )
+            sent_copy_saved = typ == "OK"
+        except (imaplib.IMAP4.error, OSError):
+            sent_copy_saved = False
+        if orig_uid is not None and orig_folder is not None and mode in ("reply", "reply_all"):
+            with contextlib.suppress(imaplib.IMAP4.error, HTTPException):
+                _select(conn, _FOLDERS[orig_folder], readonly=False)
+                conn.uid("STORE", str(orig_uid), "+FLAGS.SILENT", "(\\Answered)")
+        return sent, failed, sent_copy_saved
+
+    sent, failed, sent_copy_saved = await _with_mailbox(address, run, folder=None)
+    # 수신확인 행은 실제로 나간 수신자만 — 실패분을 남기면 재발송 때 중복·유령 '읽지않음' 이 생긴다.
+    for rcpt, token, sent_at in sent:
         db.add(
             AdminMailReadReceipt(
                 message_id=message_id,
@@ -704,44 +802,6 @@ async def send_message(
                 sent_at=sent_at,
             )
         )
-
-    def build(html_body: str) -> EmailMessage:
-        return _build_message(
-            sender=sender,
-            to=to_list,
-            cc=cc_list,
-            subject=subject,
-            text=text,
-            html=html_body,
-            message_id=message_id,
-            in_reply_to=in_reply_to,
-            references=references,
-            attachments=attachments,
-        )
-
-    def run(conn: imaplib.IMAP4_SSL) -> None:
-        try:
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
-                smtp.starttls(context=ssl.create_default_context())
-                smtp.login(address, password)
-                for rcpt, token in tokens.items():
-                    smtp.sendmail(address, [rcpt], build(_with_pixel(html, token)).as_bytes())
-        except (smtplib.SMTPException, OSError) as e:
-            raise HTTPException(status_code=502, detail=f"메일 발송 실패: {e}") from e
-        # 보낸메일함 사본 — 픽셀 없이 배너만(R7 이중 방어), Message-ID 는 공유.
-        with contextlib.suppress(imaplib.IMAP4.error):
-            conn.create(_FOLDERS["sent"])
-        typ, _data = conn.append(
-            _FOLDERS["sent"], "(\\Seen)", imaplib.Time2Internaldate(time.time()), build(_with_banner(html)).as_bytes()
-        )
-        if typ != "OK":
-            raise HTTPException(status_code=502, detail="메일은 발송됐지만 보낸메일함 사본 저장에 실패했습니다.")
-        if orig_uid is not None and orig_folder is not None and mode in ("reply", "reply_all"):
-            with contextlib.suppress(imaplib.IMAP4.error, HTTPException):
-                _select(conn, _FOLDERS[orig_folder], readonly=False)
-                conn.uid("STORE", str(orig_uid), "+FLAGS.SILENT", "(\\Answered)")
-
-    await _with_mailbox(address, run, folder=None)
     await audit(
         db,
         session,
@@ -758,10 +818,17 @@ async def send_message(
             "orig_folder": orig_folder,
             "orig_uid": orig_uid,
             "attachments": len(attachments),
+            "failed": [f.address for f in failed],
+            "sent_copy_saved": sent_copy_saved,
         },
     )
     await db.commit()
-    return SendOut(message_id=message_id)
+    return SendOut(
+        message_id=message_id,
+        sent=[rcpt for rcpt, _t, _at in sent],
+        failed=failed,
+        sent_copy_saved=sent_copy_saved,
+    )
 
 
 # ── 수신확인 ──────────────────────────────────────────────────────

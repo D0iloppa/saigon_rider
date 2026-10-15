@@ -136,10 +136,22 @@ function ReaderPane({
   onPurge: (uids: number[]) => void
   onUnseen: (uids: number[]) => void
 }) {
+  const queryClient = useQueryClient()
   const detail = useMailMessage(address, folder, uid)
   const [allowRemoteImages, setAllowRemoteImages] = useState(false)
   useEffect(() => setAllowRemoteImages(false), [uid])
   const m = detail.data?.uid === uid ? detail.data : undefined
+
+  // 상세 열람 시 서버가 \Seen 을 붙인다 → 목록의 굵기와 폴더 배지를 즉시 맞춘다(목록 재조회 없이).
+  const openedUid = detail.data?.uid
+  useEffect(() => {
+    if (openedUid === undefined) return
+    queryClient.setQueriesData<MailMessagePage>({ queryKey: ['mailbox-messages', address, folder] }, (prev) =>
+      prev ? { ...prev, items: prev.items.map((r) => (r.uid === openedUid && !r.seen ? { ...r, seen: true } : r)) } : prev,
+    )
+    queryClient.invalidateQueries({ queryKey: ['mailbox-folders', address] })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openedUid])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
@@ -302,13 +314,16 @@ function ComposeModal({
   address: string
   compose: ComposeState
   onClose: () => void
-  onSent: () => void
+  /** done=false 는 부분 실패 — 목록만 갱신하고 모달은 실패 주소로 재발송할 수 있게 열어 둔다. */
+  onSent: (done: boolean) => void
 }) {
   const [form] = Form.useForm<{ to: string[]; cc: string[]; subject: string; body: string; includeOriginal: boolean }>()
   const [fileList, setFileList] = useState<UploadFile[]>([])
   const [sending, setSending] = useState(false)
   const { mode, orig, origFolder } = compose
-  const isSelf = (a: string) => a.toLowerCase().includes(address.toLowerCase())
+  // "이름 <주소>" 에서 주소만 뽑아 정확 일치 — includes 는 support@ 가 support@x.com/ko-support@ 에도 걸린다.
+  const addrOf = (a: string) => (a.match(/<([^>]+)>/)?.[1] ?? a).trim().toLowerCase()
+  const isSelf = (a: string) => addrOf(a) === address.toLowerCase()
   const uniq = (list: string[]) => {
     const seen = new Set<string>()
     return list.filter((a) => {
@@ -328,7 +343,7 @@ function ComposeModal({
   const submit = async (v: { to: string[]; cc: string[]; subject: string; body: string; includeOriginal: boolean }) => {
     setSending(true)
     try {
-      await sendMail(address, {
+      const res = await sendMail(address, {
         mode,
         to: v.to,
         cc: v.cc ?? [],
@@ -339,8 +354,18 @@ function ComposeModal({
         include_original_attachments: v.includeOriginal,
         files: fileList.map((f) => f.originFileObj).filter((f): f is NonNullable<typeof f> => !!f),
       })
-      message.success('발송했습니다.')
-      onSent()
+      const copyWarn = res.sent_copy_saved ? '' : ' 보낸메일함 사본 저장에는 실패했습니다.'
+      if (res.failed.length === 0) {
+        if (copyWarn) message.warning(`발송했습니다.${copyWarn}`, 6)
+        else message.success('발송했습니다.')
+        onSent(true)
+        return
+      }
+      // 부분 실패 — 받는사람을 실패 주소만 남겨 그대로 다시 보내면 실패분만 재발송된다(성공분은 이미 나갔다).
+      const failedAddrs = res.failed.map((f) => f.address)
+      message.warning(`${res.sent.length}명에게 발송했고 ${failedAddrs.length}명은 실패했습니다: ${failedAddrs.join(', ')}.${copyWarn}`, 8)
+      form.setFieldsValue({ to: failedAddrs, cc: [] })
+      onSent(false)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '발송에 실패했습니다.')
     } finally {
@@ -434,18 +459,6 @@ export default function MailboxPage() {
 
   const folders = useMailFolders(address)
   const list = useMailMessages(address, folder, page, PAGE_SIZE, view !== 'receipts')
-  const detail = useMailMessage(address, folder, uid)
-
-  // 상세 열람 시 서버가 \Seen 을 붙인다 → 목록의 굵기와 폴더 배지를 즉시 맞춘다(목록 재조회 없이).
-  const openedUid = detail.data?.uid
-  useEffect(() => {
-    if (openedUid === undefined) return
-    queryClient.setQueriesData<MailMessagePage>({ queryKey: ['mailbox-messages', address, folder] }, (prev) =>
-      prev ? { ...prev, items: prev.items.map((m) => (m.uid === openedUid && !m.seen ? { ...m, seen: true } : m)) } : prev,
-    )
-    queryClient.invalidateQueries({ queryKey: ['mailbox-folders', address] })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openedUid])
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['mailbox-messages', address] })
@@ -729,8 +742,8 @@ export default function MailboxPage() {
           address={address}
           compose={compose}
           onClose={() => setCompose(null)}
-          onSent={() => {
-            setCompose(null)
+          onSent={(done) => {
+            if (done) setCompose(null)
             refresh()
           }}
         />

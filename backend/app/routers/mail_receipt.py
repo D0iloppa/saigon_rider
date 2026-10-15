@@ -4,7 +4,8 @@
 - 인증 없음(외부 수신자는 세션이 없다). 유효/무효 토큰 모두 200 + 동일 1x1 GIF, no-store (R9).
 - IP/User-Agent 는 저장하지 않는다 (D2) — 열람 여부/최초 시각/횟수만.
 - 발송 후 10초 이내 첫 요청은 보안 게이트웨이 사전 스캔으로 간주해 기록하지 않는다 (D3).
-- admin_session 쿠키가 있으면 발신자(콘솔) 본인 열람으로 보고 기록하지 않는다 (R7).
+- admin_session 쿠키가 있으면 발신자(콘솔) 본인 열람으로 보고 기록하지 않는다 (R7) — 보조 가드일 뿐이다.
+  콘솔의 sandbox iframe 은 쿠키를 안 보내므로, 본 방어는 mailbox.py 가 상세 응답·인용 원문에서 픽셀 img 를 제거하는 것.
 
 경로: GET /api/mail/r/{token}.gif → nginx 를 거친 공개 URL 은 `${BFF_PUBLIC_URL}/mail/r/{token}.gif`.
 """

@@ -65,6 +65,14 @@ export interface MailReadReceipt {
   open_count: number
 }
 
+/** 수신자별 SMTP 결과 — 한 명이라도 나갔으면 200(부분 실패 포함), 전원 실패만 502. */
+export interface SendMailResult {
+  message_id: string
+  sent: string[]
+  failed: { address: string; error: string }[]
+  sent_copy_saved: boolean
+}
+
 export interface SendMailInput {
   mode: ComposeMode
   to: string[]
@@ -160,5 +168,5 @@ export function sendMail(address: string, input: SendMailInput) {
     form.append('include_original_attachments', input.include_original_attachments ? 'true' : 'false')
   }
   for (const f of input.files) form.append('files', f, f.name)
-  return apiUpload<{ message_id: string }>(`${base(address)}/send`, form)
+  return apiUpload<SendMailResult>(`${base(address)}/send`, form)
 }

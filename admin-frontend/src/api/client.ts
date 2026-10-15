@@ -63,10 +63,11 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /** multipart 업로드 전용 — `api()`와 달리 Content-Type 을 지정하지 않는다(FormData 가 boundary 를
- * 포함한 헤더를 스스로 세팅해야 하므로). 인증·401·에러 처리는 `api()`와 동일하게 맞춘다. */
-export async function apiUpload<T>(path: string, file: File): Promise<T> {
-  const form = new FormData()
-  form.append('file', file)
+ * 포함한 헤더를 스스로 세팅해야 하므로). 인증·401·에러 처리는 `api()`와 동일하게 맞춘다.
+ * File 하나면 `file` 필드로 감싸고, 이미 조립된 FormData 면 그대로 보낸다(메일 발송처럼 필드가 여럿일 때). */
+export async function apiUpload<T>(path: string, file: File | FormData): Promise<T> {
+  const form = file instanceof FormData ? file : new FormData()
+  if (!(file instanceof FormData)) form.append('file', file)
 
   const res = await fetch(path, { method: 'POST', credentials: 'same-origin', body: form })
 

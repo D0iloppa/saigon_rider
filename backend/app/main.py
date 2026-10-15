@@ -39,6 +39,7 @@ from .routers import (
     inventory,  # noqa: F401 -- [게이미피케이션 잠정보류 — 재개 시 주석 해제] 라우터 include 주석처리로 미사용
     live_activities,
     location_channels,
+    mail_receipt,
     map,
     market,
     master,
@@ -358,6 +359,7 @@ app.include_router(admin_api.router)
 # fm 공개 경로 — factmind_saigon.saigon.routes_public (계획서 §4 P3)
 app.include_router(fm_public_router)
 app.include_router(support.router, prefix="/api")
+app.include_router(mail_receipt.router, prefix="/api")  # 관리자 메일함 수신확인 픽셀 (공개, 인증 없음)
 app.include_router(internal.router, prefix="/api")
 app.include_router(info_flood.router, prefix="/api")
 app.include_router(info_gas.router, prefix="/api")

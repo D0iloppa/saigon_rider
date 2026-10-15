@@ -2753,6 +2753,22 @@ class AdminAuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class AdminMailReadReceipt(Base):
+    """관리자 메일함 수신확인(추적 픽셀) — init/256. 발송 시 To/Cc 수신자별 1행, IP/UA 미저장."""
+
+    __tablename__ = "admin_mail_read_receipts"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    message_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    mailbox: Mapped[str] = mapped_column(String(255), nullable=False)
+    recipient_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    token: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, unique=True)
+    subject: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    first_opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    open_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class Notice(Base):
     __tablename__ = "notices"
 

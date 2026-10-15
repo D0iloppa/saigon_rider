@@ -555,6 +555,10 @@ services:
       - "/migrations/255_user_is_official.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (255) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/256_admin_mail_read_receipts.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (256) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -668,6 +672,7 @@ services:
       - ./database/init/253_fm_tables.sql:/migrations/253_fm_tables.sql:ro
       - ./database/init/254_fm_measurement.sql:/migrations/254_fm_measurement.sql:ro
       - ./database/init/255_user_is_official.sql:/migrations/255_user_is_official.sql:ro
+      - ./database/init/256_admin_mail_read_receipts.sql:/migrations/256_admin_mail_read_receipts.sql:ro
     networks:
       - dev-net
     depends_on:
@@ -773,9 +778,12 @@ services:
       - TWILIO_MESSAGING_SERVICE_SID=${TWILIO_MESSAGING_SERVICE_SID:-}
       # Zalo OAuth 인증 호출을 베트남 IP 프록시로 경유 (-501 우회). 미설정 시 직접 호출. CLAUDE.md '## Zalo 인증 프록시 VPS' 참조.
       - ZALO_API_PROXY=${ZALO_API_PROXY:-}
-      # 관리자 콘솔 메일함(읽기 전용 IMAP). 미설정 시 목록 API 는 빈 배열.
+      # 관리자 콘솔 메일함(IMAP 조회·SMTP 발송). 미설정 시 목록 API 는 빈 배열.
       - ADMIN_MAILBOX_IMAP_HOST=${ADMIN_MAILBOX_IMAP_HOST:-}
       - ADMIN_MAILBOX_IMAP_PORT=${ADMIN_MAILBOX_IMAP_PORT:-993}
+      - ADMIN_MAILBOX_SMTP_HOST=${ADMIN_MAILBOX_SMTP_HOST:-}
+      - ADMIN_MAILBOX_SMTP_PORT=${ADMIN_MAILBOX_SMTP_PORT:-587}
+      - ADMIN_MAILBOX_FROM_NAME=${ADMIN_MAILBOX_FROM_NAME:-}
       - ADMIN_MAILBOXES=${ADMIN_MAILBOXES:-}
       # F-17/F-18: 신고 접수·미처리 예외 운영자 알림 웹훅. 미설정 시 로그만(무동작).
       - OPS_ALERT_WEBHOOK_URL=${OPS_ALERT_WEBHOOK_URL:-}

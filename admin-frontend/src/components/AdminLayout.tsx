@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Avatar, Breadcrumb, Button, Layout, Menu, Tag, Tooltip, Typography } from 'antd'
+import { useEffect, useRef, useState } from 'react'
+import { Avatar, Breadcrumb, Button, Input, Layout, Menu, Tag, Tooltip, Typography } from 'antd'
 import {
   AimOutlined,
   AuditOutlined,
@@ -38,6 +38,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from '@ant-design/icons'
+import type { InputRef } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '../api/auth'
 import { useAdminTheme, useMe } from '../App'
@@ -179,6 +180,39 @@ export default function AdminLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page.path])
 
+  const [query, setQuery] = useState('')
+  const searchRef = useRef<InputRef>(null)
+  const q = query.trim().toLowerCase()
+  const visibleItems = q
+    ? items.flatMap((group) => {
+        if (group.label.toLowerCase().includes(q)) return [group]
+        const children = group.children.filter((child) => {
+          const meta = PAGE_META.find((m) => m.path === child.key)
+          return [child.label, meta?.title, meta?.description].some((t) => t?.toLowerCase().includes(q))
+        })
+        return children.length ? [{ ...group, children }] : []
+      })
+    : items
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'k') return
+      const el = e.target as HTMLElement | null
+      if (el && el !== searchRef.current?.input && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const handleSearchEnter = () => {
+    const first = visibleItems[0]?.children[0]
+    if (!first) return
+    navigate(first.key)
+    setQuery('')
+  }
+
   const anyOpen = openKeys.length > 0
   const handleToggleAll = () => setOpenKeys(anyOpen ? [] : items.map((group) => group.key))
 
@@ -205,15 +239,31 @@ export default function AdminLayout() {
             />
           </Tooltip>
         </div>
+        <div style={{ padding: '8px 12px 0' }}>
+          <Input
+            ref={searchRef}
+            allowClear
+            prefix={<SearchOutlined />}
+            placeholder="메뉴 검색"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onPressEnter={handleSearchEnter}
+            onKeyDown={(e) => { if (e.key === 'Escape') setQuery('') }}
+            aria-label="메뉴 검색"
+          />
+        </div>
         <div className="admin-sider-menu">
+          {q && visibleItems.length === 0 && (
+            <Typography.Text type="secondary" style={{ display: 'block', padding: '16px' }}>일치하는 메뉴가 없습니다</Typography.Text>
+          )}
           <Menu
             theme={mode}
             mode="inline"
             inlineIndent={16}
-            items={items}
+            items={visibleItems}
             selectedKeys={[page.path]}
-            openKeys={openKeys}
-            onOpenChange={setOpenKeys}
+            openKeys={q ? visibleItems.map((group) => group.key) : openKeys}
+            onOpenChange={(keys) => { if (!q) setOpenKeys(keys) }}
             onClick={({ key }) => navigate(key)}
           />
         </div>

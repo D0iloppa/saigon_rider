@@ -29,6 +29,7 @@ from . import (
     items,
     liquidity,
     listings,
+    mailbox,
     map,
     ops,
     push,
@@ -55,6 +56,7 @@ router.include_router(listings.router)
 router.include_router(reviews.router)
 router.include_router(dashboard.router)
 router.include_router(support.router)
+router.include_router(mailbox.router)
 router.include_router(issues.router)
 router.include_router(cms.router)
 router.include_router(audit_logs.router)

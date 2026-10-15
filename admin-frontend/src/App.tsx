@@ -23,6 +23,7 @@ import TransactionListPage from './pages/transactions/TransactionListPage'
 import TransactionDetailPage from './pages/transactions/TransactionDetailPage'
 import SupportListPage from './pages/support/SupportListPage'
 import SupportDetailPage from './pages/support/SupportDetailPage'
+import MailboxPage from './pages/support/MailboxPage'
 import ChannelBoardPage from './pages/analytics/ChannelBoardPage'
 import LiquidityPanelPage from './pages/analytics/LiquidityPanelPage'
 import FunnelPage from './pages/analytics/FunnelPage'
@@ -157,6 +158,7 @@ export default function App() {
               <Route path="/transactions/:id" element={<TransactionDetailPage />} />
               <Route path="/support" element={<SupportListPage />} />
               <Route path="/support/:id" element={<SupportDetailPage />} />
+              <Route path="/mailbox" element={<MailboxPage />} />
               <Route path="/analytics/overview" element={<ChannelBoardPage />} />
               <Route path="/analytics/liquidity" element={<LiquidityPanelPage />} />
               <Route path="/analytics/funnel" element={<FunnelPage />} />

@@ -15,6 +15,7 @@ import {
   FunnelPlotOutlined,
   IssuesCloseOutlined,
   LineChartOutlined,
+  MailOutlined,
   NotificationOutlined,
   PictureOutlined,
   SafetyCertificateOutlined,
@@ -57,7 +58,10 @@ const MENU_ITEMS = [
     { key: '/trades/completion-requests', icon: <IssuesCloseOutlined />, label: '거래 완료 이의' },
     { key: '/transactions', icon: <CreditCardOutlined />, label: '수동 QR 거래' },
   ] },
-  { key: 'group-care', label: 'CUSTOMER', children: [{ key: '/support', icon: <CustomerServiceOutlined />, label: '고객센터' }] },
+  { key: 'group-care', label: 'CUSTOMER', children: [
+    { key: '/support', icon: <CustomerServiceOutlined />, label: '고객센터' },
+    { key: '/mailbox', icon: <MailOutlined />, label: '메일함' },
+  ] },
   { key: 'group-analytics', label: 'ANALYTICS', children: [
     { key: '/analytics/overview', icon: <BarChartOutlined />, label: '채널 성과 보드' },
     { key: '/analytics/liquidity', icon: <LineChartOutlined />, label: '유동성 지표 패널' },
@@ -116,6 +120,7 @@ const PAGE_META = [
   { path: '/trades/completion-requests', title: '거래 완료 이의', description: '구매자가 완료를 요청했으나 판매자가 확인하지 않은 거래를 검토합니다.' },
   { path: '/transactions', title: '수동 QR 거래', description: '수동 QR 결제 거래를 상태별로 조회하고 운영자 메모를 남깁니다. 입금 상태는 여기서 변경하지 않습니다.' },
   { path: '/support', title: '고객센터', description: '사용자 문의와 답변 상태를 관리합니다.' },
+  { path: '/mailbox', title: '메일함', description: '고객용 메일함(partner@·support@)을 읽기 전용으로 조회합니다. 답장·삭제·읽음 처리는 하지 않습니다.' },
   { path: '/analytics/overview', title: '채널 성과 보드', description: '퍼널·유동성·리텐션·비회원 유입경로 등 채널 성과를 한 화면에서 훑어봅니다.' },
   { path: '/analytics/liquidity', title: '유동성 지표 패널', description: '마켓플레이스 파일럿 성패 판정 기준(L-1~L-5)을 목표선과 함께 확인합니다.' },
   { path: '/analytics/funnel', title: '전환 퍼널', description: '가입부터 거래완료까지 세그먼트별 전환 퍼널을 확인합니다.' },

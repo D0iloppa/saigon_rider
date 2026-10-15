@@ -773,6 +773,10 @@ services:
       - TWILIO_MESSAGING_SERVICE_SID=${TWILIO_MESSAGING_SERVICE_SID:-}
       # Zalo OAuth 인증 호출을 베트남 IP 프록시로 경유 (-501 우회). 미설정 시 직접 호출. CLAUDE.md '## Zalo 인증 프록시 VPS' 참조.
       - ZALO_API_PROXY=${ZALO_API_PROXY:-}
+      # 관리자 콘솔 메일함(읽기 전용 IMAP). 미설정 시 목록 API 는 빈 배열.
+      - ADMIN_MAILBOX_IMAP_HOST=${ADMIN_MAILBOX_IMAP_HOST:-}
+      - ADMIN_MAILBOX_IMAP_PORT=${ADMIN_MAILBOX_IMAP_PORT:-993}
+      - ADMIN_MAILBOXES=${ADMIN_MAILBOXES:-}
       # F-17/F-18: 신고 접수·미처리 예외 운영자 알림 웹훅. 미설정 시 로그만(무동작).
       - OPS_ALERT_WEBHOOK_URL=${OPS_ALERT_WEBHOOK_URL:-}
       # 탈퇴 식별자 해시 아카이브(170) HMAC pepper. 미설정 시 아카이브만 건너뜀(fail-open, 경보).

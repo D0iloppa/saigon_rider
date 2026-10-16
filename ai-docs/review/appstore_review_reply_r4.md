@@ -19,7 +19,7 @@ Thank you for the review. We have addressed Guideline 5.1.2(i) as follows.
 
 4. Manual check-in each time, no automatic check-ins: Sharing never starts automatically and there is no setting to enable it automatically. The user must manually start or join sharing, and agree to the consent screen, every time. Each sharing session ends when the user taps "Leave" or automatically after at most 3 hours. No location history is stored; only the latest position is kept during the session and it is deleted when the session ends.
 
-To see it: sign in with the demo account, open a chat, tap "+" and choose "Live location" — the consent screen appears first.
+How to check: sign in with the demo account, open the Chat tab, open the conversation with "SR Demo", tap "+" and choose "Live location". The consent screen appears first, and you can decline it with "Cancel".
 
 Please let us know if you need anything else.
 
@@ -29,14 +29,18 @@ Thank you.
 ## 2) App Review Information → Notes (기존 Notes 끝에 추가)
 
 ```
-Location display: other users' locations are never shown on the public map. The only feature that shows another user's location is "Live location" inside a chat (chat → "+" → "Live location"). It requires explicit consent each time it is started or joined (can be declined), only chat participants can see it, it ends on "Leave" or after at most 3 hours, and no location history is stored. Age rating: 18+. Privacy policy: https://app.saigon-rider.com/app_privacy/
+Location display: other users' locations are never shown on the public map. The only feature that shows another user's location is "Live location" inside a chat (Chat tab → conversation with "SR Demo" → "+" → "Live location"). It requires explicit consent each time it is started or joined (can be declined), only chat participants can see it, it ends on "Leave" or after at most 3 hours, and no location history is stored. Age rating: 18+. Privacy policy: https://app.saigon-rider.com/app_privacy/
 ```
+
+## 진행 상태
+
+- **2026-10-16 회신 발송 완료** (빌드 21 그대로). 데모 계정에 SR Demo 1:1 채팅방 생성(대표, 앱에서 직접). 같은 날 채팅 헤더 사람 찾기·사람 찾기 결과 행 수정 `90d46ea0` 운영 반영.
 
 ## 보내기 전 확인 (대표)
 
-- [ ] ASC → App Information → Age Rating → "Override to a Higher Age Rating" → **18+**
-- [ ] ASC → App Information → Privacy Policy URL = `https://app.saigon-rider.com/app_privacy/`
-- [ ] 운영 배포 후 위 URL 에 "Live location sharing" 문단이 보이는지 확인 (nginx/pages 는 볼륨 마운트 — 운영 `git pull` 만으로 반영, 앱 내 문구는 frontend 재빌드)
-- [ ] 회신 문구의 "+" → "Live location" 메뉴 라벨이 실제 iPad 화면 라벨과 같은지 확인
-- [ ] 빌드 21 그대로 Submit for Review
+- [x] ASC → App Information → Age Rating → "Override to a Higher Age Rating" → **18+**
+- [x] ASC → App Information → Privacy Policy URL = `https://app.saigon-rider.com/app_privacy/`
+- [x] 운영 배포 후 위 URL 에 "Live location sharing" 문단이 보이는지 확인 (nginx/pages 는 볼륨 마운트 — 운영 `git pull` 만으로 반영, 앱 내 문구는 frontend 재빌드)
+- [x] 회신 문구의 "+" → "Live location" 메뉴 라벨이 실제 iPad 화면 라벨과 같은지 확인
+- [x] 빌드 21 그대로 Submit for Review
 - 미결(대표 판단): 마켓 매물 좌표가 정확 좌표로 공개됨(`backend/app/routers/market.py:211`) — 이번 반려 사유는 아니지만 흐림 처리 여부 결정 필요

@@ -1013,6 +1013,7 @@
     "title": "메시지",
     "detailTitle": "대화",
     "empty": "아직 대화가 없어요",
+    "createGroup": "그룹 채팅 만들기",
     "emptyThread": "아직 메시지가 없어요. 대화를 시작해보세요!",
     "messagesLoadError": "메시지를 불러오지 못했어요",
     "inputPlaceholder": "메시지 입력...",

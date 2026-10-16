@@ -152,12 +152,12 @@ export default function FriendAdd() {
               ) : (
                 results.map((u) => (
                   <div key={u.id} className={styles.userRow}>
-                    <AppImage src={u.avatarUrl || DEFAULT_AVATAR_URL} alt="" className={styles.avatar} variant="circle" />
-                    <div className={styles.userInfo}>
+                    <button type="button" className={styles.userLink} onClick={() => navigate(`/profile/${u.id}`)}>
+                      <AppImage src={u.avatarUrl || DEFAULT_AVATAR_URL} alt="" className={styles.avatar} variant="circle" />
                       <span className={styles.nickname}>{u.nickname}</span>
-                    </div>
+                    </button>
                     {u.id !== user.id && (
-                      <Button size="sm" onClick={() => handleFollow(u.id)}>
+                      <Button size="sm" fullWidth={false} onClick={() => handleFollow(u.id)}>
                         {t('follow.followBtn')}
                       </Button>
                     )}

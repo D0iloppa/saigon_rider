@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BellOff, MailOpen, Trash2, UsersRound } from 'lucide-react';
+import { BellOff, MailOpen, MessageCirclePlus, Trash2, UserSearch } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { fetchConversations, leaveConversation, toggleMute } from '@/api/dm';
@@ -203,14 +203,24 @@ export default function DmList() {
       <TopBar
         title={t('dm.title')}
         rightContent={
-          <button
-            className={styles.headerAddBtn}
-            type="button"
-            onClick={() => navigate('/dm/group/new')}
-            aria-label={t('dm.createGroup', { defaultValue: '그룹 만들기' })}
-          >
-            <UsersRound size={20} strokeWidth={2} />
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              className={styles.headerAddBtn}
+              type="button"
+              onClick={() => navigate('/friends/add')}
+              aria-label={t('follow.addFriend')}
+            >
+              <UserSearch size={20} strokeWidth={2} />
+            </button>
+            <button
+              className={styles.headerAddBtn}
+              type="button"
+              onClick={() => navigate('/dm/group/new')}
+              aria-label={t('dm.createGroup')}
+            >
+              <MessageCirclePlus size={20} strokeWidth={2} />
+            </button>
+          </div>
         }
       />
 

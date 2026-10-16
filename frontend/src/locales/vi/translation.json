@@ -1013,6 +1013,7 @@
     "title": "Tin nhắn",
     "detailTitle": "Trò chuyện",
     "empty": "Chưa có cuộc trò chuyện nào",
+    "createGroup": "Tạo nhóm trò chuyện",
     "emptyThread": "Chưa có tin nhắn nào. Hãy bắt đầu trò chuyện!",
     "messagesLoadError": "Không tải được tin nhắn",
     "inputPlaceholder": "Nhập tin nhắn...",

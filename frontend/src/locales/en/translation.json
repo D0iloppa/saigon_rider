@@ -1013,6 +1013,7 @@
     "title": "Messages",
     "detailTitle": "Chat",
     "empty": "No conversations yet",
+    "createGroup": "Create group chat",
     "emptyThread": "No messages yet. Start the conversation!",
     "messagesLoadError": "Couldn't load messages",
     "inputPlaceholder": "Type a message...",

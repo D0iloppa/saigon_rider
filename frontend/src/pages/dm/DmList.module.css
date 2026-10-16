@@ -152,6 +152,11 @@
   white-space: nowrap;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+}
+
 .headerAddBtn {
   display: flex;
   align-items: center;

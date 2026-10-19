@@ -100,7 +100,6 @@ export default function BizAdDetailPage() {
           </Descriptions>
         </Space>
         <Space style={{ marginTop: 16 }}>
-          <Button onClick={() => navigate('/biz/ads')}>목록으로</Button>
           {ad.subscription_status === 'pending_payment' && (
             <Button type="primary" onClick={() => navigate(`/biz/contracts?q=${encodeURIComponent(ad.partner_name)}`)}>
               결제 계약 확인

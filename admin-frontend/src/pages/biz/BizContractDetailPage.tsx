@@ -219,7 +219,6 @@ export default function BizContractDetailPage() {
         </Descriptions>
 
         <Space style={{ marginTop: 16 }} wrap>
-          <Button onClick={() => navigate('/biz/contracts')}>목록으로</Button>
           {canApprove && (
             <Popconfirm
               title="이 계약을 승인하시겠습니까?"

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Avatar, Breadcrumb, Button, Input, Layout, Menu, Tag, Tooltip, Typography } from 'antd'
 import {
   AimOutlined,
+  ArrowLeftOutlined,
   AuditOutlined,
   BellOutlined,
   CompassOutlined,
@@ -168,6 +169,12 @@ export default function AdminLayout() {
   ]
   const items = [...baseItems, { key: 'group-system', label: 'SYSTEM', children: systemChildren }]
   const page = PAGE_META.find((item) => location.pathname.startsWith(item.path)) ?? PAGE_META[PAGE_META.length - 1]
+  // 목록 하위 경로(상세·편집)면 '목록으로' 노출. 목록의 필터(query string)를 보존하려고 마지막 목록 URL을 기억한다.
+  const lastListUrl = useRef<Record<string, string>>({})
+  useEffect(() => {
+    if (location.pathname === page.path) lastListUrl.current[page.path] = location.pathname + location.search
+  }, [location.pathname, location.search, page.path])
+  const isSubPage = page.path !== '/' && location.pathname !== page.path
 
   const [openKeys, setOpenKeys] = useState<string[]>(() => {
     const activeGroup = findGroupKey(items, page.path)
@@ -284,6 +291,11 @@ export default function AdminLayout() {
         </Header>
         <Content className="admin-content">
           <div className="admin-page-header">
+            {isSubPage && (
+              <Button className="admin-back-button" type="link" icon={<ArrowLeftOutlined />} onClick={() => navigate(lastListUrl.current[page.path] ?? page.path)}>
+                목록으로
+              </Button>
+            )}
             <Typography.Title level={1}>{page.title}</Typography.Title>
             <p>{page.description}</p>
           </div>

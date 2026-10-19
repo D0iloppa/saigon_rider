@@ -1,10 +1,64 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Button, Card, Descriptions, Input, Modal, Popconfirm, Skeleton, Space, Table, Tag, Typography, message } from 'antd'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Alert, Button, Card, Descriptions, Input, Modal, Popconfirm, Skeleton, Space, Table, Tabs, Tag, Typography, message } from 'antd'
 import dayjs from 'dayjs'
+import { useReviewList, type ReviewListParams, type ReviewListRow } from '../../api/reviews'
 import { useLiftSanction, useResetPhoneVerification, useUser, useUserActionEvents, useUserDevice } from '../../api/users'
 import SanctionModal from '../../components/SanctionModal'
 import StatusTag from '../../components/StatusTag'
+
+function UserReviewTable({ params }: { params: ReviewListParams }) {
+  const [page, setPage] = useState(1)
+  const size = 10
+  const { data, isLoading } = useReviewList({ ...params, page, size })
+  const isBiz = params.kind === 'biz'
+  const isReceived = params.role === 'received'
+  return (
+    <Table<ReviewListRow>
+      size="small"
+      rowKey="id"
+      loading={isLoading}
+      dataSource={data?.items ?? []}
+      locale={{ emptyText: '후기가 없습니다' }}
+      pagination={{ current: page, pageSize: size, total: data?.total ?? 0, onChange: setPage, showSizeChanger: false }}
+      columns={[
+        { title: '별점', dataIndex: 'rating', key: 'rating', width: 60, render: (v: number) => `★${v}` },
+        { title: '내용', dataIndex: 'text', key: 'text', ellipsis: true, render: (v: string | null) => v ?? '-' },
+        isBiz
+          ? { title: '업체', key: 'who', render: (_: unknown, r: ReviewListRow) => r.business?.name ?? '-' }
+          : {
+              title: isReceived ? '작성자' : '받는 사람',
+              key: 'who',
+              render: (_: unknown, r: ReviewListRow) => {
+                const u = isReceived ? r.reviewer : r.target
+                return u ? <Link to={`/users/${u.id}`}>{u.nickname ?? '-'}</Link> : '-'
+              },
+            },
+        ...(isBiz
+          ? [
+              {
+                title: '숨김',
+                key: 'hidden',
+                width: 70,
+                render: (_: unknown, r: ReviewListRow) => (r.hidden_at ? <Tag color="red">숨김</Tag> : <Tag>노출</Tag>),
+              },
+            ]
+          : [
+              {
+                title: '매물',
+                key: 'listing',
+                render: (_: unknown, r: ReviewListRow) =>
+                  r.listing ? <Link to={`/listings/${r.listing.id}`}>{r.listing.title}</Link> : '-',
+              },
+            ]),
+        { title: '작성일', dataIndex: 'created_at', key: 'created_at', width: 140, render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
+        ...(isBiz
+          ? [{ title: '', key: 'detail', width: 60, render: (_: unknown, r: ReviewListRow) => <Link to={`/reviews/${r.id}`}>상세</Link> }]
+          : []),
+      ]}
+    />
+  )
+}
 
 export default function UserDetailPage() {
   const { id = '' } = useParams()
@@ -207,6 +261,16 @@ export default function UserDetailPage() {
               key: 'created_at',
               render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm'),
             },
+          ]}
+        />
+      </Card>
+
+      <Card title="후기">
+        <Tabs
+          items={[
+            { key: 'received', label: '받은 거래 후기', children: <UserReviewTable params={{ kind: 'market', user_id: id, role: 'received' }} /> },
+            { key: 'written', label: '작성한 거래 후기', children: <UserReviewTable params={{ kind: 'market', user_id: id, role: 'written' }} /> },
+            { key: 'biz', label: '작성한 업체 후기', children: <UserReviewTable params={{ kind: 'biz', user_id: id }} /> },
           ]}
         />
       </Card>

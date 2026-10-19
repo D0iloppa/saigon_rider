@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Button, Card, Descriptions, Image, Skeleton, Space, Table } from 'antd'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Alert, Button, Card, Descriptions, Image, Skeleton, Space, Table, Tag } from 'antd'
 import dayjs from 'dayjs'
 import { useListing } from '../../api/listings'
+import { useReviewList } from '../../api/reviews'
 import ListingFlags from '../../components/ListingFlags'
 import ModerateModal from '../../components/ModerateModal'
 import StatusTag from '../../components/StatusTag'
@@ -12,6 +13,7 @@ export default function ListingDetailPage() {
   const navigate = useNavigate()
   const { data: listing, isLoading, isError, error } = useListing(id)
   const [moderateOpen, setModerateOpen] = useState(false)
+  const { data: reviews, isLoading: isReviewsLoading } = useReviewList({ kind: 'market', listing_id: id, size: 50 })
 
   if (isError) {
     return (
@@ -92,6 +94,38 @@ export default function ListingDetailPage() {
               key: 'created_at',
               render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm'),
             },
+          ]}
+        />
+      </Card>
+
+      <Card title="이 거래의 후기">
+        <Table
+          size="small"
+          rowKey="id"
+          loading={isReviewsLoading}
+          pagination={false}
+          dataSource={reviews?.items ?? []}
+          locale={{ emptyText: '작성된 후기가 없습니다' }}
+          columns={[
+            {
+              title: '작성자 → 받는 사람',
+              key: 'who',
+              render: (_: unknown, r) => (
+                <span>
+                  <Link to={`/users/${r.reviewer.id}`}>{r.reviewer.nickname ?? '-'}</Link>
+                  {' → '}
+                  {r.target ? <Link to={`/users/${r.target.id}`}>{r.target.nickname ?? '-'}</Link> : '-'}
+                </span>
+              ),
+            },
+            { title: '별점', dataIndex: 'rating', key: 'rating', width: 60, render: (v: number) => `★${v}` },
+            {
+              title: '매너 태그',
+              key: 'tags',
+              render: (_: unknown, r) => (r.manner_tags ?? []).map((t) => <Tag key={t}>{t}</Tag>),
+            },
+            { title: '코멘트', dataIndex: 'text', key: 'text', render: (v: string | null) => v ?? '-' },
+            { title: '작성일', dataIndex: 'created_at', key: 'created_at', render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
           ]}
         />
       </Card>

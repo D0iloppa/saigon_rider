@@ -10,14 +10,15 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import BusinessReview, Notification, Report, User
+from ...models import BusinessProfile, BusinessReview, MarketplaceListing, MarketplaceReview, Notification, Report, User
+from ...schemas import Page
 from ._audit import audit
 
 router = APIRouter(prefix="/reviews")
@@ -33,6 +34,129 @@ class ReviewModerateRequest(BaseModel):
     reason: str
     reason_code: str | None = None
     report_id: uuid.UUID | None = None
+
+
+@router.get("")
+async def list_reviews(
+    kind: str = Query("market", pattern="^(market|biz)$"),
+    user_id: uuid.UUID | None = Query(None),
+    role: str = Query("received", pattern="^(received|written)$"),
+    listing_id: uuid.UUID | None = Query(None),
+    max_rating: int | None = Query(None, ge=1, le=5),
+    hidden: bool | None = Query(None, description="biz 전용 — true=숨김, false=노출"),
+    q: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    if kind == "biz":
+        model = BusinessReview
+        text_col = BusinessReview.body
+        conds = []
+        if user_id is not None:
+            conds.append(BusinessReview.user_id == user_id)
+        if hidden is not None:
+            conds.append(BusinessReview.hidden_at.is_not(None) if hidden else BusinessReview.hidden_at.is_(None))
+    else:
+        model = MarketplaceReview
+        text_col = MarketplaceReview.comment
+        conds = []
+        if user_id is not None:
+            conds.append(
+                MarketplaceReview.target_id == user_id
+                if role == "received"
+                else MarketplaceReview.reviewer_id == user_id
+            )
+        if listing_id is not None:
+            conds.append(MarketplaceReview.listing_id == listing_id)
+    if max_rating is not None:
+        conds.append(model.rating <= max_rating)
+    if q:
+        conds.append(text_col.ilike(f"%{q}%"))
+
+    total = (await db.execute(select(func.count()).select_from(model).where(*conds))).scalar_one()
+    rows = (
+        (
+            await db.execute(
+                select(model)
+                .where(*conds)
+                .order_by(model.created_at.desc(), model.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    user_ids = (
+        {r.reviewer_id for r in rows} | {r.target_id for r in rows} if kind == "market" else {r.user_id for r in rows}
+    )
+    nicknames: dict[uuid.UUID, str | None] = {}
+    if user_ids:
+        nicknames = {
+            uid: nick
+            for uid, nick in (await db.execute(select(User.id, User.nickname).where(User.id.in_(user_ids)))).all()
+        }
+
+    items = []
+    if kind == "market":
+        listing_ids = {r.listing_id for r in rows if r.listing_id is not None}
+        titles: dict[uuid.UUID, str] = {}
+        if listing_ids:
+            titles = {
+                lid: title
+                for lid, title in (
+                    await db.execute(
+                        select(MarketplaceListing.id, MarketplaceListing.title).where(
+                            MarketplaceListing.id.in_(listing_ids)
+                        )
+                    )
+                ).all()
+            }
+        for r in rows:
+            items.append(
+                {
+                    "id": r.id,
+                    "kind": "market",
+                    "rating": r.rating,
+                    "text": r.comment,
+                    "manner_tags": r.manner_tags or [],
+                    "created_at": r.created_at,
+                    "reviewer": {"id": r.reviewer_id, "nickname": nicknames.get(r.reviewer_id)},
+                    "target": {"id": r.target_id, "nickname": nicknames.get(r.target_id)},
+                    "listing": {"id": r.listing_id, "title": titles.get(r.listing_id)}
+                    if r.listing_id in titles
+                    else None,
+                }
+            )
+    else:
+        profile_ids = {r.profile_id for r in rows}
+        names: dict[uuid.UUID, str] = {}
+        if profile_ids:
+            names = {
+                pid: name
+                for pid, name in (
+                    await db.execute(
+                        select(BusinessProfile.id, BusinessProfile.name).where(BusinessProfile.id.in_(profile_ids))
+                    )
+                ).all()
+            }
+        for r in rows:
+            items.append(
+                {
+                    "id": r.id,
+                    "kind": "biz",
+                    "rating": r.rating,
+                    "text": r.body,
+                    "created_at": r.created_at,
+                    "reviewer": {"id": r.user_id, "nickname": nicknames.get(r.user_id)},
+                    "business": {"id": r.profile_id, "name": names.get(r.profile_id)},
+                    "hidden_at": r.hidden_at,
+                }
+            )
+    return Page(items=items, total=total, page=page, size=size)
 
 
 @router.get("/{review_id}")

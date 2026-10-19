@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from './client'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, buildQuery, type Page } from './client'
 
 /** 업체 후기 모더레이션 (HIDE/RESTORE) — 016 §8-2 P-BAD-REVIEW, 대표 지적 2026-08-18.
  * 업체가 정당한 후기를 "악성리뷰"로 신고해도 운영자가 조치할 수단이 없던 갭을 메운다.
@@ -58,5 +58,39 @@ export function useModerateReview(reviewId: string | undefined) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reviews', reviewId] })
     },
+  })
+}
+
+export interface ReviewListRow {
+  id: string
+  kind: 'market' | 'biz'
+  rating: number
+  text: string | null
+  manner_tags?: string[]
+  created_at: string
+  reviewer: { id: string; nickname: string | null }
+  target?: { id: string; nickname: string | null }
+  listing?: { id: string; title: string } | null
+  business?: { id: string; name: string | null }
+  hidden_at?: string | null
+}
+
+export interface ReviewListParams {
+  kind?: 'market' | 'biz'
+  user_id?: string
+  role?: 'received' | 'written'
+  listing_id?: string
+  max_rating?: number
+  hidden?: 'true' | 'false'
+  q?: string
+  page?: number
+  size?: number
+}
+
+export function useReviewList(params: ReviewListParams) {
+  return useQuery({
+    queryKey: ['reviews', 'list', params],
+    queryFn: () => api<Page<ReviewListRow>>(`/admin/api/reviews${buildQuery({ ...params })}`),
+    placeholderData: keepPreviousData,
   })
 }

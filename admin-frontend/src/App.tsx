@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage'
 import ReportListPage from './pages/reports/ReportListPage'
 import ReportDetailPage from './pages/reports/ReportDetailPage'
 import ReviewDetailPage from './pages/reviews/ReviewDetailPage'
+import ReviewListPage from './pages/reviews/ReviewListPage'
 import IssueQueuePage from './pages/issues/IssueQueuePage'
 import WeeklyIssueSummaryPage from './pages/issues/WeeklyIssueSummaryPage'
 import ReporterTrustPage from './pages/issues/ReporterTrustPage'
@@ -144,6 +145,7 @@ export default function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/reports" element={<ReportListPage />} />
               <Route path="/reports/:id" element={<ReportDetailPage />} />
+              <Route path="/reviews" element={<ReviewListPage />} />
               <Route path="/reviews/:id" element={<ReviewDetailPage />} />
               <Route path="/issues" element={<IssueQueuePage />} />
               <Route path="/issues/weekly-summary" element={<WeeklyIssueSummaryPage />} />

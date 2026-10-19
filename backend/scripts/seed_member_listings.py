@@ -101,6 +101,7 @@ def do_pack(json_path: str, images_root: str, map_path: str, out: str) -> None:
         manifest.append(
             {
                 **{f: it[f] for f in _FIELDS if f != "image"},
+                "ward": it.get("ward"),  # 선택: 구 중심이 서비스 영역 밖일 때 기준점으로 쓸 wards.code
                 "email": group_email[it["group"]],
                 "original_filename": img.name,
                 "file": f"files/{it['no']}.webp",
@@ -144,7 +145,7 @@ async def _preflight(db, items: list[dict], names: set[str]) -> tuple[dict | Non
     """쓰기 전 전체 검사. 반환: ({no: {seller_id, category_id, district_id, ward_id, lat, lng}}, errors)."""
     from sqlalchemy import func, select
 
-    from app.models import District, MarketplaceCategory, User, UserOAuthIdentity
+    from app.models import District, MarketplaceCategory, User, UserOAuthIdentity, Ward
     from app.services.banned_keywords import banned_keywords
     from app.services.service_area import in_service_area
     from app.utils import find_nearest_ward_id
@@ -168,6 +169,7 @@ async def _preflight(db, items: list[dict], names: set[str]) -> tuple[dict | Non
 
     cats = {c.code: c.id for c in (await db.execute(select(MarketplaceCategory))).scalars()}
     dists = {d.code: d for d in (await db.execute(select(District))).scalars()}
+    wards = {w.code: w for w in (await db.execute(select(Ward).where(Ward.is_active == True))).scalars()}
     banned = await banned_keywords(db)
     plan: dict[int, dict] = {}
     for it in items:
@@ -182,9 +184,16 @@ async def _preflight(db, items: list[dict], names: set[str]) -> tuple[dict | Non
             continue
         if any(kw in f"{it['title']} {it['description']}".lower() for kw in banned):
             errors.append(f"{tag}: 금칙어 포함")
+        lat0, lng0 = d.center_lat, d.center_lng
+        if it.get("ward"):
+            w = wards.get(it["ward"])
+            if w is None:
+                errors.append(f"{tag}: 알 수 없는 ward {it['ward']}")
+                continue
+            lat0, lng0 = w.center_lat, w.center_lng
         ward_id = lat = lng = None
         for radius in SPREAD_RADII_M:
-            lat, lng = _spread(it["no"], d.center_lat, d.center_lng, radius)
+            lat, lng = _spread(it["no"], lat0, lng0, radius)
             ward_id = await find_nearest_ward_id(db, lat, lng) if in_service_area(lat, lng) else None
             if ward_id is not None:
                 break

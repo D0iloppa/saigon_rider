@@ -112,6 +112,13 @@
     "chat": "Trò chuyện"
   },
   "market": {
+    "blockConfirm": "Chặn",
+    "blockConfirmBody": "Chặn {{name}}? Bạn sẽ không còn thấy tin nhắn và tin đăng của người này. Họ sẽ không được thông báo.",
+    "createBusiness": "Đăng tin · {{name}}",
+    "dealPingGaveUpConfirmBody": "Nếu ghi nhận là ngừng bán, tin đăng này sẽ không còn hiển thị là đang bán.",
+    "dealPingSoldElsewhereConfirmBody": "Nếu ghi nhận là đã bán ở nơi khác, tin đăng này sẽ không còn hiển thị là đang bán.",
+    "removeWishlist": "Bỏ yêu thích",
+    "unblockConfirmBody": "Bạn có muốn bỏ chặn người này không?",
     "district": "Bình Thạnh",
     "catAll": "Tất cả",
     "free": "Cho tặng",
@@ -927,6 +934,8 @@
     "inviteOpenBtn": "Xem"
   },
   "liveLocation": {
+    "fitAll": "Xem tất cả",
+    "recenter": "Vị trí của tôi",
     "leaveChannelConfirm": "Rời kênh chia sẻ vị trí?",
     "title": "Vị trí trực tiếp",
     "bubbleLabel": "Chia sẻ vị trí trực tiếp",
@@ -1008,6 +1017,17 @@
     "loadErrorDesc": "Kiểm tra kết nối mạng và thử lại."
   },
   "dm": {
+    "createGroupSubmit": "Tạo",
+    "deleteAction": "Xóa",
+    "deleteMessageConfirm": "Xóa tin nhắn này? Tin nhắn sẽ hiển thị là đã xóa.",
+    "deletedMessage": "Tin nhắn này đã bị xóa",
+    "editAction": "Sửa",
+    "edited": "(đã sửa)",
+    "groupTitlePlaceholder": "Tên phòng",
+    "memberCount": "{{count}} thành viên",
+    "photoMessage": "Ảnh",
+    "replyAction": "Trả lời",
+    "replyingTo": "Trả lời {{name}}",
     "group": "Phòng chat nhóm",
     "read": "Đã xem",
     "title": "Tin nhắn",
@@ -1348,6 +1368,10 @@
     "messageReportAction": "Báo cáo"
   },
   "follow": {
+    "block": "Chặn người này",
+    "blockConfirm": "Chặn {{name}}? Bạn sẽ không còn thấy tin nhắn và tin đăng của người này. Họ sẽ không được thông báo.",
+    "reportConfirm": "Báo cáo với lý do này?",
+    "reportedAlready": "Đã báo cáo",
     "socialTitle": "Kết nối",
     "followers": "Người theo dõi",
     "following": "Đang theo dõi",
@@ -2447,6 +2471,8 @@
     "buyerS4Desc": "Nhận hàng và hoàn tất giao dịch. Ứng dụng không giữ tiền hộ hoặc xử lý hoàn tiền thay bạn."
   },
   "biz": {
+    "loungePickerTitle": "Bạn muốn chuyển đến doanh nghiệp nào?",
+    "publicListingsEmpty": "Chưa có tin đăng nào",
     "title": "Đối tác kinh doanh",
     "heroTitle": "Giới thiệu cửa hàng của bạn đến các rider gần đó",
     "heroDesc": "Hiển thị cửa hàng của bạn trên bản đồ và bảng tin trong ứng dụng Saigon Rider.",
@@ -3037,6 +3063,7 @@
     "switchToGps": "Dùng vị trí của tôi"
   },
   "userProfile": {
+    "trustEmpty": "Người dùng này chưa có lịch sử giao dịch",
     "title": "Trang cá nhân",
     "openProfile": "Xem trang cá nhân",
     "loadError": "Không tải được trang cá nhân",

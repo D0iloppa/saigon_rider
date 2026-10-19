@@ -112,6 +112,13 @@
     "chat": "채팅"
   },
   "market": {
+    "blockConfirm": "차단",
+    "blockConfirmBody": "{{name}}님을 차단할까요? 이 사람의 메시지·매물이 더 이상 보이지 않아요. 상대에게는 알리지 않아요",
+    "createBusiness": "매물 등록 · {{name}}",
+    "dealPingGaveUpConfirmBody": "판매 포기로 기록하면 이 매물은 더 이상 판매중으로 표시되지 않아요.",
+    "dealPingSoldElsewhereConfirmBody": "다른 곳에서 판매로 기록하면 이 매물은 더 이상 판매중으로 표시되지 않아요.",
+    "removeWishlist": "찜 해제",
+    "unblockConfirmBody": "차단을 해제하시겠습니까?",
     "district": "Bình Thạnh",
     "catAll": "전체",
     "free": "나눔",
@@ -927,6 +934,8 @@
     "inviteOpenBtn": "보기"
   },
   "liveLocation": {
+    "fitAll": "전체보기",
+    "recenter": "내 위치로",
     "leaveChannelConfirm": "위치공유 채널에서 나갈까요?",
     "title": "실시간 위치공유",
     "bubbleLabel": "실시간 위치공유",
@@ -1008,6 +1017,17 @@
     "loadErrorDesc": "네트워크 상태를 확인하고 다시 시도해 주세요."
   },
   "dm": {
+    "createGroupSubmit": "만들기",
+    "deleteAction": "삭제",
+    "deleteMessageConfirm": "이 메시지를 삭제할까요? 삭제된 메시지로 표시됩니다.",
+    "deletedMessage": "삭제된 메시지입니다",
+    "editAction": "수정",
+    "edited": "(수정됨)",
+    "groupTitlePlaceholder": "방 이름",
+    "memberCount": "멤버 {{count}}명",
+    "photoMessage": "사진",
+    "replyAction": "답장",
+    "replyingTo": "{{name}}에게 답장",
     "group": "그룹톡방",
     "read": "읽음",
     "title": "메시지",
@@ -1348,6 +1368,10 @@
     "messageReportAction": "신고"
   },
   "follow": {
+    "block": "이 사용자 차단",
+    "blockConfirm": "{{name}}님을 차단할까요? 이 사람의 메시지·매물이 더 이상 보이지 않아요. 상대에게는 알리지 않아요",
+    "reportConfirm": "이 사유로 신고할까요?",
+    "reportedAlready": "신고함",
     "socialTitle": "소셜",
     "followers": "팔로워",
     "following": "팔로잉",
@@ -2447,6 +2471,8 @@
     "buyerS4Desc": "상품을 받고 거래를 완료해요. 앱은 대금을 보관하거나 환불을 대행하지 않아요."
   },
   "biz": {
+    "loungePickerTitle": "어느 업체로 이동할까요?",
+    "publicListingsEmpty": "아직 등록된 매물이 없어요",
     "title": "비즈니스 파트너",
     "heroTitle": "동네 라이더에게 내 가게를 알리세요",
     "heroDesc": "사이공 라이더 앱에서 우리 가게를 지도와 피드에 노출해보세요.",
@@ -3037,6 +3063,7 @@
     "switchToGps": "내 위치로 전환"
   },
   "userProfile": {
+    "trustEmpty": "아직 거래 기록이 없는 사용자입니다",
     "title": "프로필",
     "openProfile": "프로필 보기",
     "loadError": "프로필을 불러오지 못했어요",

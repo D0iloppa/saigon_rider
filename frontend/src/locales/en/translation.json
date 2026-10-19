@@ -112,6 +112,13 @@
     "chat": "Chat"
   },
   "market": {
+    "blockConfirm": "Block",
+    "blockConfirmBody": "Block {{name}}? You won't see their messages or listings anymore. They won't be notified.",
+    "createBusiness": "New listing · {{name}}",
+    "dealPingGaveUpConfirmBody": "If you mark this as given up, the listing will no longer show as for sale.",
+    "dealPingSoldElsewhereConfirmBody": "If you mark this as sold elsewhere, the listing will no longer show as for sale.",
+    "removeWishlist": "Remove from wishlist",
+    "unblockConfirmBody": "Do you want to unblock this user?",
     "district": "Bình Thạnh",
     "catAll": "All",
     "free": "Free",
@@ -927,6 +934,8 @@
     "inviteOpenBtn": "View"
   },
   "liveLocation": {
+    "fitAll": "Show all",
+    "recenter": "My location",
     "leaveChannelConfirm": "Leave the live location channel?",
     "title": "Live location",
     "bubbleLabel": "Live location sharing",
@@ -1008,6 +1017,17 @@
     "loadErrorDesc": "Check your network connection and try again."
   },
   "dm": {
+    "createGroupSubmit": "Create",
+    "deleteAction": "Delete",
+    "deleteMessageConfirm": "Delete this message? It will show as a deleted message.",
+    "deletedMessage": "This message was deleted",
+    "editAction": "Edit",
+    "edited": "(edited)",
+    "groupTitlePlaceholder": "Room name",
+    "memberCount": "{{count}} members",
+    "photoMessage": "Photo",
+    "replyAction": "Reply",
+    "replyingTo": "Replying to {{name}}",
     "group": "Group chat",
     "read": "Read",
     "title": "Messages",
@@ -1348,6 +1368,10 @@
     "messageReportAction": "Report"
   },
   "follow": {
+    "block": "Block this user",
+    "blockConfirm": "Block {{name}}? You won't see their messages or listings anymore. They won't be notified.",
+    "reportConfirm": "Report for this reason?",
+    "reportedAlready": "Reported",
     "socialTitle": "Connections",
     "followers": "Followers",
     "following": "Following",
@@ -2447,6 +2471,8 @@
     "buyerS4Desc": "Receive the item and complete the trade. The app does not hold funds or process refunds for you."
   },
   "biz": {
+    "loungePickerTitle": "Which business would you like to go to?",
+    "publicListingsEmpty": "No listings yet",
     "title": "Business Partner",
     "heroTitle": "Get your shop noticed by local riders",
     "heroDesc": "Show your shop on the map and feed in the Saigon Rider app.",
@@ -3037,6 +3063,7 @@
     "switchToGps": "Use my location"
   },
   "userProfile": {
+    "trustEmpty": "This user has no trade history yet",
     "title": "Profile",
     "openProfile": "View profile",
     "loadError": "Couldn't load this profile",

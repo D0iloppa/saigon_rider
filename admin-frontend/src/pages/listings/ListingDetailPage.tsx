@@ -13,7 +13,7 @@ export default function ListingDetailPage() {
   const navigate = useNavigate()
   const { data: listing, isLoading, isError, error } = useListing(id)
   const [moderateOpen, setModerateOpen] = useState(false)
-  const { data: reviews, isLoading: isReviewsLoading } = useReviewList({ kind: 'market', listing_id: id, size: 50 })
+  const { data: reviews, isLoading: isReviewsLoading } = useReviewList({ kind: 'market', listing_id: id, size: 50 }, !!id)
 
   if (isError) {
     return (
@@ -98,7 +98,10 @@ export default function ListingDetailPage() {
         />
       </Card>
 
-      <Card title="이 거래의 후기">
+      <Card
+        title="이 거래의 후기"
+        extra={reviews && reviews.total > reviews.items.length ? `총 ${reviews.total}건 중 최근 ${reviews.items.length}건` : undefined}
+      >
         <Table
           size="small"
           rowKey="id"

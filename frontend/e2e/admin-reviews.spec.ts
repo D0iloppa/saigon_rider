@@ -38,6 +38,9 @@ test('admin review views', async ({ page }) => {
   await page.getByRole('button', { name: '열람' }).click();
   await expect(page.getByText('받은 거래 후기')).toBeVisible();
   await expect(page.locator('.ant-card').filter({ hasText: '받은 거래 후기' }).locator('tr.ant-table-row').first()).toBeVisible();
+  // 다른 유저로 이동하면 열람 사유를 다시 받아야 한다
+  await page.locator('.ant-card').filter({ hasText: '받은 거래 후기' }).locator('tr.ant-table-row a').first().click();
+  await expect(page.getByPlaceholder('예: 고객 문의 대응')).toBeVisible();
 
   await page.goto(`/admin/listings/${withListing.listing.id}`);
   const card = page.locator('.ant-card').filter({ hasText: '이 거래의 후기' });

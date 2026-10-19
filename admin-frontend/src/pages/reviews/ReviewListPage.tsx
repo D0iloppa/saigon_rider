@@ -79,7 +79,12 @@ export default function ReviewListPage() {
               r.listing ? <Link to={`/listings/${r.listing.id}`}>{r.listing.title}</Link> : '-',
           },
         ]),
-    { title: '작성일', dataIndex: 'created_at', key: 'created_at', width: 150, render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
+    {
+      title: kind === 'biz' ? '최종 수정일' : '작성일',
+      key: 'created_at',
+      width: 150,
+      render: (_: unknown, r: ReviewListRow) => dayjs(r.updated_at ?? r.created_at).format('YYYY-MM-DD HH:mm'),
+    },
   ]
 
   return (

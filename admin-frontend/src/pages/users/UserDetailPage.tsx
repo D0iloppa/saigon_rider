@@ -51,7 +51,12 @@ function UserReviewTable({ params }: { params: ReviewListParams }) {
                   r.listing ? <Link to={`/listings/${r.listing.id}`}>{r.listing.title}</Link> : '-',
               },
             ]),
-        { title: '작성일', dataIndex: 'created_at', key: 'created_at', width: 140, render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
+        {
+          title: isBiz ? '최종 수정일' : '작성일',
+          key: 'created_at',
+          width: 140,
+          render: (_: unknown, r: ReviewListRow) => dayjs(r.updated_at ?? r.created_at).format('YYYY-MM-DD HH:mm'),
+        },
         ...(isBiz
           ? [{ title: '', key: 'detail', width: 60, render: (_: unknown, r: ReviewListRow) => <Link to={`/reviews/${r.id}`}>상세</Link> }]
           : []),
@@ -60,7 +65,14 @@ function UserReviewTable({ params }: { params: ReviewListParams }) {
   )
 }
 
-export default function UserDetailPage() {
+// 후기 표의 유저 링크로 /users/A → /users/B 이동해도 같은 인스턴스가 재사용되므로, id 별로 새로 마운트해
+// 열람 사유(viewReason)·표 페이지 상태가 다른 유저로 넘어가지 않게 한다.
+export default function UserDetailRoute() {
+  const { id = '' } = useParams()
+  return <UserDetailPage key={id} />
+}
+
+function UserDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
 

@@ -68,6 +68,7 @@ export interface ReviewListRow {
   text: string | null
   manner_tags?: string[]
   created_at: string
+  updated_at?: string
   reviewer: { id: string; nickname: string | null }
   target?: { id: string; nickname: string | null }
   listing?: { id: string; title: string } | null
@@ -87,8 +88,9 @@ export interface ReviewListParams {
   size?: number
 }
 
-export function useReviewList(params: ReviewListParams) {
+export function useReviewList(params: ReviewListParams, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ['reviews', 'list', params],
     queryFn: () => api<Page<ReviewListRow>>(`/admin/api/reviews${buildQuery({ ...params })}`),
     placeholderData: keepPreviousData,

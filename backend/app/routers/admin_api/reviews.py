@@ -73,15 +73,17 @@ async def list_reviews(
     if max_rating is not None:
         conds.append(model.rating <= max_rating)
     if q:
-        conds.append(text_col.ilike(f"%{q}%"))
+        conds.append(text_col.icontains(q, autoescape=True))
 
+    # 업체 후기는 재작성 시 같은 행이 갱신되므로(UNIQUE profile_id,user_id) 최근 수정 순으로 본다.
+    sort_col = BusinessReview.updated_at if kind == "biz" else model.created_at
     total = (await db.execute(select(func.count()).select_from(model).where(*conds))).scalar_one()
     rows = (
         (
             await db.execute(
                 select(model)
                 .where(*conds)
-                .order_by(model.created_at.desc(), model.id.desc())
+                .order_by(sort_col.desc(), model.id.desc())
                 .offset((page - 1) * size)
                 .limit(size)
             )
@@ -151,6 +153,7 @@ async def list_reviews(
                     "rating": r.rating,
                     "text": r.body,
                     "created_at": r.created_at,
+                    "updated_at": r.updated_at,
                     "reviewer": {"id": r.user_id, "nickname": nicknames.get(r.user_id)},
                     "business": {"id": r.profile_id, "name": names.get(r.profile_id)},
                     "hidden_at": r.hidden_at,

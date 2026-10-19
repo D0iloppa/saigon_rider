@@ -112,7 +112,7 @@
     "chat": "채팅"
   },
   "market": {
-    "reviewStarAria": "{{n}}점",
+    "reviewStarAria": "{{count}}점",
     "blockConfirm": "차단",
     "blockConfirmBody": "{{name}}님을 차단할까요? 이 사람의 메시지·매물이 더 이상 보이지 않아요. 상대에게는 알리지 않아요",
     "createBusiness": "매물 등록 · {{name}}",

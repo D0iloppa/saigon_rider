@@ -112,7 +112,7 @@
     "chat": "Trò chuyện"
   },
   "market": {
-    "reviewStarAria": "{{n}} sao",
+    "reviewStarAria": "{{count}} sao",
     "blockConfirm": "Chặn",
     "blockConfirmBody": "Chặn {{name}}? Bạn sẽ không còn thấy tin nhắn và tin đăng của người này. Họ sẽ không được thông báo.",
     "createBusiness": "Đăng tin · {{name}}",
@@ -2475,7 +2475,7 @@
     "withdrawalTitle": "Yêu cầu gỡ doanh nghiệp",
     "withdrawalDesc": "Sẽ được xử lý sau khi bộ phận hỗ trợ xem xét",
     "withdrawalConfirm": "Gửi yêu cầu gỡ doanh nghiệp đến bộ phận hỗ trợ? Đây chỉ là yêu cầu — doanh nghiệp sẽ không bị vô hiệu hóa ngay.",
-    "withdrawalConfirmAction": "Viết yêu cầu",
+    "withdrawalConfirmAction": "Gửi yêu cầu gỡ",
     "withdrawalDraftTitle": "Yêu cầu gỡ doanh nghiệp {{name}}",
     "withdrawalDraftBody": "Tôi muốn gỡ doanh nghiệp.\nTên doanh nghiệp: {{name}}\nID doanh nghiệp: {{id}}",
     "loungePickerTitle": "Bạn muốn chuyển đến doanh nghiệp nào?",

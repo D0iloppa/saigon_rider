@@ -12,7 +12,7 @@ Hello App Review Team,
 
 Thank you for the review. We have fixed the issue under Guideline 4.
 
-Some text in the blocking feature (the "Block this user" menu item, the block confirmation dialog and the unblock confirmation dialog) was displayed in Korean even when the app language was English or Vietnamese. We have translated all of this text. We also checked the entire app for other untranslated text and fixed every instance we found, including the chat message actions and the live location buttons.
+Some text in the blocking feature (the "Block this user" menu item, the block confirmation dialog and the unblock confirmation dialog) was displayed in Korean even when the app language was English or Vietnamese. We have translated all of this text. We also reviewed the rest of the app for the same issue and translated the other places where text was missing a translation, including the chat message actions and the live location buttons.
 
 The blocking feature is now fully displayed in the app's language (English, Vietnamese or Korean).
 

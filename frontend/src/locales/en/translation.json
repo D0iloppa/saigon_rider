@@ -112,6 +112,7 @@
     "chat": "Chat"
   },
   "market": {
+    "reviewStarAria": "{{n}} stars",
     "blockConfirm": "Block",
     "blockConfirmBody": "Block {{name}}? You won't see their messages or listings anymore. They won't be notified.",
     "createBusiness": "New listing · {{name}}",
@@ -2471,6 +2472,12 @@
     "buyerS4Desc": "Receive the item and complete the trade. The app does not hold funds or process refunds for you."
   },
   "biz": {
+    "withdrawalTitle": "Request business withdrawal",
+    "withdrawalDesc": "Processed after review by Customer Support",
+    "withdrawalConfirm": "Send a business withdrawal request to Customer Support? This only submits a request — your business will not be deactivated immediately.",
+    "withdrawalConfirmAction": "Write request",
+    "withdrawalDraftTitle": "Withdrawal request for {{name}}",
+    "withdrawalDraftBody": "I would like to withdraw my business.\nBusiness name: {{name}}\nBusiness ID: {{id}}",
     "loungePickerTitle": "Which business would you like to go to?",
     "publicListingsEmpty": "No listings yet",
     "title": "Business Partner",

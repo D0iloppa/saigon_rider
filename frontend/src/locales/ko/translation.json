@@ -112,6 +112,7 @@
     "chat": "채팅"
   },
   "market": {
+    "reviewStarAria": "{{n}}점",
     "blockConfirm": "차단",
     "blockConfirmBody": "{{name}}님을 차단할까요? 이 사람의 메시지·매물이 더 이상 보이지 않아요. 상대에게는 알리지 않아요",
     "createBusiness": "매물 등록 · {{name}}",
@@ -2471,6 +2472,12 @@
     "buyerS4Desc": "상품을 받고 거래를 완료해요. 앱은 대금을 보관하거나 환불을 대행하지 않아요."
   },
   "biz": {
+    "withdrawalTitle": "업체 철회 요청",
+    "withdrawalDesc": "고객센터 검토 후 처리됩니다",
+    "withdrawalConfirm": "업체 철회 요청을 고객센터에 접수할까요? 요청만 접수되며 업체는 즉시 비활성화되지 않습니다.",
+    "withdrawalConfirmAction": "철회 요청 작성",
+    "withdrawalDraftTitle": "{{name}} 업체 철회 요청",
+    "withdrawalDraftBody": "업체 철회를 요청합니다.\n업체명: {{name}}\n업체 ID: {{id}}",
     "loungePickerTitle": "어느 업체로 이동할까요?",
     "publicListingsEmpty": "아직 등록된 매물이 없어요",
     "title": "비즈니스 파트너",

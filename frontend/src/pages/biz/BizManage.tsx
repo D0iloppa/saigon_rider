@@ -145,16 +145,16 @@ export default function BizManage() {
   const requestWithdrawal = () => {
     if (!active) return;
     openConfirm(
-      '업체 철회 요청을 고객센터에 접수할까요? 요청만 접수되며 업체는 즉시 비활성화되지 않습니다.',
+      t('biz.withdrawalConfirm'),
       () => navigate('/settings/support', {
         state: {
           inquiryDraft: {
-            title: `${active.name} 업체 철회 요청`,
-            body: `업체 철회를 요청합니다.\n업체명: ${active.name}\n업체 ID: ${active.id}`,
+            title: t('biz.withdrawalDraftTitle', { name: active.name }),
+            body: t('biz.withdrawalDraftBody', { name: active.name, id: active.id }),
           },
         },
       }),
-      { confirmLabel: '철회 요청 작성', cancelLabel: '취소' },
+      { confirmLabel: t('biz.withdrawalConfirmAction'), cancelLabel: t('common.cancel') },
     );
   };
 
@@ -211,7 +211,7 @@ export default function BizManage() {
         ].map(({ icon: Icon, title, desc, onClick }) => <button type="button" className={styles.managerRow} onClick={onClick} key={title}><Icon size={20} /><span><strong>{title}</strong><small>{desc}</small></span><ChevronRight size={17} /></button>)}</div>
         {(active.verificationStatus === 'verified' || active.verificationStatus === 'docs_submitted') && <><div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.verifTitle')}</h2></div><button type="button" className={styles.quietRow} onClick={() => navigate('/biz/verification', { state: profileState(active) })}><ShieldCheck size={19} /><span><strong>{active.verificationStatus === 'verified' ? t('biz.verifStatusVerified') : t('biz.verifStatusSubmitted')}</strong><small>{active.verificationStatus === 'verified' ? t('biz.lounge.verificationCompleteDesc') : t('biz.lounge.verificationReviewingDesc')}</small></span><ChevronRight size={17} /></button></>}
         <div className={styles.guideGroup}><button type="button" className={styles.guideRow} onClick={() => setGuideOpen((open) => !open)} aria-expanded={guideOpen}><FileText size={19} /><strong>{t('biz.lounge.guideTitle')}</strong><ChevronDown size={17} className={guideOpen ? styles.chevronOpen : undefined} /></button>{guideOpen && <ul className={styles.guideBody}><li>{t('biz.lounge.guideProfile')}</li><li>{t('biz.lounge.guideStatuses')}</li><li>{t('biz.lounge.guideReviews')}</li></ul>}<button type="button" className={styles.guideRow} onClick={() => navigate('/settings/support')}><CircleHelp size={19} /><span><strong>{t('biz.lounge.adsHelp')}</strong><small>{t('biz.lounge.adsHelpDesc')}</small></span><ChevronRight size={17} /></button></div>
-        <button type="button" className={`${styles.quietRow} ${styles.withdrawalRow}`} onClick={requestWithdrawal}><TriangleAlert size={19} /><span><strong>업체 철회 요청</strong><small>고객센터 검토 후 처리됩니다</small></span><ChevronRight size={17} /></button>
+        <button type="button" className={`${styles.quietRow} ${styles.withdrawalRow}`} onClick={requestWithdrawal}><TriangleAlert size={19} /><span><strong>{t('biz.withdrawalTitle')}</strong><small>{t('biz.withdrawalDesc')}</small></span><ChevronRight size={17} /></button>
       </>}
     </div>
     <BottomSheet open={storeSheetOpen} onClose={() => setStoreSheetOpen(false)} height="fit" closeLabel={t('common.close')} header={<h2 className={styles.sheetTitle}>{t('biz.lounge.selectStoreTitle')}</h2>}><div className={styles.storeList}>{profiles.map((profile, idx) => <button type="button" key={profile.id} className={styles.storeOption} onClick={() => selectProfile(idx)} aria-current={idx === activeIdx}>{profile.photoUrl ? <AppImage src={profile.photoUrl} alt="" className={styles.storeOptionPhoto} /> : <div className={styles.storeOptionPhotoFallback}><Store size={20} /></div>}<span><strong>{profile.name}</strong><small>{[categoryLabel(profile.category), profile.address].filter(Boolean).join(' · ')}</small></span>{idx === activeIdx && <span className={styles.selectedLabel}>{t('biz.lounge.selectedStore')}</span>}</button>)}</div></BottomSheet>

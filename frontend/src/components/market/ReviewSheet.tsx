@@ -80,7 +80,7 @@ export default function ReviewSheet({ open, onClose, targetId, listingId, onSubm
                 onTouchStart={() => setHovered(n)}
                 onTouchEnd={() => setHovered(null)}
                 onClick={() => setRating(n)}
-                aria-label={`${n}점`}
+                aria-label={t('market.reviewStarAria', { n })}
               >
                 <svg width="36" height="36" viewBox="0 0 24 24"
                   fill={displayScore !== null && n <= displayScore ? '#f59e0b' : 'none'}

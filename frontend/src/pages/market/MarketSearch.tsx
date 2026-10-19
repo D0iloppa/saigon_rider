@@ -60,6 +60,8 @@ export default function MarketSearch() {
   const [priceMax, setPriceMax] = useState<number | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  // '거래중인 상품만' — 기본 OFF(거래완료 포함 전체 검색, 대표 지시 2026-10-19).
+  const [onlyOnSale, setOnlyOnSale] = useState(false);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => setCategories([]));
@@ -83,7 +85,7 @@ export default function MarketSearch() {
         q: debounced,
         categoryId: category?.id ?? null,
         sort,
-        hideSold: isMine ? false : true,
+        hideSold: isMine ? false : onlyOnSale,
         priceMin,
         priceMax,
         viewerId: userId,
@@ -91,13 +93,13 @@ export default function MarketSearch() {
         page,
         size: 20,
       }),
-    [debounced, category, sort, priceMin, priceMax, userId, isMine],
+    [debounced, category, sort, priceMin, priceMax, userId, isMine, onlyOnSale],
   );
 
   const { items, isLoading, isLoadingMore, hasMore, error: listError, sentinelRef, reset } = useInfiniteScroll<Listing>(
     fetchPage,
     20,
-    [debounced, category, sort, priceMin, priceMax, isMine],
+    [debounced, category, sort, priceMin, priceMax, isMine, onlyOnSale],
   );
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
@@ -161,6 +163,16 @@ export default function MarketSearch() {
           >
             {t(`market.sort_${sort}`)}
           </button>
+
+          {!isMine && (
+            <button
+              className={`${styles.filterChip} ${onlyOnSale ? styles.filterChipActive : ''}`}
+              aria-pressed={onlyOnSale}
+              onClick={() => setOnlyOnSale((v) => !v)}
+            >
+              {t('market.onlyOnSale')}
+            </button>
+          )}
         </div>
       </div>
 

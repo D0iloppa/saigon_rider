@@ -258,7 +258,7 @@ export default function BizPublic() {
 
   useEffect(() => {
     if (!id) return;
-    fetchListings({ businessProfileId: id, size: 50 })
+    fetchListings({ businessProfileId: id, hideSold: true, size: 50 })
       .then((page) => setListings(page.items))
       .catch(() => setListings([]));
   }, [id]);

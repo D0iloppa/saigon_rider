@@ -274,7 +274,7 @@ export default function HomePage() {
       (prefetch?.nearbyPromise && usingFallbackCoords && scopeMode === 'gps' && coordsSource === 'fallback'
         ? prefetch.nearbyPromise
         : fetchListings({
-            lat, lng, sort: 'distance', size: 8,
+            lat, lng, sort: 'distance', hideSold: true, size: 8,
             // 폴백 좌표(권역 밖/위치 꺼짐)면 반경을 걸지 않는다 — MarketMain 과 동일 규칙.
             radiusKm: nearbyRadiusKm(scopeMode, coordsSource),
           }).then((p) => p.items))

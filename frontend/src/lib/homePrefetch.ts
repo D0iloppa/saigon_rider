@@ -28,7 +28,7 @@ export function startHomePrefetch() {
   const { lat, lng } = BEN_THANH_FALLBACK;
 
   // 프리페치는 항상 폴백(Bến Thành) 좌표 기준이므로 반경을 걸지 않는다 — MarketMain 과 동일 규칙.
-  nearbyPromise = fetchListings({ lat, lng, sort: 'distance', size: 8, radiusKm: null })
+  nearbyPromise = fetchListings({ lat, lng, sort: 'distance', hideSold: true, size: 8, radiusKm: null })
     .then((p) => { preloadThumbs(p.items.map((i) => i.thumbnailUrl)); return p.items; })
     .catch(() => []);
 

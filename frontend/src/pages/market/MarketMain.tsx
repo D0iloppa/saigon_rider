@@ -106,6 +106,8 @@ export default function MarketMain({ embedded = false }: { embedded?: boolean } 
 
   const [savedState] = useState<SavedState | null>(readSaved);
   const [sort, setSort] = useState<ListingSort>(savedState?.sort ?? 'recent');
+  // '거래중인 상품만' — 기본 OFF(전체 노출, 대표 지시 2026-10-19: 초기 매물 부족). 나중에 기본 ON 으로 전환 예정.
+  const [onlyOnSale, setOnlyOnSale] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   // 칩 레일이 밀린 상태에서만 좌측 마스크 페이드를 켠다 — 정지 상태에서 첫 칩이
   // 흐려 보이면 안 되고, 밀렸을 때 구분선 뒤 하드클립은 렌더링 버그처럼 보인다.
@@ -230,15 +232,15 @@ export default function MarketMain({ embedded = false }: { embedded?: boolean } 
             lat: coords?.lat, lng: coords?.lng,
             // 권역 밖/위치 꺼짐(폴백 좌표)이면 반경을 걸지 않는다 — 중심가 3km 가 비면 심사자·해외 사용자에게 빈 화면.
             radiusKm: nearbyRadiusKm(effectiveLocationMode, coordsSource),
-            categoryId,
+            categoryId, hideSold: onlyOnSale,
             viewerId: userId, page, size: 20,
           })
         : Promise.resolve({ items: [], total: 0, page, size: 20 }),
-    [listReady, sort, coords, coordsSource, effectiveLocationMode, categoryId, userId],
+    [listReady, sort, coords, coordsSource, effectiveLocationMode, categoryId, onlyOnSale, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, error: listError, sentinelRef, reset } =
-    useInfiniteScroll<Listing>(fetchPage, 20, [listReady, sort, coords, coordsSource, effectiveLocationMode, categoryId, userId]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [listReady, sort, coords, coordsSource, effectiveLocationMode, categoryId, onlyOnSale, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),
@@ -264,7 +266,7 @@ export default function MarketMain({ embedded = false }: { embedded?: boolean } 
     fetchListings({
       sort,
       minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E,
-      categoryId,
+      categoryId, hideSold: onlyOnSale,
       viewerId: userId, page: 1, size: 50,
     }).then((res) => {
       if (seq !== mapReqSeqRef.current) return;
@@ -297,7 +299,7 @@ export default function MarketMain({ embedded = false }: { embedded?: boolean } 
     if (prev === null || prev === sig) return; // 최초 등록이거나 변화 없음
     if (viewMode !== 'map' || !bboxFilter) return;
     fetchMapBbox(bboxFilter);
-  }, [categoryId, sort, viewMode, bboxFilter, fetchMapBbox]);
+  }, [categoryId, onlyOnSale, sort, viewMode, bboxFilter, fetchMapBbox]);
 
   const bboxTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const handleMapBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
@@ -499,6 +501,14 @@ export default function MarketMain({ embedded = false }: { embedded?: boolean } 
           >
             <span className={styles.sortChipLabel}>{t(`market.sort_${sort}`)}</span>
             <ChevronDown size={14} strokeWidth={2.2} />
+          </button>
+          <button
+            type="button"
+            className={`${styles.listChip} ${onlyOnSale ? styles.listChipActive : ''}`}
+            aria-pressed={onlyOnSale}
+            onClick={() => setOnlyOnSale((v) => !v)}
+          >
+            {t('market.onlyOnSale')}
           </button>
           <span className={styles.chipDivider} aria-hidden="true" />
           <div ref={chipsRailRef} className={styles.listChipsRow} onScroll={handleRailScroll}>

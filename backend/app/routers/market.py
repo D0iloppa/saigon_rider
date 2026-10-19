@@ -384,7 +384,7 @@ async def get_listings(
     sort: str = Query("recent", description="recent | price_low | price_high | distance | recommended"),
     hide_sold: bool = Query(
         False,
-        description="deprecated — SOLD 는 이제 값과 무관하게 항상 제외(내 매물 조회 제외). 하위호환용으로만 받는다.",
+        description="true 면 거래완료(SOLD) 제외('거래중인 상품만'). 기본 false — SOLD 포함(대표 지시 2026-10-19, 초기 매물 부족).",
     ),
     price_min: int | None = Query(None, description="최저 가격 (VND)"),
     price_max: int | None = Query(None, description="최고 가격 (VND)"),
@@ -511,6 +511,9 @@ async def get_listings(
     # public_view: 내 프로필 미리보기("남에게 보이는 내 프로필")처럼 본인이 자기 매물을 조회하되
     # 남이 보는 그대로여야 하는 경로용 — 위 내 매물 예외를 강제로 끈다.
     hidden = () if (is_own_listings and not public_view) else _LISTING_INACTIVE_STATUSES
+    # 대표 지시 2026-10-19: 거래완료는 기본 노출하고 hide_sold=true('거래중인 상품만')일 때만 제외.
+    if not hide_sold:
+        hidden = tuple(st for st in hidden if st != "SOLD")
     q = q.where(MarketplaceListing.status.notin_(hidden))
     count_q = count_q.where(MarketplaceListing.status.notin_(hidden))
 

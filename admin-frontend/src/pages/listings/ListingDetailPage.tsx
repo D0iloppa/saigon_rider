@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Card, Descriptions, Image, Skeleton, Space, Table, Tag } from 'antd'
 import dayjs from 'dayjs'
 import { useListing } from '../../api/listings'
-import { useReviewList } from '../../api/reviews'
+import { MANNER_TAG_LABELS, useReviewList } from '../../api/reviews'
 import ListingFlags from '../../components/ListingFlags'
 import ModerateModal from '../../components/ModerateModal'
 import StatusTag from '../../components/StatusTag'
@@ -122,7 +122,7 @@ export default function ListingDetailPage() {
             {
               title: '매너 태그',
               key: 'tags',
-              render: (_: unknown, r) => (r.manner_tags ?? []).map((t) => <Tag key={t}>{t}</Tag>),
+              render: (_: unknown, r) => (r.manner_tags ?? []).map((t) => <Tag key={t}>{MANNER_TAG_LABELS[t] ?? t}</Tag>),
             },
             { title: '코멘트', dataIndex: 'text', key: 'text', render: (v: string | null) => v ?? '-' },
             { title: '작성일', dataIndex: 'created_at', key: 'created_at', render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },

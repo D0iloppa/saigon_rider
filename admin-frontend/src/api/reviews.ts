@@ -94,3 +94,11 @@ export function useReviewList(params: ReviewListParams) {
     placeholderData: keepPreviousData,
   })
 }
+
+// 앱 ReviewSheet MANNER_TAGS 와 동일 코드셋 (라벨은 frontend ko dm.tag_*)
+export const MANNER_TAG_LABELS: Record<string, string> = {
+  PUNCTUAL: '시간약속 잘 지켜요',
+  KIND: '친절해요',
+  FAST_REPLY: '응답이 빨라요',
+  GOOD_ITEM: '상품 상태가 좋아요',
+}

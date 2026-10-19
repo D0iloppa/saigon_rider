@@ -149,6 +149,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **i18n**: 공통 로케일 유틸은 `landing/apps/client/src/lib/locale.ts` (vi 기본, `/ko` `/en` 경로). 페이지별 텍스트는 각 페이지 폴더의 `content.ts`.
 - **라우팅**: root+www+business → `/var/www/saigon-rider` 정적 서빙 (React가 도메인별 분기), `app.saigon-rider.com` → 컨테이너 앱(:18090). 설정: `deploy/saigon-rider.conf`. 인증서는 saigon-rider.com 하나에 SAN 으로 root/www/app/business 전부 포함.
 
+## 앱 다운로드 링크 — 단일 URL `https://saigon-rider.com/app_down.html`
+
+QR·가이드북·랜딩·영업자료 등 **"앱 받기" 링크는 전부 이 URL 하나만** 쓴다(QR은 인쇄되면 못 바꾸므로 스토어 URL을 직접 넣지 않는다). 스토어 상태가 바뀌면 **이 파일만** 고친다.
+
+- **원본**: `landing/apps/client/public/app_down.html` (랜딩 빌드에 포함 → `랜딩배포` 때 같이 나감). 단건 반영은 `scp landing/apps/client/public/app_down.html saigon-prod-new:/var/www/saigon-rider/app_down.html`.
+- **현재 상태(2026-10-19)**: 정적 안내만 — "앱스토어 등록 준비중입니다. 곧 찾아뵙겠습니다."(ko+vi). iOS 미승인.
+- **스토어 승인 후**: 이 파일에서 UA 로 분기 — Android → Google Play, iOS → App Store (안드로이드도 그때 함께 연결). 그 외(데스크톱)는 두 스토어 링크를 보여준다.
+- QR 원본: `~/workspace/d_tools/presentation/export/673f9fc2-a155-4f74-9033-ee61c90b6d36/img/qr-app-down.png` (업주 가이드북 덱, segno 로 생성).
+
 ## 관리자 콘솔 배포 — `어드민배포`
 
 `admin-frontend/` (React SPA 관리자 콘솔, `:18090/admin/`)는 landing 과 달리 **정적 배포 스크립트가 없다** — docker compose 서비스(`admin_frontend`)라서 재빌드가 곧 배포다. "어드민배포"라고 하면 아래를 실행한다.

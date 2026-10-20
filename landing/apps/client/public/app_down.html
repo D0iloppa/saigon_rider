@@ -2,29 +2,66 @@
 <!--
   앱 다운로드 단일 진입점 — https://saigon-rider.com/app_down.html
   QR·가이드북·랜딩 등 모든 "앱 받기" 링크는 이 URL 만 가리킨다.
-  스토어 승인 후에는 이 파일만 고쳐 기기별(Android → Google Play, iOS → App Store)로 이동시킨다.
+  2026-10-21: Android 는 Google Play 공개(10+) → 기기별 분기 적용. iOS 는 App Store 심사 중이라 안내만.
+  Play 링크의 referrer 파라미터는 Install Referrer 로 앱에 전달된다(Stage 0-3 귀속). 출처를 바꿀 땐 ?src= 로 넘긴다:
+    app_down.html?src=qr-biz-<코드> → utm_source=qr&utm_content=biz-<코드> / 기본 utm_source=app_down
+  iOS 승인 후: IOS_HREF 를 App Store URL 로 바꾸고 아래 iOS 분기를 이동(location.replace)으로 바꾼다.
 -->
-<html lang="ko">
+<html lang="vi">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Saigon Rider 앱 받기</title>
+  <meta name="robots" content="noindex">
+  <title>Tải Saigon Rider · Saigon Rider 앱 받기</title>
   <link rel="icon" href="/favicon.ico">
   <style>
     body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
            background: #0D2E76; color: #fff; text-align: center; padding: 24px; box-sizing: border-box; }
-    img { width: 72px; height: 72px; border-radius: 16px; }
+    img.icon { width: 72px; height: 72px; border-radius: 16px; }
     h1 { font-size: 22px; margin: 20px 0 8px; }
     p { margin: 4px 0; line-height: 1.6; opacity: .9; }
+    .badge { display: inline-block; margin-top: 18px; }
+    .badge img { height: 60px; width: auto; display: block; }
+    .ios { margin-top: 18px; font-size: 14px; opacity: .8; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
   <main>
-    <img src="/apple-touch-icon.png" alt="Saigon Rider">
+    <img class="icon" src="/apple-touch-icon.png" alt="Saigon Rider">
     <h1>Saigon Rider</h1>
-    <p>앱스토어 등록 준비중입니다. 곧 찾아뵙겠습니다.</p>
-    <p>Ứng dụng đang chuẩn bị lên cửa hàng. Hẹn gặp bạn sớm!</p>
+    <p id="msg-android" class="hidden">Đang mở Google Play… / Google Play 로 이동합니다…</p>
+    <p id="msg-ios">Bản iOS đang chờ App Store phê duyệt. Hẹn gặp bạn sớm!<br>iOS 는 App Store 심사 중입니다. 곧 찾아뵙겠습니다.</p>
+    <a id="play" class="badge" href="#" rel="noopener">
+      <img src="/images/badges/google-play-vi.png" alt="Tải trên Google Play">
+    </a>
+    <p class="ios" id="ios-note">iPhone: sắp ra mắt · 출시 예정</p>
   </main>
+  <script>
+    (function () {
+      var PLAY_BASE = "https://play.google.com/store/apps/details?id=com.saigonrider.user";
+      var IOS_HREF = null; // App Store 승인 후 채운다.
+      var q = new URLSearchParams(location.search);
+      var src = (q.get("src") || "app_down").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64);
+      var ref = "utm_source=" + src + "&utm_medium=app_down";
+      var m = /^qr-biz-([A-Za-z0-9_-]+)$/.exec(src);
+      if (m) ref = "utm_source=qr&utm_medium=app_down&utm_content=biz-" + m[1];
+      var play = PLAY_BASE + "&referrer=" + encodeURIComponent(ref);
+      document.getElementById("play").href = play;
+      var ua = navigator.userAgent || "";
+      var isAndroid = /Android/i.test(ua);
+      var isIOS = /iPhone|iPad|iPod/i.test(ua) && !window.MSStream;
+      if (isAndroid) {
+        document.getElementById("msg-android").classList.remove("hidden");
+        document.getElementById("msg-ios").classList.add("hidden");
+        document.getElementById("ios-note").classList.add("hidden");
+        location.replace(play);
+      } else if (isIOS) {
+        document.getElementById("play").classList.add("hidden");
+        if (IOS_HREF) location.replace(IOS_HREF);
+      }
+    })();
+  </script>
 </body>
 </html>

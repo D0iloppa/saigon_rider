@@ -48,7 +48,7 @@ export const content: Record<Locale, HomeCopy> = {
       ctaPrimary: "Bắt đầu ngay",
       ctaSecondary: "Khám phá dịch vụ",
     },
-    servicesHead: { kicker: "Saigon Rider gần bạn", heading: "Từ mua bán, tin tức khu phố<br />đến an toàn của tài xế — 6 dịch vụ chính" },
+    servicesHead: { kicker: "Saigon Rider gần bạn", heading: "Từ mua bán, tin tức khu phố<br />đến an toàn của tài xế — 5 dịch vụ chính" },
     services: [
       {
         eyebrow: "Chợ khu phố · Mua bán đồ cũ",
@@ -80,13 +80,6 @@ export const content: Record<Locale, HomeCopy> = {
         iconLabels: ["Báo ngập", "Trạm xăng", "Đánh giá tiệm sửa xe"],
       },
       {
-        eyebrow: "Phần thưởng khi đi xe",
-        title: "Đi bao nhiêu, tích bấy nhiêu — đổi thành phần thưởng thiết thực",
-        body: "Mỗi chuyến đi hàng ngày sẽ trở thành điểm (RP). Đổi RP đã tích thành các gifticon thiết thực như một ly cà phê hay thẻ nạp data. Đường vẫn phải đi, cùng Saigon Rider thì đó cũng là phần thưởng.",
-        bullets: [],
-        cta: "Xem chi tiết Phần thưởng",
-      },
-      {
         eyebrow: "Saigon Rider Doanh nghiệp",
         title: "Biến quán của bạn thành điểm quen của tài xế khu phố",
         body: "Tạo hồ sơ doanh nghiệp và đăng tin, quán của bạn sẽ tự nhiên xuất hiện trên bản đồ khu phố và bảng tin. Mọi quảng cáo đều qua kiểm duyệt trước khi hiển thị, mang lại sự tin tưởng cho hàng xóm và khách hàng khu phố thật cho bạn.",
@@ -98,7 +91,7 @@ export const content: Record<Locale, HomeCopy> = {
     moments: [
       { title: "Trên đường đi làm", body: "Buổi sáng có tin báo mưa, bạn xem bản đồ báo ngập trước rồi đổi lộ trình. Thay vì giày ướt, là một buổi sáng thong thả hơn." },
       { title: "Giờ nghỉ trưa", body: "Quán phở gần công ty bạn tìm thấy trên bản đồ đã có hai mươi đánh giá từ hàng xóm. Lưu lại và rồi trở thành khách quen." },
-      { title: "Cuối tuần", body: "Đăng bán chiếc nón không dùng lên Chợ khu phố, tối đó đã có hẹn giao dịch với hàng xóm cùng khu. Tiện thể đổi RP đã tích thành cốc cà phê." },
+      { title: "Cuối tuần", body: "Đăng bán chiếc nón không dùng lên Chợ khu phố, tối đó đã có hẹn giao dịch với hàng xóm cùng khu." },
     ],
     safetyHead: { kicker: "Xây dựng khu phố đáng tin cậy", heading: "Cách Saigon Rider<br />giữ vững sự tin cậy" },
     safety: [
@@ -130,7 +123,7 @@ export const content: Record<Locale, HomeCopy> = {
       ctaPrimary: "앱 시작하기",
       ctaSecondary: "서비스 둘러보기",
     },
-    servicesHead: { kicker: "당신 근처의 사이공라이더", heading: "거래부터 동네 소식, 라이더의 안전까지<br />여섯 가지 서비스를 소개합니다." },
+    servicesHead: { kicker: "당신 근처의 사이공라이더", heading: "거래부터 동네 소식, 라이더의 안전까지<br />다섯 가지 서비스를 소개합니다." },
     services: [
       {
         eyebrow: "동네마켓 · 중고거래",
@@ -162,13 +155,6 @@ export const content: Record<Locale, HomeCopy> = {
         iconLabels: ["침수 제보", "주유소", "정비소 후기"],
       },
       {
-        eyebrow: "라이딩 리워드",
-        title: "달린 만큼 쌓이고, 생활로 돌아오는 리워드",
-        body: "매일의 라이딩이 포인트(RP)가 됩니다. 쌓인 RP는 커피 한 잔, 데이터 충전권 같은 실속 있는 기프티콘으로 교환하세요. 어차피 달리는 길, 사이공라이더와 함께라면 보상이 됩니다.",
-        bullets: [],
-        cta: "리워드 자세히 보기",
-      },
-      {
         eyebrow: "사이공라이더 비즈니스",
         title: "사장님의 가게를 동네 라이더의 단골집으로",
         body: "비즈프로필을 만들고 소식을 올리면, 가게가 동네지도와 피드에 자연스럽게 노출됩니다. 모든 광고는 심사를 거쳐 게재되어 이웃에게는 신뢰를, 사장님에게는 진짜 동네 고객을 연결해 드립니다.",
@@ -180,7 +166,7 @@ export const content: Record<Locale, HomeCopy> = {
     moments: [
       { title: "출근길", body: "비 소식이 있는 아침, 침수 제보 지도를 먼저 확인하고 출발 경로를 바꿉니다. 젖은 신발 대신 여유 있는 출근." },
       { title: "점심시간", body: "지도에서 발견한 회사 근처 쌀국수집, 이웃 후기가 벌써 스무 개. 찜해두고 단골이 되어갑니다." },
-      { title: "주말", body: "안 쓰는 헬멧을 마켓에 올렸더니 저녁에 같은 동네 이웃과 거래 약속. 나온 김에 쌓인 RP로 커피 쿠폰도 교환." },
+      { title: "주말", body: "안 쓰는 헬멧을 마켓에 올렸더니 저녁에 같은 동네 이웃과 거래 약속." },
     ],
     safetyHead: { kicker: "믿을 수 있는 동네를 만듭니다", heading: "사이공라이더가<br />신뢰를 지키는 방법" },
     safety: [
@@ -212,7 +198,7 @@ export const content: Record<Locale, HomeCopy> = {
       ctaPrimary: "Get Started",
       ctaSecondary: "Explore Services",
     },
-    servicesHead: { kicker: "Saigon Rider, near you", heading: "From trading to local news<br />to rider safety — six core services" },
+    servicesHead: { kicker: "Saigon Rider, near you", heading: "From trading to local news<br />to rider safety — five core services" },
     services: [
       {
         eyebrow: "Local Market · Secondhand",
@@ -244,13 +230,6 @@ export const content: Record<Locale, HomeCopy> = {
         iconLabels: ["Flood Reports", "Gas Stations", "Repair Reviews"],
       },
       {
-        eyebrow: "Riding Rewards",
-        title: "The more you ride, the more it pays you back",
-        body: "Every day's ride turns into points (RP). Trade your RP for practical gifticons like a coffee or a data top-up. You're riding anyway — with Saigon Rider, it pays off.",
-        bullets: [],
-        cta: "See Rewards",
-      },
-      {
         eyebrow: "Saigon Rider Business",
         title: "Turn your shop into the neighborhood riders' regular spot",
         body: "Create a business profile and post updates, and your shop naturally shows up on the neighborhood map and feed. Every ad goes through review before it's shown — trust for neighbors, real local customers for you.",
@@ -262,7 +241,7 @@ export const content: Record<Locale, HomeCopy> = {
     moments: [
       { title: "Morning Commute", body: "Rain's coming, so you check the flood report map first and reroute. Dry shoes instead of wet ones — a calmer start to the day." },
       { title: "Lunch Break", body: "A phở place near the office you found on the map already has twenty neighbor reviews. Save it, and you're a regular before you know it." },
-      { title: "Weekend", body: "You listed an unused helmet on the Market, and by evening you've got a meetup with a neighbor nearby. While you're out, trade your RP for a coffee coupon." },
+      { title: "Weekend", body: "You listed an unused helmet on the Market, and by evening you've got a meetup with a neighbor nearby." },
     ],
     safetyHead: { kicker: "Building a neighborhood you can trust", heading: "How Saigon Rider<br />keeps trust intact" },
     safety: [

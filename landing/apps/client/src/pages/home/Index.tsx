@@ -29,7 +29,6 @@ const serviceMedia = [
   { id: "map", images: [{ src: "/screens/map-business.png" }, { src: "/screens/map-business-carousel.png" }] },
   { id: "community", images: [{ src: "/screens/community-feed.png" }] },
   { id: "rider-info", images: [], icons: [Droplets, Fuel, Wrench] },
-  { id: "reward", images: [{ src: "/screens/profile-mileage.png" }, { src: "/screens/coupon-box.png" }] },
   { id: "business", images: [{ src: "/screens/map-business-carousel.png" }], ctaHref: BUSINESS_HREF },
 ];
 

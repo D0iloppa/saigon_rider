@@ -160,17 +160,20 @@ function preflightPermission(): Promise<void> {
     .then((status) => {
       if (status !== 'prompt') return;
       return new Promise<void>((resolve) => {
+        const rationale = { mode: 'code', value: 'map.permissionRationale' } as const;
         useConfirmStore.getState().open(
-          {
-            mode: 'code',
-            value: 'map.permissionRationale',
-          },
+          rationale,
           () => resolve(),
           {
             confirmLabel: { mode: 'code', value: 'map.permissionContinue' },
             dismissible: false,
           },
         );
+        // 전역 단일 슬롯이라 다른 confirm 이 덮어쓰거나 닫으면 onConfirm 이 안 불린다 — 그때도
+        // 시스템 권한창으로 진행해 ensureLocation 이 영원히 pending 이 되지 않게 한다.
+        const unsub = useConfirmStore.subscribe((s) => {
+          if (!s.isOpen || s.message !== rationale) { unsub(); resolve(); }
+        });
       });
     });
 }
@@ -422,12 +425,20 @@ export const useLocationStore = create<LocationState>()(
       name: 'saigon-rider-location',
       // v3(mode:'all'|'region' + region/accountId/location) → v4(mode:'gps'|'all'). 구버전 값이
       // 남아 있으면 mode:'region' 이 그대로 복원돼 첫 진입이 깨지므로 통째로 버린다.
-      version: 4,
-      migrate: () => ({
-        mode: 'gps' as LocationMode,
-        permissionIntent: 'undecided' as PermissionIntent,
-        pinnedAll: false,
-      }),
+      version: 5,
+      migrate: (persisted, version) => {
+        // v4: 예전 프리프롬프트 "나중에"로 남은 'declined' 는 OS 권한창을 한 번도 안 띄운 것일 수
+        // 있다 — 'undecided' 로 되돌려 새 "계속" 흐름을 타게 한다(OS 거부였다면 다시 declined 로 확정됨).
+        if (version === 4 && persisted) {
+          const p = persisted as { mode: LocationMode; permissionIntent: PermissionIntent; pinnedAll: boolean };
+          return { ...p, permissionIntent: p.permissionIntent === 'declined' ? 'undecided' : p.permissionIntent };
+        }
+        return {
+          mode: 'gps' as LocationMode,
+          permissionIntent: 'undecided' as PermissionIntent,
+          pinnedAll: false,
+        };
+      },
       partialize: (state) => ({
         mode: state.mode,
         permissionIntent: state.permissionIntent,

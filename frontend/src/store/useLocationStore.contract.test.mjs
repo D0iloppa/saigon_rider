@@ -61,16 +61,17 @@ test('coords 는 persist 되지 않는다 — 어제 좌표로 오늘의 근처�
   assert.match(partialize[0], /mode: state\.mode/, 'mode 는 persist 돼야 한다');
 });
 
-test('persist version 4 로 올리고 구버전 값은 통째로 버린다', () => {
+test('persist v5: v3 이하는 통째로 버리고, v4 의 declined 는 undecided 로 되돌린다', () => {
+  assert.match(source, /version: 5/);
   assert.match(
     source,
-    /version: 4/,
-    "v3(mode:'all'|'region') 값이 살아남으면 첫 진입이 깨진다 — version 을 4로 올려야 한다",
+    /if \(version === 4 && persisted\)[\s\S]*?permissionIntent === 'declined' \? 'undecided'/,
+    '예전 "나중에" declined 사용자도 새 "계속" 흐름으로 OS 권한창을 받아야 한다 (App Store 5.1.1(iv))',
   );
   assert.match(
     source,
-    /migrate: \(\) => \(\{[\s\S]*?mode: 'gps'/,
-    "migrate 는 구버전 상태를 버리고 mode:'gps' 로 초기화해야 한다",
+    /return \{\s*mode: 'gps' as LocationMode,/,
+    "v3 이하(mode:'all'|'region')는 버리고 mode:'gps' 로 초기화해야 한다",
   );
 });
 
@@ -139,7 +140,7 @@ test('권한 폴백 좌표만으로 전역 watcher를 시작하지 않는다', (
   assert.match(
     code,
     /if \(get\(\)\.gateReason === 'permission'\) return \(\) => \{\};/,
-    '프리프롬프트 나중에/OS 거부 뒤 watcher가 시스템 권한창을 다시 띄우면 안 된다',
+    'OS 권한 거부 뒤 watcher가 시스템 권한창을 다시 띄우면 안 된다',
   );
 });
 

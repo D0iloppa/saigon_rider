@@ -13,27 +13,29 @@ function renderTextProp(prop: import('./dialogTypes').TextProp, t: (key: string)
 
 export function ConfirmDialog() {
   const { t } = useTranslation();
-  const { isOpen, message, confirmLabel, cancelLabel, onConfirm, close } = useConfirmStore();
+  const { isOpen, message, confirmLabel, cancelLabel, dismissible, onConfirm, close } = useConfirmStore();
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !dismissible) return;
     const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && close();
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
-  }, [isOpen, close]);
+  }, [isOpen, dismissible, close]);
 
   if (!isOpen) return null;
 
   const handleConfirm = () => { onConfirm(); close(); };
 
   return (
-    <div className={styles.backdrop} onClick={close}>
+    <div className={styles.backdrop} onClick={dismissible ? close : undefined}>
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
         <p className={styles.message}>{renderTextProp(message, t)}</p>
         <div className={styles.actions}>
-          <button className={styles.cancel} onClick={close}>
-            {resolveText(cancelLabel, t)}
-          </button>
+          {dismissible && (
+            <button className={styles.cancel} onClick={close}>
+              {resolveText(cancelLabel, t)}
+            </button>
+          )}
           <button className={styles.confirm} onClick={handleConfirm}>
             {resolveText(confirmLabel, t)}
           </button>

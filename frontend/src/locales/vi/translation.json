@@ -2367,8 +2367,7 @@
       "codeCopied": "Đã sao chép mã"
     },
     "permissionRationale": "Cần vị trí của bạn để hiển thị tin đăng, trạm xăng và thời tiết gần bạn.",
-    "permissionAllow": "Cho phép vị trí",
-    "permissionLater": "Để sau",
+    "permissionContinue": "Tiếp tục",
     "loadingMap": "Đang tải bản đồ…"
   },
   "effects": {

@@ -2368,8 +2368,7 @@
       "codeCopied": "Code copied"
     },
     "permissionRationale": "We need your location to show listings, gas stations and weather near you.",
-    "permissionAllow": "Allow location",
-    "permissionLater": "Later",
+    "permissionContinue": "Continue",
     "loadingMap": "Loading map…"
   },
   "effects": {

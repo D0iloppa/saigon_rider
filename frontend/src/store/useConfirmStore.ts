@@ -6,11 +6,13 @@ interface ConfirmState {
   message: TextProp;
   confirmLabel: TextProp;
   cancelLabel: TextProp;
+  /** false 면 취소 버튼·백드롭·ESC 로 닫을 수 없다(확인 버튼만). */
+  dismissible: boolean;
   onConfirm: () => void;
   open: (
     message: TextProp,
     onConfirm: () => void,
-    labels?: { confirmLabel?: TextProp; cancelLabel?: TextProp }
+    labels?: { confirmLabel?: TextProp; cancelLabel?: TextProp; dismissible?: boolean }
   ) => void;
   close: () => void;
 }
@@ -23,6 +25,7 @@ export const useConfirmStore = create<ConfirmState>((set) => ({
   message: '',
   confirmLabel: DEFAULT_CONFIRM,
   cancelLabel:  DEFAULT_CANCEL,
+  dismissible: true,
   onConfirm: () => {},
   open: (message, onConfirm, labels = {}) => set({
     isOpen: true,
@@ -30,12 +33,14 @@ export const useConfirmStore = create<ConfirmState>((set) => ({
     onConfirm,
     confirmLabel: labels.confirmLabel ?? DEFAULT_CONFIRM,
     cancelLabel:  labels.cancelLabel  ?? DEFAULT_CANCEL,
+    dismissible:  labels.dismissible  ?? true,
   }),
   close: () => set({
     isOpen: false,
     message: '',
     confirmLabel: DEFAULT_CONFIRM,
     cancelLabel:  DEFAULT_CANCEL,
+    dismissible: true,
     onConfirm: () => {},
   }),
 }));

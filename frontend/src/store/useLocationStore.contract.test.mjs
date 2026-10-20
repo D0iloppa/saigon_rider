@@ -161,7 +161,7 @@ test('이전에 프리프롬프트를 미룬 사용자는 다음 세션에도 �
 test('권한 프리프롬프트는 미결정(prompt) 상태에서만 뜬다', () => {
   // 설계도 §5 — 표시범위 기본값이 GPS 가 되면서 진입만으로 시스템 권한창이 뜬다. 맥락 없이
   // 뜨는 창은 반사적 거부를 부르고, 한 번 거부되면 앱에서 되돌릴 수 없다.
-  assert.match(code, /function preflightPermission\(\): Promise<boolean>/, '프리프롬프트 함수가 있어야 한다');
+  assert.match(code, /function preflightPermission\(\): Promise<void>/, '프리프롬프트 함수가 있어야 한다');
   assert.match(
     code,
     /native\s*\.checkLocationPermission\(\)/,
@@ -169,42 +169,23 @@ test('권한 프리프롬프트는 미결정(prompt) 상태에서만 뜬다', ()
   );
   assert.match(
     code,
-    /if \(status !== 'prompt'\) return true;/,
+    /if \(status !== 'prompt'\) return;/,
     "허용/거부가 이미 결정된 상태('prompt' 가 아님)면 묻지 않고 그대로 진행해야 한다",
   );
   assert.match(code, /useConfirmStore\.getState\(\)\.open\(/, '기존 전역 ConfirmDialog 를 재사용한다');
 });
 
-test('프리프롬프트 "나중에"는 시스템 권한창 없이 탐색용 중심가로 간다', () => {
-  const branch = code.match(/if \(!allowed\) \{[\s\S]*?return null;\s*\}/);
-  assert.ok(branch, '거절 분기가 있어야 한다');
-  assert.match(branch[0], /mode: 'gps'/, '중심가 반경 탐색으로 간다');
-  assert.match(branch[0], /fallbackExplorationLocation\('permission', BEN_THANH_FALLBACK\)/);
-  assert.match(
-    branch[0],
-    /permissionIntent: 'declined'/,
-    "'나중에'는 declined 로 기록해 다음 세션에 다시 묻지 않아야 한다",
-  );
-  assert.doesNotMatch(
-    branch[0],
-    /ensureLocationPermission/,
-    '거절했는데 시스템 권한창을 띄우면 프리프롬프트의 의미가 없다',
-  );
-});
-
-test('프리프롬프트를 취소(백드롭/ESC)해도 매달리지 않는다', () => {
-  assert.match(
-    code,
-    /useConfirmStore\.subscribe\(\(s\) => \{[\s\S]*?if \(!s\.isOpen\) \{ unsub\(\); resolve\(false\); \}/,
-    '다이얼로그가 닫히면 "나중에"로 확정해야 한다 — 아니면 ensureLocation 이 영원히 pending 이다',
-  );
+test('프리프롬프트는 중립 버튼 하나로 항상 시스템 권한창으로 이어진다 (App Store 5.1.1(iv))', () => {
+  assert.match(code, /confirmLabel: \{ mode: 'code', value: 'map\.permissionContinue' \}/);
+  assert.match(code, /dismissible: false/, '"나중에"·백드롭·ESC 로 요청을 미룰 수 없어야 한다');
+  assert.doesNotMatch(code, /permissionLater|permissionAllow/);
 });
 
 test('프리프롬프트 문구는 3개 언어에 모두 있다', async () => {
   const { readFileSync } = await import('node:fs');
   for (const lang of ['ko', 'en', 'vi']) {
     const dict = JSON.parse(readFileSync(join(here, `../locales/${lang}/translation.json`), 'utf8'));
-    for (const key of ['permissionRationale', 'permissionAllow', 'permissionLater']) {
+    for (const key of ['permissionRationale', 'permissionContinue']) {
       assert.ok(
         typeof dict.map?.[key] === 'string' && dict.map[key].trim().length > 0,
         `${lang}: map.${key} 가 비어 있으면 안 된다`,

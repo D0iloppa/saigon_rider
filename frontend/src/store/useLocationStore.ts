@@ -145,36 +145,32 @@ const shownFallbackKeys = new Set<string>();
  *
  * 표시 범위 기본값이 GPS 가 되면서 앱 진입만으로 권한창이 뜨게 됐다 — 맥락 없이 뜨는
  * 시스템 창은 반사적 거부를 부르고, 한 번 거부되면 앱에서 되돌릴 수 없다. 그래서 권한이
- * **아직 미결정('prompt')일 때만** 한 번 물어본다. (설계도 §5)
+ * **아직 미결정('prompt')일 때만** 한 번 설명한다. (설계도 §5)
  *
- * @returns true = 시스템 권한창으로 진행, false = "나중에"(중심가 탐색으로)
+ * App Store 가이드라인 5.1.1(iv) (2026-10-20 리젝): 프리프롬프트는 허용을 유도하는 버튼
+ * ("위치 허용")이나 요청을 미루는 버튼("나중에")을 둘 수 없다 — 중립 버튼("계속") 하나로
+ * 반드시 시스템 권한창으로 이어져야 한다. 거부는 시스템 창에서 하고 catch 의 폴백으로 간다.
  */
-function preflightPermission(): Promise<boolean> {
+function preflightPermission(): Promise<void> {
   // 이미 허용/거부가 결정된 상태면 묻지 않는다 — 결정된 값대로 흘러가면 된다.
   // (거부 상태면 아래 native 호출이 실패해 catch 의 중심가 폴백으로 간다.)
   return native
     .checkLocationPermission()
     .catch(() => 'prompt' as const)
     .then((status) => {
-      if (status !== 'prompt') return true;
-      return new Promise<boolean>((resolve) => {
+      if (status !== 'prompt') return;
+      return new Promise<void>((resolve) => {
         useConfirmStore.getState().open(
           {
             mode: 'code',
             value: 'map.permissionRationale',
           },
-          () => resolve(true),
+          () => resolve(),
           {
-            confirmLabel: { mode: 'code', value: 'map.permissionAllow' },
-            cancelLabel: { mode: 'code', value: 'map.permissionLater' },
+            confirmLabel: { mode: 'code', value: 'map.permissionContinue' },
+            dismissible: false,
           },
         );
-        // 취소(백드롭 탭·ESC 포함)로 닫히면 onConfirm 이 호출되지 않는다 — isOpen 이
-        // 내려가는 것을 구독해 "나중에"로 확정한다. ConfirmDialog 는 확인 시에도 close()
-        // 를 부르므로, 이미 resolve(true) 된 뒤의 이 resolve(false)는 무시된다(Promise 특성).
-        const unsub = useConfirmStore.subscribe((s) => {
-          if (!s.isOpen) { unsub(); resolve(false); }
-        });
       });
     });
 }
@@ -237,26 +233,8 @@ export const useLocationStore = create<LocationState>()(
 
         set({ resolving: true });
         inflight = preflightPermission()
-          .then((allowed) => {
-            if (!allowed) {
-              // 프리프롬프트에서 "나중에" — 시스템 권한창 없이 탐색은 중심가 기준으로 계속한다.
-              const resolved = fallbackExplorationLocation('permission', BEN_THANH_FALLBACK);
-              set({
-                mode: 'gps',
-                coords: resolved.coords,
-                wardName: wardRegionAt(BEN_THANH_FALLBACK.lat, BEN_THANH_FALLBACK.lng)?.name ?? null,
-                coordsSource: resolved.coordsSource,
-                gateReason: resolved.gateReason,
-                coordsAccuracyM: null,
-                permissionIntent: 'declined',
-              });
-              notifyFallback('map.listFirst.nearMeDenied', '위치 권한이 없어 중심가 기준으로 보여드려요');
-              return null;
-            }
-            return native.ensureLocationPermission().then(() => native.getLocation());
-          })
+          .then(() => native.ensureLocationPermission().then(() => native.getLocation()))
           .then((pos) => {
-            if (!pos) return; // 프리프롬프트 거절 — 위에서 이미 'all' 로 확정했다
             const resolved = resolveExplorationLocation(
               { lat: pos.lat, lng: pos.lng },
               serviceAreaWardSlug(pos.lat, pos.lng) !== null,

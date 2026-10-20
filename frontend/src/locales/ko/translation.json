@@ -2367,8 +2367,7 @@
       "codeCopied": "코드를 복사했습니다"
     },
     "permissionRationale": "내 주변의 매물·주유소·날씨를 보여드리려면 위치 정보가 필요해요.",
-    "permissionAllow": "위치 허용",
-    "permissionLater": "나중에",
+    "permissionContinue": "계속",
     "loadingMap": "지도를 불러오는 중…"
   },
   "effects": {

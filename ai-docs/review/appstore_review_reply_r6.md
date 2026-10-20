@@ -25,7 +25,7 @@ Thank you.
 
 ## 재제출 절차
 
-1. [ ] 운영 프론트 배포 — `saigon-prod-new` `/app/SaigonRider` `git pull` → `docker compose --env-file .env up --build -d frontend`
-2. [ ] 운영 확인 — 아이폰에서 앱 삭제 후 재설치(또는 설정 > 일반 > 전송 또는 iPhone 재설정 > 재설정 > 위치 및 개인정보 보호 재설정) → 앱 실행 시 "계속" 버튼 하나만 → 누르면 iOS 권한창
+1. [x] (2026-10-20 배포) 운영 프론트 배포 — `saigon-prod-new` `/app/SaigonRider` `git pull` → `docker compose --env-file .env up --build -d frontend`
+2. [x] (2026-10-20 TestFlight 실기기 확인: "계속" 1버튼 → iOS 위치 권한창) 운영 확인 — 아이폰에서 앱 삭제 후 재설치(또는 설정 > 일반 > 전송 또는 iPhone 재설정 > 재설정 > 위치 및 개인정보 보호 재설정) → 앱 실행 시 "계속" 버튼 하나만 → 누르면 iOS 권한창
 3. [ ] App Store Connect → 앱 → 심사 메시지(Resolution Center)에 위 회신 붙여넣어 답장
 4. [ ] 같은 버전 1.0 (21) 그대로 "심사에 추가/재제출"(빌드 교체 불필요)
